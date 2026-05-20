@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  VETERINARIAN
+  RECEPTIONIST
+  ASSISTANT
+}
+
+enum Species {
+  DOG
+  CAT
+  BIRD
+  RABBIT
+  REPTILE
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  CONSULTATION
+  SURGERY
+  VACCINATION
+  GROOMING
+  CHECKUP
+  OTHER
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+}
+
+enum InvoiceItemType {
+  CONSULTATION
+  MEDICATION
+  SERVICE
+  OTHER
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  password              String
+  name                  String
+  role                  Role     @default(RECEPTIONIST)
+  avatar                String?
+  phone                 String?
+  language              String   @default("es")
+  theme                 String   @default("light")
+  googleCalendarEnabled Boolean  @default(false)
+  googleRefreshToken    String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  appointments   Appointment[]   @relation("VeterinarianAppointments")
+  medicalRecords MedicalRecord[]
+  vaccinations   Vaccination[]
+  accounts       Account[]
+  sessions       Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Owner {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  pets Pet[]
+}
+
+model Pet {
+  id              String    @id @default(cuid())
+  name            String
+  species         Species
+  breed           String?
+  color           String?
+  birthDate       DateTime?
+  weight          Float?
+  gender          Gender?
+  microchipNumber String?
+  photoUrl        String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ownerId        String
+  owner          Owner           @relation(fields: [ownerId], references: [id])
+  medicalRecords MedicalRecord[]
+  appointments   Appointment[]
+  vaccinations   Vaccination[]
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  title         String
+  startTime     DateTime
+  endTime       DateTime
+  status        AppointmentStatus @default(SCHEDULED)
+  type          AppointmentType   @default(CONSULTATION)
+  notes         String?
+  googleEventId String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  petId          String
+  pet            Pet     @relation(fields: [petId], references: [id])
+  veterinarianId String
+  veterinarian   User    @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  invoice        Invoice?
+}
+
+model MedicalRecord {
+  id             String   @id @default(cuid())
+  date           DateTime @default(now())
+  chiefComplaint String
+  diagnosis      String?
+  treatment      String?
+  weight         Float?
+  temperature    Float?
+  heartRate      Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  petId          String
+  pet            Pet            @relation(fields: [petId], references: [id])
+  veterinarianId String
+  veterinarian   User           @relation(fields: [veterinarianId], references: [id])
+  prescriptions  Prescription[]
+  attachments    Attachment[]
+}
+
+model Prescription {
+  id             String @id @default(cuid())
+  medicationName String
+  dosage         String
+  frequency      String
+  duration       String
+  notes          String?
+
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+}
+
+model Vaccination {
+  id               String    @id @default(cuid())
+  vaccineName      String
+  dateAdministered DateTime
+  nextDueDate      DateTime?
+  batchNumber      String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+
+  petId          String
+  pet            Pet    @relation(fields: [petId], references: [id])
+  veterinarianId String
+  veterinarian   User   @relation(fields: [veterinarianId], references: [id])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  fileName  String
+  fileUrl   String
+  fileType  String
+  createdAt DateTime @default(now())
+
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  status        InvoiceStatus  @default(PENDING)
+  totalAmount   Float
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?
+  createdAt     DateTime       @default(now())
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  items         InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String          @id @default(cuid())
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+  type        InvoiceItemType @default(SERVICE)
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model InventoryItem {
+  id         String    @id @default(cuid())
+  name       String
+  category   String
+  quantity   Float
+  unit       String
+  minStock   Float     @default(0)
+  unitCost   Float?
+  expiryDate DateTime?
+  supplier   String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}

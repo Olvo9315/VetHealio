@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Path \"c:\\\\Users\\\\Olvo-PC\\\\Desktop\\\\Informatica\\\\CRM\\\\messages\" -Force)"
+    ]
+  }
+}
