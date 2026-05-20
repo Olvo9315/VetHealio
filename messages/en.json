@@ -58,6 +58,9 @@
     "vaccinations": "Vaccinations",
     "appointments": "Appointments",
     "finances": "Finances",
+    "gender": "Gender",
+    "weight": "Weight",
+    "color": "Color",
     "noPatients": "No patients found"
   },
   "appointments": {

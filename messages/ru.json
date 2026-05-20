@@ -58,6 +58,9 @@
     "vaccinations": "Вакцинации",
     "appointments": "Приёмы",
     "finances": "Финансы",
+    "gender": "Пол",
+    "weight": "Вес",
+    "color": "Окрас",
     "noPatients": "Пациенты не найдены"
   },
   "appointments": {
