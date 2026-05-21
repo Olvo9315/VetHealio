@@ -2,16 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { updatePreferences } from "@/lib/actions/settings";
 import { toast } from "sonner";
 import { Loader2, Settings, Sun, Moon, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const LANGUAGES = [
-  { value: "es", label: "Español", flag: "🇪🇸" },
-  { value: "ru", label: "Русский", flag: "🇷🇺" },
-  { value: "en", label: "English", flag: "🇬🇧" },
-] as const;
 
 type Lang = "es" | "ru" | "en";
 type Theme = "light" | "dark";
@@ -23,22 +18,26 @@ interface PreferencesCardProps {
 }
 
 export function PreferencesCard({ userId, initialLanguage, initialTheme }: PreferencesCardProps) {
+  const t = useTranslations("settings");
   const router = useRouter();
   const [lang, setLang] = useState<Lang>((initialLanguage as Lang) ?? "es");
   const [theme, setTheme] = useState<Theme>((initialTheme as Theme) ?? "light");
   const [isSaving, startSave] = useTransition();
 
+  const LANGUAGES: { value: Lang; label: string; flag: string }[] = [
+    { value: "es", label: t("es"), flag: "🇪🇸" },
+    { value: "ru", label: t("ru"), flag: "🇷🇺" },
+    { value: "en", label: t("en"), flag: "🇬🇧" },
+  ];
+
   function applyTheme(newTheme: Theme) {
     setTheme(newTheme);
-    // Apply immediately to DOM
     document.documentElement.classList.toggle("dark", newTheme === "dark");
-    // Persist in cookie for SSR
     document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
   }
 
   function applyLang(newLang: Lang) {
     setLang(newLang);
-    // next-intl reads locale from cookie
     document.cookie = `locale=${newLang}; path=/; max-age=31536000; SameSite=Lax`;
   }
 
@@ -46,11 +45,10 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
     startSave(async () => {
       const result = await updatePreferences(userId, { language: lang, theme });
       if ("error" in result) {
-        toast.error("Error al guardar preferencias");
+        toast.error(t("errorPreferences"));
         return;
       }
-      toast.success("Preferencias guardadas");
-      // Refresh to re-run server components with new locale/theme
+      toast.success(t("preferencesUpdated"));
       router.refresh();
     });
   }
@@ -59,30 +57,30 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
     <div className="bg-card border border-border rounded-xl p-5 space-y-6">
       <div className="flex items-center gap-3">
         <Settings className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Preferencias</h2>
+        <h2 className="text-sm font-semibold">{t("preferences")}</h2>
       </div>
 
       {/* Theme */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Sun className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm font-medium">Tema</p>
+          <p className="text-sm font-medium">{t("theme")}</p>
         </div>
         <div className="flex rounded-lg border border-border overflow-hidden">
-          {(["light", "dark"] as const).map((t) => (
+          {(["light", "dark"] as const).map((th) => (
             <button
-              key={t}
+              key={th}
               type="button"
-              onClick={() => applyTheme(t)}
+              onClick={() => applyTheme(th)}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors",
-                theme === t
+                theme === th
                   ? "bg-primary text-primary-foreground"
                   : "bg-background text-muted-foreground hover:bg-muted"
               )}
             >
-              {t === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              {t === "light" ? "Claro" : "Oscuro"}
+              {th === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {th === "light" ? t("light") : t("dark")}
             </button>
           ))}
         </div>
@@ -92,7 +90,7 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm font-medium">Idioma</p>
+          <p className="text-sm font-medium">{t("language")}</p>
         </div>
         <div className="flex flex-col gap-2">
           {LANGUAGES.map((l) => (
@@ -127,7 +125,7 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
         )}
       >
         {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-        Guardar preferencias
+        {t("savePreferences")}
       </button>
     </div>
   );

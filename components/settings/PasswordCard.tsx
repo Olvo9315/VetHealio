@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 import { changePassword } from "@/lib/actions/settings";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,12 +14,12 @@ import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 
 const schema = z
   .object({
-    currentPassword: z.string().min(1, "Requerido"),
-    newPassword: z.string().min(6, "Mínimo 6 caracteres"),
-    confirmPassword: z.string().min(1, "Requerido"),
+    currentPassword: z.string().min(1, "required"),
+    newPassword: z.string().min(6, "min6"),
+    confirmPassword: z.string().min(1, "required"),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {
-    message: "Las contraseñas no coinciden",
+    message: "noMatch",
     path: ["confirmPassword"],
   });
 
@@ -29,6 +30,8 @@ interface PasswordCardProps {
 }
 
 export function PasswordCard({ userId }: PasswordCardProps) {
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
   const [isSaving, startSave] = useTransition();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -38,21 +41,29 @@ export function PasswordCard({ userId }: PasswordCardProps) {
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
+  function getFieldError(msg: string | undefined) {
+    if (!msg) return undefined;
+    if (msg === "required") return tc("required");
+    if (msg === "min6") return tc("min6chars");
+    if (msg === "noMatch") return t("passwordsNoMatch");
+    return msg;
+  }
+
   function handleSubmit(data: FormData) {
     startSave(async () => {
       const result = await changePassword(userId, data);
       if ("error" in result) {
         const fe = (result.error as { fieldErrors?: Record<string, string[]> }).fieldErrors;
         if (fe?.currentPassword?.[0]) {
-          form.setError("currentPassword", { message: fe.currentPassword[0] });
+          form.setError("currentPassword", { message: t("incorrectPassword") });
         } else if (fe?.confirmPassword?.[0]) {
-          form.setError("confirmPassword", { message: fe.confirmPassword[0] });
+          form.setError("confirmPassword", { message: t("passwordsNoMatch") });
         } else {
-          toast.error("Error al cambiar la contraseña");
+          toast.error(t("errorPassword"));
         }
         return;
       }
-      toast.success("Contraseña actualizada");
+      toast.success(t("passwordUpdated"));
       form.reset();
     });
   }
@@ -61,13 +72,13 @@ export function PasswordCard({ userId }: PasswordCardProps) {
     <div className="bg-card border border-border rounded-xl p-5 space-y-5">
       <div className="flex items-center gap-3">
         <Lock className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Cambiar contraseña</h2>
+        <h2 className="text-sm font-semibold">{t("changePassword")}</h2>
       </div>
 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         {/* Current password */}
         <div className="space-y-1.5">
-          <Label htmlFor="currentPassword">Contraseña actual</Label>
+          <Label htmlFor="currentPassword">{t("currentPassword")}</Label>
           <div className="relative">
             <Input
               id="currentPassword"
@@ -84,13 +95,13 @@ export function PasswordCard({ userId }: PasswordCardProps) {
             </button>
           </div>
           {form.formState.errors.currentPassword && (
-            <p className="text-xs text-destructive">{form.formState.errors.currentPassword.message}</p>
+            <p className="text-xs text-destructive">{getFieldError(form.formState.errors.currentPassword.message)}</p>
           )}
         </div>
 
         {/* New password */}
         <div className="space-y-1.5">
-          <Label htmlFor="newPassword">Nueva contraseña</Label>
+          <Label htmlFor="newPassword">{t("newPassword")}</Label>
           <div className="relative">
             <Input
               id="newPassword"
@@ -107,13 +118,13 @@ export function PasswordCard({ userId }: PasswordCardProps) {
             </button>
           </div>
           {form.formState.errors.newPassword && (
-            <p className="text-xs text-destructive">{form.formState.errors.newPassword.message}</p>
+            <p className="text-xs text-destructive">{getFieldError(form.formState.errors.newPassword.message)}</p>
           )}
         </div>
 
         {/* Confirm password */}
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
+          <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
           <Input
             id="confirmPassword"
             type="password"
@@ -121,13 +132,13 @@ export function PasswordCard({ userId }: PasswordCardProps) {
             {...form.register("confirmPassword")}
           />
           {form.formState.errors.confirmPassword && (
-            <p className="text-xs text-destructive">{form.formState.errors.confirmPassword.message}</p>
+            <p className="text-xs text-destructive">{getFieldError(form.formState.errors.confirmPassword.message)}</p>
           )}
         </div>
 
         <Button type="submit" className="w-full bg-primary text-primary-foreground" disabled={isSaving}>
           {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Actualizar contraseña
+          {t("updatePassword")}
         </Button>
       </form>
     </div>

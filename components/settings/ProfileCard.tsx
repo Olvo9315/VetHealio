@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 import type { UserProfile } from "@/lib/actions/settings";
 import { updateProfile } from "@/lib/actions/settings";
 import { toast } from "sonner";
@@ -14,13 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Loader2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Administrador",
-  VETERINARIAN: "Veterinario",
-  RECEPTIONIST: "Recepcionista",
-  ASSISTANT: "Asistente",
-};
-
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-primary/10 text-primary",
   VETERINARIAN: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -29,9 +23,9 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const schema = z.object({
-  name: z.string().min(1, "Requerido").max(100),
+  name: z.string().min(1, "required").max(100),
   phone: z.string().max(20).optional().or(z.literal("")),
-  avatar: z.string().url("URL inválida").optional().or(z.literal("")),
+  avatar: z.string().url("invalid").optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -41,8 +35,16 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ user }: ProfileCardProps) {
+  const t = useTranslations("settings");
   const [isSaving, startSave] = useTransition();
   const [avatarPreview, setAvatarPreview] = useState(user.avatar ?? "");
+
+  const roleLabels: Record<string, string> = {
+    ADMIN: t("roleAdmin"),
+    VETERINARIAN: t("roleVeterinarian"),
+    RECEPTIONIST: t("roleReceptionist"),
+    ASSISTANT: t("roleAssistant"),
+  };
 
   const initials = user.name
     .split(" ")
@@ -64,10 +66,10 @@ export function ProfileCard({ user }: ProfileCardProps) {
     startSave(async () => {
       const result = await updateProfile(user.id, data);
       if ("error" in result) {
-        toast.error("Error al guardar el perfil");
+        toast.error(t("errorProfile"));
         return;
       }
-      toast.success("Perfil actualizado");
+      toast.success(t("profileUpdated"));
     });
   }
 
@@ -75,7 +77,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
     <div className="bg-card border border-border rounded-xl p-5 space-y-5">
       <div className="flex items-center gap-3">
         <User className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Perfil</h2>
+        <h2 className="text-sm font-semibold">{t("profile")}</h2>
       </div>
 
       {/* Avatar preview */}
@@ -90,7 +92,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
           <p className="font-medium text-sm">{user.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           <span className={cn("inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full", ROLE_COLORS[user.role] ?? "bg-muted text-muted-foreground")}>
-            {ROLE_LABELS[user.role] ?? user.role}
+            {roleLabels[user.role] ?? user.role}
           </span>
         </div>
       </div>
@@ -98,7 +100,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         {/* Name */}
         <div className="space-y-1.5">
-          <Label htmlFor="name">Nombre completo *</Label>
+          <Label htmlFor="name">{t("name")} *</Label>
           <Input id="name" {...form.register("name")} />
           {form.formState.errors.name && (
             <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
@@ -107,20 +109,20 @@ export function ProfileCard({ user }: ProfileCardProps) {
 
         {/* Email (read-only) */}
         <div className="space-y-1.5">
-          <Label>Correo electrónico</Label>
+          <Label>{t("email")}</Label>
           <Input value={user.email} disabled className="bg-muted text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">El correo no puede modificarse.</p>
+          <p className="text-xs text-muted-foreground">{t("emailReadOnly")}</p>
         </div>
 
         {/* Phone */}
         <div className="space-y-1.5">
-          <Label htmlFor="phone">Teléfono</Label>
+          <Label htmlFor="phone">{t("phone")}</Label>
           <Input id="phone" type="tel" placeholder="+34 600 000 000" {...form.register("phone")} />
         </div>
 
         {/* Avatar URL */}
         <div className="space-y-1.5">
-          <Label htmlFor="avatar">URL de foto de perfil</Label>
+          <Label htmlFor="avatar">{t("avatar")}</Label>
           <Input
             id="avatar"
             type="url"
@@ -138,7 +140,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
 
         <Button type="submit" className="w-full bg-primary text-primary-foreground" disabled={isSaving}>
           {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Guardar perfil
+          {t("saveProfile")}
         </Button>
       </form>
     </div>
