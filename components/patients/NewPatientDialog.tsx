@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,7 +83,12 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
   const [isSearching, startSearch] = useTransition();
   const [isSaving, startSave] = useTransition();
 
-  const ownerForm = useForm<OwnerForm>({ resolver: zodResolver(ownerFormSchema) });
+  const ownerFormRef = useRef<HTMLFormElement>(null);
+
+  const ownerForm = useForm<OwnerForm>({
+    resolver: zodResolver(ownerFormSchema),
+    defaultValues: { firstName: "", lastName: "", phone: "", email: "", address: "" },
+  });
   const petForm = useForm<PetForm>({ resolver: zodResolver(petFormSchema) });
 
   // Reset on close
@@ -277,7 +282,26 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
             </button>
 
             {showOwnerForm && (
-              <form onSubmit={ownerForm.handleSubmit(handleCreateOwner)} className="space-y-3">
+              <form
+                ref={ownerFormRef}
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  // Sync values that browser autofill may have set without triggering React onChange
+                  if (ownerFormRef.current) {
+                    ownerFormRef.current
+                      .querySelectorAll<HTMLInputElement>("input[name]")
+                      .forEach((input) => {
+                        if (input.value) {
+                          ownerForm.setValue(input.name as keyof OwnerForm, input.value, {
+                            shouldDirty: true,
+                          });
+                        }
+                      });
+                  }
+                  ownerForm.handleSubmit(handleCreateOwner)();
+                }}
+              >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="firstName">Nombre *</Label>
