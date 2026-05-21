@@ -10,6 +10,23 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Safe-area utilities for iPhone notch / home indicator */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+  .h-dvh {
+    height: 100dvh;
+  }
 }
 
 @layer base {
@@ -84,11 +101,26 @@
   * {
     @apply border-border;
     outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+    /* Remove tap highlight on mobile */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+    /* Prevent elastic scroll bounce on iOS at the body level */
+    overscroll-behavior: none;
   }
   html {
     @apply font-sans;
+    /* Prevent font size inflation on orientation change */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Smooth momentum scrolling on iOS for all scrollable containers */
+  [data-scroll], .overflow-y-auto, .overflow-y-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Native-feel button press on mobile */
+  button, [role="button"], a {
+    touch-action: manipulation;
   }
 }

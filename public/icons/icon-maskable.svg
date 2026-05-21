@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Solid background — maskable icons need full bleed -->
+  <rect width="512" height="512" fill="#1D9E75"/>
+  <!-- Paw print centered with extra padding for safe zone (80% = ±51px margin) -->
+  <ellipse cx="162" cy="202" rx="42" ry="50" fill="white"/>
+  <ellipse cx="224" cy="173" rx="42" ry="50" fill="white"/>
+  <ellipse cx="288" cy="173" rx="42" ry="50" fill="white"/>
+  <ellipse cx="350" cy="202" rx="42" ry="50" fill="white"/>
+  <ellipse cx="256" cy="348" rx="96" ry="84" fill="white"/>
+</svg>

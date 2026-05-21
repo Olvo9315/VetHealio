@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { cookies } from "next/headers";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -12,8 +13,18 @@ export const metadata: Metadata = {
   title: "VetHealio — CRM Veterinario",
   description: "Sistema de gestión para clínicas veterinarias",
   manifest: "/manifest.json",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "VetHealio" },
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/icons/icon-maskable.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#1D9E75",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "VetHealio" },
 };
 
 export default async function RootLayout({
@@ -32,6 +43,7 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           {children}
           <Toaster richColors position="top-right" />
+          <InstallPrompt />
         </NextIntlClientProvider>
       </body>
     </html>

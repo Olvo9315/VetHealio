@@ -258,6 +258,17 @@
     "ru": "Русский",
     "en": "English"
   },
+  "pwa": {
+    "installTitle": "Instalar VetHealio",
+    "installDesc": "Acceso rápido desde tu pantalla de inicio",
+    "install": "Instalar",
+    "later": "Ahora no"
+  },
+  "offline": {
+    "title": "Sin conexión",
+    "message": "Comprueba tu conexión a internet y vuelve a intentarlo.",
+    "retry": "Reintentar"
+  },
   "common": {
     "save": "Guardar",
     "cancel": "Cancelar",

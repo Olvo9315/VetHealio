@@ -1,4 +1,20 @@
+import { createRequire } from "module";
 import createNextIntlPlugin from "next-intl/plugin";
+
+const require = createRequire(import.meta.url);
+
+const withPWA = require("next-pwa")({
+  dest: "public",
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === "development",
+  fallbacks: {
+    document: "/offline",
+  },
+  cacheOnFrontEndNav: true,
+  reloadOnOnline: true,
+  buildExcludes: [/middleware-manifest\.json$/],
+});
 
 const withNextIntl = createNextIntlPlugin("./i18n.ts");
 
@@ -14,4 +30,4 @@ const nextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withPWA(withNextIntl(nextConfig));
