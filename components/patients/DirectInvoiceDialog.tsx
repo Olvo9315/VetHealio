@@ -1,16 +1,10 @@
 "use client";
 
 import { useState, useTransition, useEffect, useCallback, memo } from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { useTranslations } from "next-intl";
-import type { InvoiceFull, AppointmentOption } from "@/lib/actions/invoices";
-import {
-  createInvoice,
-  updateInvoice,
-  searchAppointmentsWithoutInvoice,
-} from "@/lib/actions/invoices";
+import { createDirectInvoice } from "@/lib/actions/invoices";
+import type { InvoiceFull } from "@/lib/actions/invoices";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays } from "lucide-react";
+import { Plus, Trash2, Loader2, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ItemType = "CONSULTATION" | "MEDICATION" | "SERVICE" | "OTHER";
@@ -46,17 +40,7 @@ let _id = 0;
 const nextId = () => String(++_id);
 
 function newItem(): ItemData {
-  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "CONSULTATION" };
-}
-
-function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
-  return {
-    id: nextId(),
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    type: item.type as ItemType,
-  };
+  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE" };
 }
 
 function fmt(v: number) {
@@ -72,6 +56,8 @@ interface ItemRowProps {
   descriptionError?: string;
 }
 
+// React.memo ensures this only re-renders when its own item data changes.
+// Changing type in row A will NOT re-render row B.
 const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, descriptionError }: ItemRowProps) {
   const t = useTranslations("finances");
   const lineTotal = item.quantity * item.unitPrice;
@@ -156,72 +142,35 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
   );
 });
 
-interface InvoiceDialogProps {
+interface DirectInvoiceDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  invoice?: InvoiceFull;
+  presetPetId: string;
+  presetPetName: string;
   onSaved: (invoice: InvoiceFull) => void;
 }
 
-export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceDialogProps) {
+export function DirectInvoiceDialog({
+  open,
+  onOpenChange,
+  presetPetId,
+  presetPetName,
+  onSaved,
+}: DirectInvoiceDialogProps) {
   const t = useTranslations("finances");
   const tc = useTranslations("common");
-  const isEdit = !!invoice;
   const [isSaving, startSave] = useTransition();
-
-  // Appointment selection
-  const [appointmentId, setAppointmentId] = useState(invoice?.appointmentId ?? "");
-  const [aptQuery, setAptQuery] = useState("");
-  const [aptResults, setAptResults] = useState<AppointmentOption[]>([]);
-  const [selectedApt, setSelectedApt] = useState<AppointmentOption | null>(null);
-  const [isSearching, startSearch] = useTransition();
-
-  // Items — plain state, no RHF field array
-  const [items, setItems] = useState<ItemData[]>(() =>
-    invoice?.items.length ? invoice.items.map(itemFromInvoice) : [newItem()]
-  );
+  const [items, setItems] = useState<ItemData[]>(() => [newItem()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Populate selected appointment on edit
   useEffect(() => {
-    if (invoice?.appointment && invoice.appointmentId) {
-      setSelectedApt({
-        id: invoice.appointmentId,
-        title: invoice.appointment.title,
-        startTime: invoice.appointment.startTime,
-        type: invoice.appointment.type,
-        pet: invoice.appointment.pet,
-      } as AppointmentOption);
-      setAppointmentId(invoice.appointmentId);
+    if (open) {
+      setItems([newItem()]);
+      setErrors({});
     }
-  }, [invoice]);
+  }, [open]);
 
-  // Reset on close (new invoice only)
-  useEffect(() => {
-    if (!open && !isEdit) {
-      setTimeout(() => {
-        setAppointmentId("");
-        setSelectedApt(null);
-        setAptQuery("");
-        setAptResults([]);
-        setItems([newItem()]);
-        setErrors({});
-      }, 150);
-    }
-  }, [open, isEdit]);
-
-  // Appointment search
-  useEffect(() => {
-    if (aptQuery.length < 2) { setAptResults([]); return; }
-    startSearch(async () => {
-      const results = await searchAppointmentsWithoutInvoice(
-        aptQuery,
-        invoice?.appointmentId ?? undefined
-      );
-      setAptResults(results);
-    });
-  }, [aptQuery, invoice?.appointmentId]);
-
+  // Stable callbacks — React.memo in ItemRow depends on these not changing
   const updateItem = useCallback((id: string, patch: Partial<ItemData>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
     if (patch.description !== undefined) {
@@ -237,7 +186,6 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!appointmentId) errs["appointmentId"] = tc("required");
     items.forEach((item) => {
       if (!item.description.trim()) errs[`${item.id}.desc`] = tc("required");
     });
@@ -249,114 +197,37 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
     e.preventDefault();
     if (!validate()) return;
     startSave(async () => {
-      const data = {
-        appointmentId,
+      const result = await createDirectInvoice({
+        petId: presetPetId,
         items: items.map(({ description, quantity, unitPrice, type }) => ({
           description,
           quantity,
           unitPrice: unitPrice || 0.01,
           type,
         })),
-      };
-      if (isEdit) {
-        const result = await updateInvoice(invoice.id, data);
-        if ("error" in result) { toast.error(t("errorSave")); return; }
-        toast.success(t("saved"));
-        onSaved(result.invoice);
-      } else {
-        const result = await createInvoice(data);
-        if ("error" in result) { toast.error(t("errorSave")); return; }
-        toast.success(t("saved"));
-        onSaved(result.invoice);
-      }
+      });
+      if ("error" in result) { toast.error(t("errorSave")); return; }
+      toast.success(t("saved"));
+      onSaved(result.invoice);
       onOpenChange(false);
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? t("editInvoice") : t("newInvoice")}</DialogTitle>
+          <DialogTitle>{t("newInvoice")}</DialogTitle>
         </DialogHeader>
 
         <form className="space-y-5 mt-2" onSubmit={handleSubmit}>
-          {/* Appointment selector */}
           <div className="space-y-1.5">
-            <Label>{t("appointment")} *</Label>
-            {selectedApt ? (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-start gap-2">
-                  <CalendarDays className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">{selectedApt.pet.name} — {selectedApt.title}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {format(new Date(selectedApt.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedApt.pet.owner.firstName} {selectedApt.pet.owner.lastName}
-                    </p>
-                  </div>
-                </div>
-                {!isEdit && (
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground hover:text-foreground shrink-0"
-                    onClick={() => { setSelectedApt(null); setAppointmentId(""); }}
-                  >
-                    {tc("edit")}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t("petSearch")}
-                    className="pl-9"
-                    value={aptQuery}
-                    onChange={(e) => setAptQuery(e.target.value)}
-                  />
-                  {isSearching && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                {aptResults.length > 0 && (
-                  <div className="border border-border rounded-lg overflow-hidden divide-y divide-border max-h-44 overflow-y-auto">
-                    {aptResults.map((apt) => (
-                      <button
-                        key={apt.id}
-                        type="button"
-                        className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedApt(apt);
-                          setAppointmentId(apt.id);
-                          setAptQuery("");
-                          setAptResults([]);
-                        }}
-                      >
-                        <CalendarDays className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">{apt.pet.name} — {apt.title}</p>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {format(new Date(apt.startTime), "d MMM yyyy · HH:mm", { locale: es })}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {errors["appointmentId"] && (
-                  <p className="text-xs text-destructive">{errors["appointmentId"]}</p>
-                )}
-              </div>
-            )}
+            <Label>{t("patient")}</Label>
+            <div className="px-3 py-2 rounded-lg bg-muted text-sm font-medium">{presetPetName}</div>
           </div>
 
           <Separator />
 
-          {/* Line items */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -374,24 +245,26 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
               </Button>
             </div>
 
-            {items.map((item, idx) => (
-              <ItemRow
-                key={item.id}
-                idx={idx}
-                item={item}
-                onUpdate={updateItem}
-                onRemove={removeItem}
-                isOnly={items.length === 1}
-                descriptionError={errors[`${item.id}.desc`]}
-              />
-            ))}
+            <div className="space-y-3">
+              {items.map((item, idx) => (
+                <ItemRow
+                  key={item.id}
+                  idx={idx}
+                  item={item}
+                  onUpdate={updateItem}
+                  onRemove={removeItem}
+                  isOnly={items.length === 1}
+                  descriptionError={errors[`${item.id}.desc`]}
+                />
+              ))}
+            </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center justify-between pt-1 border-t border-border">
               <div className="flex items-center gap-1.5">
                 <Receipt className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium">{t("total")}</span>
               </div>
-              <span className="text-lg font-bold text-primary">{fmt(total)}</span>
+              <span className="text-xl font-bold text-primary">{fmt(total)}</span>
             </div>
           </div>
 
@@ -401,7 +274,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? tc("save") : t("createInvoice")}
+              {t("createInvoice")}
             </Button>
           </div>
         </form>

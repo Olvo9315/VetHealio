@@ -44,9 +44,9 @@ function exportCSV(invoices: InvoiceFull[]) {
     ["Fecha", "Paciente", "Propietario", "Cita", "Estado", "Método de pago", "Total"],
     ...invoices.map((inv) => [
       format(new Date(inv.createdAt), "dd/MM/yyyy"),
-      inv.appointment.pet.name,
-      `${inv.appointment.pet.owner.firstName} ${inv.appointment.pet.owner.lastName}`,
-      inv.appointment.title,
+      inv.pet.name,
+      `${inv.pet.owner.firstName} ${inv.pet.owner.lastName}`,
+      inv.appointment?.title ?? "Servicios prestados",
       statusConfig[inv.status].label,
       inv.paymentMethod ?? "",
       inv.totalAmount.toFixed(2),
@@ -215,15 +215,15 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <SpeciesBadge species={inv.appointment.pet.species} size="sm" />
-                        <span className="font-medium text-sm">{inv.appointment.pet.name}</span>
+                        <SpeciesBadge species={inv.pet.species} size="sm" />
+                        <span className="font-medium text-sm">{inv.pet.name}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {inv.appointment.pet.owner.firstName} {inv.appointment.pet.owner.lastName}
+                      {inv.pet.owner.firstName} {inv.pet.owner.lastName}
                     </TableCell>
                     <TableCell className="text-sm max-w-[180px]">
-                      <p className="truncate">{inv.appointment.title}</p>
+                      <p className="truncate">{inv.appointment?.title ?? "Servicios prestados"}</p>
                     </TableCell>
                     <TableCell>
                       <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
@@ -268,10 +268,10 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{inv.appointment.pet.name}</span>
-                    <SpeciesBadge species={inv.appointment.pet.species} size="sm" />
+                    <span className="font-medium text-sm">{inv.pet.name}</span>
+                    <SpeciesBadge species={inv.pet.species} size="sm" />
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment.title}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? "Servicios prestados"}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
                       {stCfg.label}

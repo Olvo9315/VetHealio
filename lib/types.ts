@@ -1,7 +1,10 @@
 import type { Pet, Owner, Species, AppointmentStatus, AppointmentType } from "@prisma/client";
 
 // Full pet with owner (list view)
-export type PetWithOwner = Pet & { owner: Owner };
+export type PetWithOwner = Pet & {
+  owner: Owner;
+  appointments: Array<{ startTime: Date }>;
+};
 
 // Full pet with all relations (detail view)
 export type PetFull = Pet & {
@@ -43,6 +46,21 @@ export type PetFull = Pet & {
     type: AppointmentType;
     veterinarian: { name: string };
     invoice: { totalAmount: number; status: string } | null;
+  }>;
+  invoices: Array<{
+    id: string;
+    status: string;
+    totalAmount: number;
+    createdAt: Date;
+    appointmentId: string | null;
+    appointment: { title: string; startTime: Date } | null;
+    items: Array<{
+      id: string;
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }>;
   }>;
 };
 

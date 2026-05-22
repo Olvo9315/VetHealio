@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,6 +35,7 @@ export function PasswordCard({ userId }: PasswordCardProps) {
   const [isSaving, startSave] = useTransition();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -75,7 +76,23 @@ export function PasswordCard({ userId }: PasswordCardProps) {
         <h2 className="text-sm font-semibold">{t("changePassword")}</h2>
       </div>
 
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form
+        ref={formRef}
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (formRef.current) {
+            formRef.current
+              .querySelectorAll<HTMLInputElement>("input[name]")
+              .forEach((input) => {
+                if (input.value) {
+                  form.setValue(input.name as keyof FormData, input.value, { shouldDirty: true });
+                }
+              });
+          }
+          form.handleSubmit(handleSubmit)();
+        }}
+      >
         {/* Current password */}
         <div className="space-y-1.5">
           <Label htmlFor="currentPassword">{t("currentPassword")}</Label>

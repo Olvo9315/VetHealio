@@ -60,7 +60,11 @@
     "finances": "Finanzas",
     "gender": "Sexo",
     "color": "Color",
-    "noPatients": "No se encontraron pacientes"
+    "noPatients": "No se encontraron pacientes",
+    "lastVisit": "Último acceso",
+    "newVaccination": "Añadir vacuna",
+    "noAppointments": "Sin citas registradas",
+    "noInvoices": "Sin facturas"
   },
   "appointments": {
     "title": "Citas",
@@ -178,7 +182,18 @@
     "byCategory": "Por categoría",
     "last7days": "7 días",
     "last30days": "30 días",
-    "last90days": "90 días"
+    "last90days": "90 días",
+    "patient": "Paciente",
+    "lineItems": "Artículos",
+    "item": "Artículo",
+    "quantityShort": "Cant.",
+    "unitPriceLabel": "P. unit. (€)",
+    "itemTypeConsultation": "Consulta",
+    "itemTypeMedication": "Medicamento",
+    "itemTypeService": "Servicio",
+    "itemTypeOther": "Otro",
+    "noAppointment": "Servicios prestados",
+    "type": "Tipo"
   },
   "inventory": {
     "title": "Inventario",

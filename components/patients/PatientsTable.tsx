@@ -99,7 +99,9 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
           {/* Species filter */}
           <Select value={species} onValueChange={(v) => handleSpeciesChange(v ?? "ALL")}>
             <SelectTrigger className="w-36">
-              <SelectValue placeholder={t("species")} />
+              <SelectValue>
+                {species === "ALL" ? t("all") : species === "DOG" ? t("dog") : species === "CAT" ? t("cat") : species === "BIRD" ? t("bird") : species === "RABBIT" ? t("rabbit") : species === "REPTILE" ? t("reptile") : t("other")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">{t("all")}</SelectItem>
@@ -115,7 +117,9 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
           {/* Status filter */}
           <Select value={isActive} onValueChange={(v) => handleActiveChange(v ?? "true")}>
             <SelectTrigger className="w-32">
-              <SelectValue />
+              <SelectValue>
+                {isActive === "all" ? t("all") : isActive === "true" ? t("active") : t("inactive")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("all")}</SelectItem>
@@ -153,6 +157,7 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
               <TableHead>{t("breed")}</TableHead>
               <TableHead>{t("owner")}</TableHead>
               <TableHead>{t("birthDate")}</TableHead>
+              <TableHead>{t("lastVisit")}</TableHead>
               <TableHead>{t("status")}</TableHead>
               <TableHead className="w-8"></TableHead>
             </TableRow>
@@ -160,7 +165,7 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
           <TableBody>
             {pets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-16 text-muted-foreground">
                   <PawPrint className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   {t("noPatients")}
                 </TableCell>
@@ -193,6 +198,11 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {pet.birthDate ? format(new Date(pet.birthDate), "dd/MM/yyyy") : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {pet.appointments?.[0]?.startTime
+                      ? format(new Date(pet.appointments[0].startTime), "dd/MM/yyyy")
+                      : "—"}
                   </TableCell>
                   <TableCell>
                     <span

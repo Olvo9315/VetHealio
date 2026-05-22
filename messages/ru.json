@@ -60,7 +60,11 @@
     "finances": "Финансы",
     "gender": "Пол",
     "color": "Окрас",
-    "noPatients": "Пациенты не найдены"
+    "noPatients": "Пациенты не найдены",
+    "lastVisit": "Последний приём",
+    "newVaccination": "Добавить вакцинацию",
+    "noAppointments": "Нет записей на приём",
+    "noInvoices": "Нет счетов"
   },
   "appointments": {
     "title": "Расписание",
@@ -178,7 +182,18 @@
     "byCategory": "По категориям",
     "last7days": "7 дней",
     "last30days": "30 дней",
-    "last90days": "90 дней"
+    "last90days": "90 дней",
+    "patient": "Пациент",
+    "lineItems": "Позиции",
+    "item": "Позиция",
+    "quantityShort": "Кол.",
+    "unitPriceLabel": "Цена ед. (€)",
+    "itemTypeConsultation": "Консультация",
+    "itemTypeMedication": "Препарат",
+    "itemTypeService": "Услуга",
+    "itemTypeOther": "Другое",
+    "noAppointment": "Оказанные услуги",
+    "type": "Тип"
   },
   "inventory": {
     "title": "Склад",

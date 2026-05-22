@@ -136,7 +136,9 @@ export function AppointmentDetailSheet({
               onValueChange={(v) => handleStatusChange(v ?? "")}
             >
               <SelectTrigger className="h-9">
-                <SelectValue />
+                <SelectValue>
+                  {statusConfig[appointment.status]?.label ?? appointment.status}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(statusConfig).map(([key, cfg]) => (

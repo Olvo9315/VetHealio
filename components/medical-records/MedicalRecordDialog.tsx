@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -80,6 +80,7 @@ export function MedicalRecordDialog({
   const isEdit = !!record;
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
   const [petQuery, setPetQuery] = useState("");
@@ -134,6 +135,29 @@ export function MedicalRecordDialog({
   useEffect(() => {
     getVeterinarians().then(setVets);
   }, []);
+
+  const watchVetId = form.watch("veterinarianId");
+  const watchDate = form.watch("date");
+
+  // Re-initialize on open with fresh date
+  useEffect(() => {
+    if (open && !isEdit) {
+      form.reset({
+        petId: presetPetId ?? "",
+        veterinarianId: vets[0]?.id ?? "",
+        date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        chiefComplaint: "",
+        diagnosis: "",
+        treatment: "",
+        weight: "",
+        temperature: "",
+        heartRate: "",
+        notes: "",
+        prescriptions: [],
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Set default vet when vets load
   useEffect(() => {
@@ -202,7 +226,23 @@ export function MedicalRecordDialog({
           <DialogTitle>{isEdit ? "Editar registro médico" : "Nuevo registro médico"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5 mt-2">
+        <form
+          ref={formRef}
+          className="space-y-5 mt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (formRef.current) {
+              formRef.current
+                .querySelectorAll<HTMLInputElement>("input[name], textarea[name]")
+                .forEach((el) => {
+                  if (el.value) {
+                    form.setValue(el.name as keyof FormData, el.value, { shouldDirty: true });
+                  }
+                });
+            }
+            form.handleSubmit(handleSubmit)();
+          }}
+        >
           {/* Row: Patient + Vet */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Patient search */}
@@ -277,7 +317,12 @@ export function MedicalRecordDialog({
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="date">Fecha *</Label>
-                <Input id="date" type="datetime-local" {...form.register("date")} />
+                <Input
+                  id="date"
+                  type="datetime-local"
+                  value={watchDate ?? ""}
+                  onChange={(e) => form.setValue("date", e.target.value, { shouldValidate: true })}
+                />
                 {form.formState.errors.date && (
                   <p className="text-xs text-destructive">{form.formState.errors.date.message}</p>
                 )}
@@ -285,15 +330,19 @@ export function MedicalRecordDialog({
               <div className="space-y-1.5">
                 <Label>Veterinario *</Label>
                 <Select
-                  value={form.watch("veterinarianId")}
+                  value={watchVetId}
                   onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
+                    <SelectValue placeholder="Seleccionar">
+                      {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {vets.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name ?? v.id.slice(0, 8)}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

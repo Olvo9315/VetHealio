@@ -139,41 +139,45 @@ export function InvoiceDetailSheet({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paciente</p>
             <div className="flex items-center gap-2">
               <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="font-medium text-sm">{invoice.appointment.pet.name}</span>
-              <SpeciesBadge species={invoice.appointment.pet.species} size="sm" />
+              <span className="font-medium text-sm">{invoice.pet.name}</span>
+              <SpeciesBadge species={invoice.pet.species} size="sm" />
             </div>
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="text-sm">
-                {invoice.appointment.pet.owner.firstName} {invoice.appointment.pet.owner.lastName}
+                {invoice.pet.owner.firstName} {invoice.pet.owner.lastName}
               </span>
             </div>
             <a
-              href={`tel:${invoice.appointment.pet.owner.phone}`}
+              href={`tel:${invoice.pet.owner.phone}`}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <Phone className="w-4 h-4 shrink-0" />
-              {invoice.appointment.pet.owner.phone}
+              {invoice.pet.owner.phone}
             </a>
           </div>
 
-          <Separator />
+          {invoice.appointment && (
+            <>
+              <Separator />
 
-          {/* Appointment */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cita</p>
-            <div className="flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-medium">{invoice.appointment.title}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Stethoscope className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-sm">{invoice.appointment.veterinarian.name}</span>
-            </div>
-            <p className="text-xs text-muted-foreground ml-6 capitalize">
-              {format(new Date(invoice.appointment.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
-            </p>
-          </div>
+              {/* Appointment */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cita</p>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">{invoice.appointment.title}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm">{invoice.appointment.veterinarian.name}</span>
+                </div>
+                <p className="text-xs text-muted-foreground ml-6 capitalize">
+                  {format(new Date(invoice.appointment.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
+                </p>
+              </div>
+            </>
+          )}
 
           {invoice.status === "PAID" && invoice.paidAt && (
             <>
@@ -229,7 +233,9 @@ export function InvoiceDetailSheet({
                   onValueChange={(v) => setPaymentMethod((v ?? "CASH") as PaymentMethod)}
                 >
                   <SelectTrigger className="h-9">
-                    <SelectValue />
+                    <SelectValue>
+                      {paymentMethod === "CASH" ? "Efectivo" : paymentMethod === "CARD" ? "Tarjeta" : "Transferencia"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CASH">Efectivo</SelectItem>

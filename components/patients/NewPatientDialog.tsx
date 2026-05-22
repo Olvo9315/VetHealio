@@ -84,12 +84,19 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
   const [isSaving, startSave] = useTransition();
 
   const ownerFormRef = useRef<HTMLFormElement>(null);
+  const petFormRef = useRef<HTMLFormElement>(null);
 
   const ownerForm = useForm<OwnerForm>({
     resolver: zodResolver(ownerFormSchema),
     defaultValues: { firstName: "", lastName: "", phone: "", email: "", address: "" },
   });
-  const petForm = useForm<PetForm>({ resolver: zodResolver(petFormSchema) });
+  const petForm = useForm<PetForm>({
+    resolver: zodResolver(petFormSchema),
+    defaultValues: { name: "", breed: "", color: "", birthDate: "", weight: "", microchipNumber: "" },
+  });
+
+  const watchPetSpecies = petForm.watch("species");
+  const watchPetGender = petForm.watch("gender");
 
   // Reset on close
   useEffect(() => {
@@ -351,7 +358,25 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
 
         {/* ── STEP 2: Pet ── */}
         {step === "pet" && (
-          <form onSubmit={petForm.handleSubmit(handleCreatePet)} className="space-y-4 mt-2">
+          <form
+            ref={petFormRef}
+            className="space-y-4 mt-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (petFormRef.current) {
+                petFormRef.current
+                  .querySelectorAll<HTMLInputElement>("input[name]")
+                  .forEach((input) => {
+                    if (input.value) {
+                      petForm.setValue(input.name as keyof PetForm, input.value, {
+                        shouldDirty: true,
+                      });
+                    }
+                  });
+              }
+              petForm.handleSubmit(handleCreatePet)();
+            }}
+          >
             <div className="grid grid-cols-2 gap-3">
               {/* Name */}
               <div className="col-span-2 space-y-1">
@@ -366,10 +391,13 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               <div className="space-y-1">
                 <Label>{t("species")} *</Label>
                 <Select
+                  value={watchPetSpecies ?? ""}
                   onValueChange={(v) => petForm.setValue("species", (v ?? "") as Species)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
+                    <SelectValue placeholder="Seleccionar">
+                      {watchPetSpecies === "DOG" ? `🐕 ${t("dog")}` : watchPetSpecies === "CAT" ? `🐈 ${t("cat")}` : watchPetSpecies === "BIRD" ? `🦜 ${t("bird")}` : watchPetSpecies === "RABBIT" ? `🐇 ${t("rabbit")}` : watchPetSpecies === "REPTILE" ? `🦎 ${t("reptile")}` : watchPetSpecies === "OTHER" ? `🐾 ${t("other")}` : "Seleccionar"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="DOG">🐕 {t("dog")}</SelectItem>
@@ -388,9 +416,14 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               {/* Gender */}
               <div className="space-y-1">
                 <Label>{t("gender") ?? "Sexo"}</Label>
-                <Select onValueChange={(v) => petForm.setValue("gender", (v ?? "") as Gender | "")}>
+                <Select
+                  value={watchPetGender ?? ""}
+                  onValueChange={(v) => petForm.setValue("gender", (v ?? "") as Gender | "")}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="—" />
+                    <SelectValue placeholder="—">
+                      {watchPetGender === "MALE" ? `♂ ${t("male")}` : watchPetGender === "FEMALE" ? `♀ ${t("female")}` : "—"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MALE">♂ {t("male")}</SelectItem>

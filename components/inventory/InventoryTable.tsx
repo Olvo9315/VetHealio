@@ -195,7 +195,9 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           {/* Category filter */}
           <Select value={categoryFilter} onValueChange={(v) => handleCategory(v ?? "ALL")}>
             <SelectTrigger className="h-9 w-44">
-              <SelectValue placeholder="Categoría" />
+              <SelectValue>
+                {categoryFilter === "ALL" ? "Todas las categorías" : categoryFilter}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Todas las categorías</SelectItem>
@@ -208,7 +210,9 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           {/* Stock status filter */}
           <Select value={stockFilter} onValueChange={(v) => handleStockFilter(v as StockStatus | "ALL")}>
             <SelectTrigger className="h-9 w-40">
-              <SelectValue />
+              <SelectValue>
+                {STOCK_STATUS_OPTIONS.find((o) => o.value === stockFilter)?.label ?? stockFilter}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {STOCK_STATUS_OPTIONS.map((o) => (

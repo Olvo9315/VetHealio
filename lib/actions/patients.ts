@@ -88,7 +88,14 @@ export async function getPets(filters: PetFilters = {}): Promise<PetWithOwner[]>
       ...(species && species !== "ALL" ? { species } : {}),
       ...(typeof isActive === "boolean" ? { isActive } : {}),
     },
-    include: { owner: true },
+    include: {
+      owner: true,
+      appointments: {
+        select: { startTime: true },
+        orderBy: { startTime: "desc" },
+        take: 1,
+      },
+    },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
@@ -117,6 +124,14 @@ export async function getPetById(id: string): Promise<PetFull | null> {
           invoice: { select: { totalAmount: true, status: true } },
         },
         orderBy: { startTime: "desc" },
+        take: 20,
+      },
+      invoices: {
+        include: {
+          appointment: { select: { title: true, startTime: true } },
+          items: true,
+        },
+        orderBy: { createdAt: "desc" },
         take: 20,
       },
     },

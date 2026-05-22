@@ -154,6 +154,7 @@ model Pet {
   medicalRecords MedicalRecord[]
   appointments   Appointment[]
   vaccinations   Vaccination[]
+  invoices       Invoice[]
 }
 
 model Appointment {
@@ -242,8 +243,10 @@ model Invoice {
   paidAt        DateTime?
   createdAt     DateTime       @default(now())
 
-  appointmentId String      @unique
-  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  petId         String
+  pet           Pet            @relation(fields: [petId], references: [id])
+  appointmentId String?        @unique
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
   items         InvoiceItem[]
 }
 

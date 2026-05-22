@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,10 +53,12 @@ export function ProfileCard({ user }: ProfileCardProps) {
     .join("")
     .toUpperCase();
 
+  const formRef = useRef<HTMLFormElement>(null);
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: user.name,
+      name: user.name ?? "",
       phone: user.phone ?? "",
       avatar: user.avatar ?? "",
     },
@@ -97,7 +99,21 @@ export function ProfileCard({ user }: ProfileCardProps) {
         </div>
       </div>
 
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <form
+        ref={formRef}
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (formRef.current) {
+            formRef.current
+              .querySelectorAll<HTMLInputElement>("input[name]")
+              .forEach((input) => {
+                form.setValue(input.name as keyof FormData, input.value, { shouldDirty: true });
+              });
+          }
+          form.handleSubmit(handleSubmit)();
+        }}
+      >
         {/* Name */}
         <div className="space-y-1.5">
           <Label htmlFor="name">{t("name")} *</Label>

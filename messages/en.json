@@ -60,7 +60,11 @@
     "finances": "Finances",
     "gender": "Gender",
     "color": "Color",
-    "noPatients": "No patients found"
+    "noPatients": "No patients found",
+    "lastVisit": "Last visit",
+    "newVaccination": "Add vaccination",
+    "noAppointments": "No appointments recorded",
+    "noInvoices": "No invoices"
   },
   "appointments": {
     "title": "Appointments",
@@ -178,7 +182,18 @@
     "byCategory": "By category",
     "last7days": "7 days",
     "last30days": "30 days",
-    "last90days": "90 days"
+    "last90days": "90 days",
+    "patient": "Patient",
+    "lineItems": "Items",
+    "item": "Item",
+    "quantityShort": "Qty",
+    "unitPriceLabel": "Unit price (€)",
+    "itemTypeConsultation": "Consultation",
+    "itemTypeMedication": "Medication",
+    "itemTypeService": "Service",
+    "itemTypeOther": "Other",
+    "noAppointment": "Services rendered",
+    "type": "Type"
   },
   "inventory": {
     "title": "Inventory",

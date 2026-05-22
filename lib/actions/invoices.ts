@@ -22,7 +22,13 @@ export type InvoiceFull = {
   paymentMethod: PaymentMethod | null;
   paidAt: Date | null;
   createdAt: Date;
-  appointmentId: string;
+  petId: string;
+  pet: {
+    name: string;
+    species: Species;
+    owner: { firstName: string; lastName: string; phone: string };
+  };
+  appointmentId: string | null;
   appointment: {
     id: string;
     title: string;
@@ -34,7 +40,7 @@ export type InvoiceFull = {
       owner: { firstName: string; lastName: string; phone: string };
     };
     veterinarian: { name: string };
-  };
+  } | null;
   items: {
     id: string;
     description: string;
@@ -76,11 +82,24 @@ const invoiceSchema = z.object({
   items: z.array(invoiceItemSchema).min(1),
 });
 
+const directInvoiceSchema = z.object({
+  petId: z.string().min(1),
+  items: z.array(invoiceItemSchema).min(1),
+});
+
 export type InvoiceFormData = z.infer<typeof invoiceSchema>;
+export type DirectInvoiceFormData = z.infer<typeof directInvoiceSchema>;
 
 // ---- Include helper ----
 
 const fullInclude = {
+  pet: {
+    select: {
+      name: true,
+      species: true,
+      owner: { select: { firstName: true, lastName: true, phone: true } },
+    },
+  },
   appointment: {
     select: {
       id: true,
@@ -113,9 +132,9 @@ export async function getInvoices(filters?: {
       ...(search
         ? {
             OR: [
-              { appointment: { pet: { name: { contains: search, mode: "insensitive" } } } },
-              { appointment: { pet: { owner: { firstName: { contains: search, mode: "insensitive" } } } } },
-              { appointment: { pet: { owner: { lastName: { contains: search, mode: "insensitive" } } } } },
+              { pet: { name: { contains: search, mode: "insensitive" } } },
+              { pet: { owner: { firstName: { contains: search, mode: "insensitive" } } } },
+              { pet: { owner: { lastName: { contains: search, mode: "insensitive" } } } },
               { appointment: { title: { contains: search, mode: "insensitive" } } },
             ],
           }
@@ -222,6 +241,12 @@ export async function createInvoice(data: InvoiceFormData) {
   const parsed = invoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: parsed.data.appointmentId },
+    select: { petId: true },
+  });
+  if (!appointment) return { error: "Cita no encontrada" };
+
   const items = parsed.data.items.map((item) => ({
     description: item.description,
     quantity: item.quantity,
@@ -234,6 +259,7 @@ export async function createInvoice(data: InvoiceFormData) {
 
   const invoice = await prisma.invoice.create({
     data: {
+      petId: appointment.petId,
       appointmentId: parsed.data.appointmentId,
       totalAmount,
       items: { create: items },
@@ -245,9 +271,43 @@ export async function createInvoice(data: InvoiceFormData) {
   return { invoice: invoice as unknown as InvoiceFull };
 }
 
+export async function createDirectInvoice(data: DirectInvoiceFormData) {
+  const parsed = directInvoiceSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.flatten() };
+
+  const items = parsed.data.items.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    total: item.quantity * item.unitPrice,
+    type: item.type as InvoiceItemType,
+  }));
+
+  const totalAmount = items.reduce((s, i) => s + i.total, 0);
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      petId: parsed.data.petId,
+      totalAmount,
+      items: { create: items },
+    },
+    include: fullInclude,
+  });
+
+  revalidatePath("/finances");
+  revalidatePath(`/patients/${parsed.data.petId}`);
+  return { invoice: invoice as unknown as InvoiceFull };
+}
+
 export async function updateInvoice(id: string, data: InvoiceFormData) {
   const parsed = invoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: parsed.data.appointmentId },
+    select: { petId: true },
+  });
+  if (!appointment) return { error: "Cita no encontrada" };
 
   await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
 
@@ -264,6 +324,7 @@ export async function updateInvoice(id: string, data: InvoiceFormData) {
   const invoice = await prisma.invoice.update({
     where: { id },
     data: {
+      petId: appointment.petId,
       appointmentId: parsed.data.appointmentId,
       totalAmount,
       items: { create: items },

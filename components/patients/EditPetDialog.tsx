@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +41,7 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
   const t = useTranslations("patients");
   const router = useRouter();
   const [isSaving, startSave] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<EditPetForm>({
     resolver: zodResolver(editPetSchema),
@@ -55,6 +56,9 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
       microchipNumber: pet.microchipNumber ?? "",
     },
   });
+
+  const watchSpecies = form.watch("species");
+  const watchGender = form.watch("gender");
 
   function handleSubmit(data: EditPetForm) {
     startSave(async () => {
@@ -81,7 +85,23 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
           <DialogTitle>Editar paciente</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-2">
+        <form
+          ref={formRef}
+          className="space-y-4 mt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (formRef.current) {
+              formRef.current
+                .querySelectorAll<HTMLInputElement>("input[name], textarea[name]")
+                .forEach((el) => {
+                  if (el.value) {
+                    form.setValue(el.name as keyof EditPetForm, el.value, { shouldDirty: true });
+                  }
+                });
+            }
+            form.handleSubmit(handleSubmit)();
+          }}
+        >
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1">
               <Label htmlFor="editName">{t("name")} *</Label>
@@ -94,10 +114,14 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
             <div className="space-y-1">
               <Label>{t("species")} *</Label>
               <Select
-                defaultValue={pet.species}
+                value={watchSpecies}
                 onValueChange={(v) => form.setValue("species", (v ?? "") as Species)}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {watchSpecies === "DOG" ? `🐕 ${t("dog")}` : watchSpecies === "CAT" ? `🐈 ${t("cat")}` : watchSpecies === "BIRD" ? `🦜 ${t("bird")}` : watchSpecies === "RABBIT" ? `🐇 ${t("rabbit")}` : watchSpecies === "REPTILE" ? `🦎 ${t("reptile")}` : `🐾 ${t("other")}`}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DOG">🐕 {t("dog")}</SelectItem>
                   <SelectItem value="CAT">🐈 {t("cat")}</SelectItem>
@@ -112,10 +136,14 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
             <div className="space-y-1">
               <Label>Sexo</Label>
               <Select
-                defaultValue={pet.gender ?? ""}
+                value={watchGender ?? ""}
                 onValueChange={(v) => form.setValue("gender", (v ?? "") as Gender | "")}
               >
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="—">
+                    {watchGender === "MALE" ? `♂ ${t("male")}` : watchGender === "FEMALE" ? `♀ ${t("female")}` : "—"}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MALE">♂ {t("male")}</SelectItem>
                   <SelectItem value="FEMALE">♀ {t("female")}</SelectItem>

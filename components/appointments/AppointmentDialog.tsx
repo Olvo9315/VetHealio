@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -57,6 +57,8 @@ interface AppointmentDialogProps {
   appointment?: AppointmentFull;
   // Preset date when clicking on a calendar slot
   presetStart?: Date;
+  // Preset pet when opening from patient detail
+  presetPet?: PetResult;
   onSaved: (appointment: AppointmentFull) => void;
 }
 
@@ -66,15 +68,17 @@ export function AppointmentDialog({
   vets,
   appointment,
   presetStart,
+  presetPet,
   onSaved,
 }: AppointmentDialogProps) {
   const isEdit = !!appointment;
   const [isSaving, startSave] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
   const [petQuery, setPetQuery] = useState("");
   const [petResults, setPetResults] = useState<PetResult[]>([]);
-  const [selectedPet, setSelectedPet] = useState<PetResult | null>(null);
+  const [selectedPet, setSelectedPet] = useState<PetResult | null>(presetPet ?? null);
   const [isSearching, startSearch] = useTransition();
 
   const form = useForm<FormData>({
@@ -91,7 +95,7 @@ export function AppointmentDialog({
         }
       : {
           title: "",
-          petId: "",
+          petId: presetPet?.id ?? "",
           veterinarianId: vets[0]?.id ?? "",
           type: AppointmentType.CONSULTATION,
           startTime: presetStart
@@ -116,17 +120,29 @@ export function AppointmentDialog({
     }
   }, [appointment]);
 
-  // Reset on close
+  // Re-initialize on open (so presetStart and current time are always fresh)
   useEffect(() => {
-    if (!open && !isEdit) {
-      setTimeout(() => {
-        form.reset();
-        setSelectedPet(null);
-        setPetQuery("");
-        setPetResults([]);
-      }, 150);
+    if (open && !isEdit) {
+      const now = new Date();
+      form.reset({
+        title: "",
+        petId: presetPet?.id ?? "",
+        veterinarianId: vets[0]?.id ?? "",
+        type: AppointmentType.CONSULTATION,
+        startTime: presetStart
+          ? format(presetStart, "yyyy-MM-dd'T'HH:mm")
+          : format(now, "yyyy-MM-dd'T'HH:mm"),
+        endTime: presetStart
+          ? format(new Date(presetStart.getTime() + 30 * 60000), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(now.getTime() + 30 * 60000), "yyyy-MM-dd'T'HH:mm"),
+        notes: "",
+      });
+      setSelectedPet(presetPet ?? null);
+      setPetQuery("");
+      setPetResults([]);
     }
-  }, [open, isEdit, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Pet search
   useEffect(() => {
@@ -137,8 +153,13 @@ export function AppointmentDialog({
     });
   }, [petQuery]);
 
-  // Auto-fill title when pet + type changes
+  // Watch fields needed for controlled inputs
   const watchType = form.watch("type");
+  const watchVetId = form.watch("veterinarianId");
+  const watchStart = form.watch("startTime");
+  const watchEnd = form.watch("endTime");
+
+  // Auto-fill title when pet + type changes
   useEffect(() => {
     if (selectedPet && watchType && !isEdit) {
       form.setValue("title", `${typeConfig[watchType].label} — ${selectedPet.name}`);
@@ -146,7 +167,6 @@ export function AppointmentDialog({
   }, [selectedPet, watchType, isEdit, form]);
 
   // Auto-set endTime 30 min after startTime
-  const watchStart = form.watch("startTime");
   useEffect(() => {
     if (watchStart && !isEdit) {
       const start = new Date(watchStart);
@@ -180,7 +200,23 @@ export function AppointmentDialog({
           <DialogTitle>{isEdit ? "Editar cita" : "Nueva cita"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-2">
+        <form
+          ref={formRef}
+          className="space-y-4 mt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (formRef.current) {
+              formRef.current
+                .querySelectorAll<HTMLInputElement>("input[name], textarea[name]")
+                .forEach((el) => {
+                  if (el.value) {
+                    form.setValue(el.name as keyof FormData, el.value, { shouldDirty: true });
+                  }
+                });
+            }
+            form.handleSubmit(handleSubmit)();
+          }}
+        >
           {/* Pet search */}
           <div className="space-y-1.5">
             <Label>Paciente *</Label>
@@ -195,13 +231,15 @@ export function AppointmentDialog({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
-                >
-                  Cambiar
-                </button>
+                {!presetPet && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
+                  >
+                    Cambiar
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-1">
@@ -252,11 +290,13 @@ export function AppointmentDialog({
             <div className="space-y-1.5">
               <Label>Tipo *</Label>
               <Select
-                defaultValue={appointment?.type ?? AppointmentType.CONSULTATION}
+                value={watchType}
                 onValueChange={(v) => form.setValue("type", (v ?? AppointmentType.CONSULTATION) as AppointmentType)}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {watchType ? typeConfig[watchType]?.label : "Seleccionar"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(typeConfig).map(([key, cfg]) => (
@@ -272,20 +312,25 @@ export function AppointmentDialog({
             <div className="space-y-1.5">
               <Label>Veterinario *</Label>
               <Select
-                defaultValue={appointment?.veterinarianId ?? vets[0]?.id}
+                value={watchVetId}
                 onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
+                  <SelectValue placeholder="Seleccionar">
+                    {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {vets.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
-                      {v.name}
+                      {v.name ?? v.id.slice(0, 8)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {form.formState.errors.veterinarianId && (
+                <p className="text-xs text-destructive">{form.formState.errors.veterinarianId.message}</p>
+              )}
             </div>
           </div>
 
@@ -302,14 +347,24 @@ export function AppointmentDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="startTime">Inicio *</Label>
-              <Input id="startTime" type="datetime-local" {...form.register("startTime")} />
+              <Input
+                id="startTime"
+                type="datetime-local"
+                value={watchStart ?? ""}
+                onChange={(e) => form.setValue("startTime", e.target.value, { shouldValidate: true })}
+              />
               {form.formState.errors.startTime && (
                 <p className="text-xs text-destructive">{form.formState.errors.startTime.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="endTime">Fin *</Label>
-              <Input id="endTime" type="datetime-local" {...form.register("endTime")} />
+              <Input
+                id="endTime"
+                type="datetime-local"
+                value={watchEnd ?? ""}
+                onChange={(e) => form.setValue("endTime", e.target.value, { shouldValidate: true })}
+              />
               {form.formState.errors.endTime && (
                 <p className="text-xs text-destructive">{form.formState.errors.endTime.message}</p>
               )}

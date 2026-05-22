@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -77,6 +77,7 @@ interface InventoryDialogProps {
 export function InventoryDialog({ open, onOpenChange, item, onSaved }: InventoryDialogProps) {
   const isEdit = !!item;
   const [isSaving, startSave] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,6 +107,9 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
         },
   });
 
+  const watchCategory = form.watch("category");
+  const watchUnit = form.watch("unit");
+
   async function handleSubmit(data: FormData) {
     startSave(async () => {
       if (isEdit) {
@@ -131,8 +135,21 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
         </DialogHeader>
 
         <form
-          onSubmit={form.handleSubmit(handleSubmit as Parameters<typeof form.handleSubmit>[0])}
+          ref={formRef}
           className="space-y-4 mt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (formRef.current) {
+              formRef.current
+                .querySelectorAll<HTMLInputElement>("input[name], textarea[name]")
+                .forEach((el) => {
+                  if (el.value) {
+                    form.setValue(el.name as keyof FormData, el.value, { shouldDirty: true });
+                  }
+                });
+            }
+            (form.handleSubmit(handleSubmit as Parameters<typeof form.handleSubmit>[0]))();
+          }}
         >
           {/* Name */}
           <div className="space-y-1.5">
@@ -148,11 +165,13 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
             <div className="space-y-1.5">
               <Label>Categoría *</Label>
               <Select
-                defaultValue={item?.category ?? "Medicamentos"}
+                value={watchCategory}
                 onValueChange={(v) => form.setValue("category", v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {watchCategory || "Medicamentos"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
@@ -164,11 +183,13 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
             <div className="space-y-1.5">
               <Label>Unidad *</Label>
               <Select
-                defaultValue={item?.unit ?? "unidades"}
+                value={watchUnit}
                 onValueChange={(v) => form.setValue("unit", v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {watchUnit || "unidades"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {UNITS.map((u) => (
