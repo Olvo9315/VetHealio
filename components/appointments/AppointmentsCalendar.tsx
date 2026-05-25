@@ -385,7 +385,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
             "[&_.rbc-off-range-bg]:bg-muted/30",
             "[&_.rbc-show-more]:text-primary [&_.rbc-show-more]:text-xs",
             "[&_.rbc-toolbar]:hidden",
-            "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-event-label]:hidden",
+            "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-time-view_.rbc-event-label]:hidden",
             "[&_.rbc-selected]:ring-2 [&_.rbc-selected]:ring-primary",
             zoom === "compact" && "[&_.rbc-timeslot-group]:min-h-[28px]",
             zoom === "normal"  && "[&_.rbc-timeslot-group]:min-h-[48px]",
@@ -411,6 +411,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
             components={{ event: EventComponent as (props: { event: object }) => JSX.Element }}
+            views={[Views.MONTH, Views.WEEK, Views.DAY]}
             culture="es"
             messages={{
               noEventsInRange: "No hay citas en este período",
