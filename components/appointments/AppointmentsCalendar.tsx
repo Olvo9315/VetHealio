@@ -68,7 +68,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
-  const [zoom, setZoom] = useState<"compact" | "normal" | "large">("normal");
+  const [zoom, setZoom] = useState<"compact" | "normal" | "large">("compact");
 
   const events = useMemo<CalEvent[]>(() =>
     appointments.map((apt) => ({
