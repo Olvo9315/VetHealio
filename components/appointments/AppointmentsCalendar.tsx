@@ -376,10 +376,11 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
         {/* Calendar */}
         <div
           className={cn(
-            "flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-card",
+            "rounded-xl border border-border overflow-hidden bg-card",
             "[&_.rbc-calendar]:h-full",
             "[&_.rbc-header]:text-xs [&_.rbc-header]:font-medium [&_.rbc-header]:text-muted-foreground [&_.rbc-header]:border-border",
-            "[&_.rbc-month-view]:border-none [&_.rbc-month-row]:border-border",
+            "[&_.rbc-month-view]:border-none [&_.rbc-month-view]:flex-1",
+            "[&_.rbc-month-row]:border-border [&_.rbc-month-row]:min-h-[100px]",
             "[&_.rbc-day-bg]:border-border [&_.rbc-day-bg.rbc-today]:bg-primary/5",
             "[&_.rbc-time-view]:border-none",
             "[&_.rbc-time-header]:border-border",
