@@ -68,6 +68,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
+  const [zoom, setZoom] = useState<"compact" | "normal" | "large">("normal");
 
   const events = useMemo<CalEvent[]>(() =>
     appointments.map((apt) => ({
@@ -185,8 +186,6 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
         const durationMin = Math.round(
           (event.end.getTime() - event.start.getTime()) / 60000
         );
-        const isVeryShort = durationMin <= 15;  // ≤15 min: single cramped line
-        const isShort = durationMin <= 30;       // ≤30 min: name only, no vet
         const isMonthView = view === Views.MONTH;
         const typeCfg = typeConfig[apt.type];
         const statusCfg = statusConfig[apt.status];
@@ -195,26 +194,16 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
           <TooltipPrimitive.Root delayDuration={500}>
             <TooltipPrimitive.Trigger asChild>
               <div className="h-full w-full overflow-hidden">
-                {isVeryShort ? (
-                  // ≤15 min: ultra compact — one line, everything in tooltip
-                  <span className="font-semibold text-[9px] leading-none whitespace-nowrap">
+                {isMonthView ? (
+                  <div className="truncate font-semibold text-xs leading-none">
                     {apt.pet.name}
-                  </span>
-                ) : isShort ? (
-                  // 16–30 min: name only, no vet
-                  <div className="truncate leading-tight">
-                    <span className="font-semibold text-[11px]">{apt.pet.name}</span>
-                  </div>
-                ) : isMonthView ? (
-                  // Month view: compact single line
-                  <div className="truncate leading-tight">
-                    <span className="font-semibold">{apt.pet.name}</span>
                   </div>
                 ) : (
-                  // Week/day, >30 min: full info
-                  <div className="truncate leading-tight">
-                    <div className="font-semibold truncate">{apt.pet.name}</div>
-                    <div className="opacity-70 text-[10px] truncate">· {apt.veterinarian.name}</div>
+                  <div className="h-full w-full flex flex-col justify-center overflow-hidden leading-tight gap-px">
+                    <div className="font-semibold text-xs truncate">{apt.pet.name}</div>
+                    {durationMin > 20 && (
+                      <div className="text-[11px] opacity-80 truncate">{apt.veterinarian.name}</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -327,6 +316,23 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Zoom control */}
+            <div className="flex rounded-lg border border-border overflow-hidden" title="Zoom">
+              {(["compact", "normal", "large"] as const).map((z) => (
+                <button
+                  key={z}
+                  onClick={() => setZoom(z)}
+                  className={cn(
+                    "w-8 py-1.5 text-sm transition-colors",
+                    zoom === z
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {z === "compact" ? "−" : z === "normal" ? "○" : "+"}
+                </button>
+              ))}
+            </div>
             <div className="flex rounded-lg border border-border overflow-hidden">
               {[Views.MONTH, Views.WEEK, Views.DAY].map((v) => (
                 <button
@@ -379,11 +385,14 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
             "[&_.rbc-off-range-bg]:bg-muted/30",
             "[&_.rbc-show-more]:text-primary [&_.rbc-show-more]:text-xs",
             "[&_.rbc-toolbar]:hidden",
-            "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-event-label]:text-[10px]",
+            "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-event-label]:hidden",
             "[&_.rbc-selected]:ring-2 [&_.rbc-selected]:ring-primary",
+            zoom === "compact" && "[&_.rbc-timeslot-group]:min-h-[28px]",
+            zoom === "normal"  && "[&_.rbc-timeslot-group]:min-h-[48px]",
+            zoom === "large"   && "[&_.rbc-timeslot-group]:min-h-[72px]",
             isPending && "opacity-70 pointer-events-none"
           )}
-          style={{ height: "calc(100vh - 280px)", minHeight: 400 }}
+          style={{ height: "calc(100vh - 260px)", minHeight: 400 }}
         >
           <DnDCalendar
             localizer={localizer}
@@ -409,7 +418,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
               allDay: "Todo el día",
             }}
             step={15}
-            timeslots={4}
+            timeslots={2}
             min={new Date(0, 0, 0, 7, 0)}
             max={new Date(0, 0, 0, 21, 0)}
             popup
