@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useMemo, useTransition, useRef } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -69,6 +69,10 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
   const [zoom, setZoom] = useState<"compact" | "normal" | "large">("compact");
+
+  // Ref keeps EventComponent reference stable so DnD HOC doesn't break when view changes
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
   const events = useMemo<CalEvent[]>(() =>
     appointments.map((apt) => ({
@@ -186,7 +190,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
         const durationMin = Math.round(
           (event.end.getTime() - event.start.getTime()) / 60000
         );
-        const isMonthView = view === Views.MONTH;
+        const isMonthView = viewRef.current === Views.MONTH;
         const typeCfg = typeConfig[apt.type];
         const statusCfg = statusConfig[apt.status];
 
@@ -294,7 +298,8 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
           </TooltipPrimitive.Root>
         );
       },
-    [view]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   return (
@@ -411,7 +416,6 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
             components={{ event: EventComponent as (props: { event: object }) => JSX.Element }}
-            views={[Views.MONTH, Views.WEEK, Views.DAY]}
             culture="es"
             messages={{
               noEventsInRange: "No hay citas en este período",
