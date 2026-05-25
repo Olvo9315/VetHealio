@@ -199,10 +199,10 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
                     {apt.pet.name}
                   </div>
                 ) : (
-                  <div className="h-full w-full flex flex-col justify-center overflow-hidden leading-tight gap-px">
-                    <div className="font-semibold text-xs truncate">{apt.pet.name}</div>
+                  <div className="h-full w-full flex items-center gap-1.5 overflow-hidden leading-none">
+                    <span className="font-semibold text-xs truncate flex-1 min-w-0">{apt.pet.name}</span>
                     {durationMin > 20 && (
-                      <div className="text-[11px] opacity-80 truncate">{apt.veterinarian.name}</div>
+                      <span className="text-[11px] opacity-80 truncate shrink-0 max-w-[45%]">{apt.veterinarian.name}</span>
                     )}
                   </div>
                 )}
