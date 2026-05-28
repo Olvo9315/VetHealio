@@ -11,7 +11,7 @@ import {
   searchPetsForAppointment,
   createAppointmentWithNewPatient,
 } from "@/lib/actions/appointments";
-import { searchOwnersWithPets } from "@/lib/actions/patients";
+import { findExistingPatients } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import { typeConfig } from "./AppointmentConfig";
 import { toast } from "sonner";
@@ -76,6 +76,10 @@ const SPECIES_LABELS: Record<string, string> = {
   OTHER: "🐾 Otro",
 };
 
+const SPECIES_EMOJI: Record<string, string> = {
+  DOG: "🐕", CAT: "🐈", BIRD: "🦜", RABBIT: "🐇", REPTILE: "🦎", OTHER: "🐾",
+};
+
 export function AppointmentDialog({
   open,
   onOpenChange,
@@ -109,9 +113,14 @@ export function AppointmentDialog({
   // ── Match detection ──
   const [ownerMatches, setOwnerMatches] = useState<OwnerResult[]>([]);
   const [matchChoice, setMatchChoice] = useState<MatchChoice | null>(null);
-  const [showPetList, setShowPetList] = useState(false);
+  const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
   const [isSearchingOwner, startSearchOwner] = useTransition();
-  const phoneDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep latest field values in refs so runMatchSearch always has fresh data
+  const petNameRef = useRef("");
+  const speciesRef = useRef<Species | "">("");
+  const ownerFirstRef = useRef("");
+  const ownerLastRef = useRef("");
+  const phoneRef = useRef("");
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -187,7 +196,12 @@ export function AppointmentDialog({
     setPrimaryErrors({});
     setOwnerMatches([]);
     setMatchChoice(null);
-    setShowPetList(false);
+    setExpandedOwnerId(null);
+    petNameRef.current = "";
+    speciesRef.current = "";
+    ownerFirstRef.current = "";
+    ownerLastRef.current = "";
+    phoneRef.current = "";
   }
 
   // Pet search (existing mode)
@@ -199,20 +213,61 @@ export function AppointmentDialog({
     });
   }, [petQuery]);
 
-  // Phone debounce → owner match search
+  // Run match search using latest values from all primary fields (AND logic)
+  const runMatchSearch = useCallback(() => {
+    const petName = petNameRef.current;
+    const petSpecies = speciesRef.current;
+    const ownerFirst = ownerFirstRef.current;
+    const ownerLast = ownerLastRef.current;
+    const phone = phoneRef.current;
+    const hasTextInput =
+      petName.length >= 2 || ownerFirst.length >= 2 || ownerLast.length >= 2 || phone.length >= 2;
+    if (!hasTextInput) { setOwnerMatches([]); return; }
+    startSearchOwner(async () => {
+      const results = await findExistingPatients({ petName, petSpecies, ownerFirst, ownerLast, phone });
+      setOwnerMatches(results as OwnerResult[]);
+    });
+  }, []);
+
+  const handlePetNameChange = useCallback((value: string) => {
+    setPrimaryPetName(value);
+    petNameRef.current = value;
+    setMatchChoice(null);
+    setExpandedOwnerId(null);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleOwnerFirstChange = useCallback((value: string) => {
+    setPrimaryOwnerFirst(value);
+    ownerFirstRef.current = value;
+    setMatchChoice(null);
+    setExpandedOwnerId(null);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleOwnerLastChange = useCallback((value: string) => {
+    setPrimaryOwnerLast(value);
+    ownerLastRef.current = value;
+    setMatchChoice(null);
+    setExpandedOwnerId(null);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleSpeciesChange = useCallback((value: Species | "") => {
+    setPrimarySpecies(value);
+    speciesRef.current = value;
+    setMatchChoice(null);
+    setExpandedOwnerId(null);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
   const handlePhoneChange = useCallback((value: string) => {
     setPrimaryPhone(value);
+    phoneRef.current = value;
     setMatchChoice(null);
-    setShowPetList(false);
-    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
-    if (value.length < 7) { setOwnerMatches([]); return; }
-    phoneDebounceRef.current = setTimeout(() => {
-      startSearchOwner(async () => {
-        const results = await searchOwnersWithPets(value);
-        setOwnerMatches(results as OwnerResult[]);
-      });
-    }, 500);
-  }, []);
+    setExpandedOwnerId(null);
+    runMatchSearch();
+  }, [runMatchSearch]);
 
   const watchType = form.watch("type");
   const watchVetId = form.watch("veterinarianId");
@@ -431,7 +486,7 @@ export function AppointmentDialog({
                   <Input
                     placeholder="Ej: Max"
                     value={primaryPetName}
-                    onChange={(e) => setPrimaryPetName(e.target.value)}
+                    onChange={(e) => handlePetNameChange(e.target.value)}
                   />
                   {primaryErrors.petName && <p className="text-xs text-destructive">{primaryErrors.petName}</p>}
                 </div>
@@ -439,7 +494,7 @@ export function AppointmentDialog({
                   <Label>Especie *</Label>
                   <Select
                     value={primarySpecies}
-                    onValueChange={(v) => setPrimarySpecies(v as Species)}
+                    onValueChange={(v) => handleSpeciesChange(v as Species)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar">
@@ -461,9 +516,9 @@ export function AppointmentDialog({
                 <div className="space-y-1.5">
                   <Label>Propietario (nombre) *</Label>
                   <Input
-                    placeholder="Ej: Ana"
+                    placeholder="Ej: Alex"
                     value={primaryOwnerFirst}
-                    onChange={(e) => setPrimaryOwnerFirst(e.target.value)}
+                    onChange={(e) => handleOwnerFirstChange(e.target.value)}
                   />
                   {primaryErrors.ownerFirst && <p className="text-xs text-destructive">{primaryErrors.ownerFirst}</p>}
                 </div>
@@ -472,7 +527,7 @@ export function AppointmentDialog({
                   <Input
                     placeholder="Ej: García"
                     value={primaryOwnerLast}
-                    onChange={(e) => setPrimaryOwnerLast(e.target.value)}
+                    onChange={(e) => handleOwnerLastChange(e.target.value)}
                   />
                   {primaryErrors.ownerLast && <p className="text-xs text-destructive">{primaryErrors.ownerLast}</p>}
                 </div>
@@ -495,72 +550,107 @@ export function AppointmentDialog({
                 {primaryErrors.phone && <p className="text-xs text-destructive">{primaryErrors.phone}</p>}
               </div>
 
-              {/* Match banner */}
+              {/* Match list */}
               {ownerMatches.length > 0 && !matchChoice && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 p-3 space-y-2">
-                  {ownerMatches.slice(0, 1).map((owner) => (
-                    <div key={owner.id}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                          Propietario encontrado: {owner.firstName} {owner.lastName} · {owner.phone}
-                        </p>
-                      </div>
-
-                      {/* Pet list for "select existing" */}
-                      {showPetList && owner.pets && owner.pets.length > 0 && (
-                        <div className="mb-2 border border-border rounded-lg overflow-hidden divide-y divide-border">
-                          {owner.pets.map((pet) => (
-                            <button
-                              key={pet.id}
-                              type="button"
-                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 text-sm"
-                              onClick={() => applyExistingPetFromMatch({
-                                id: pet.id,
-                                name: pet.name,
-                                species: pet.species,
-                                owner: { firstName: owner.firstName, lastName: owner.lastName, phone: owner.phone },
-                              })}
-                            >
-                              <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
-                              <span className="font-medium">{pet.name}</span>
-                              <span className="text-muted-foreground text-xs ml-1">
-                                {SPECIES_LABELS[pet.species] ?? pet.species}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                          onClick={() => {
-                            setMatchChoice({ type: "new-pet", ownerId: owner.id, ownerName: `${owner.firstName} ${owner.lastName}` });
-                            setOwnerMatches([]);
-                            setShowPetList(false);
-                          }}
-                        >
-                          Añadir mascota nueva
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs px-2.5 py-1 rounded-md bg-muted text-foreground hover:bg-muted/70 transition-colors"
-                          onClick={() => setShowPetList((v) => !v)}
-                        >
-                          Seleccionar mascota existente
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs px-2.5 py-1 rounded-md bg-background border border-border text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => { setOwnerMatches([]); setShowPetList(false); }}
-                        >
-                          Ignorar
-                        </button>
-                      </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-amber-100 dark:border-amber-800/30">
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                        {ownerMatches.length === 1
+                          ? "Propietario encontrado"
+                          : `${ownerMatches.length} propietarios encontrados`}
+                      </span>
                     </div>
-                  ))}
+                    <button
+                      type="button"
+                      className="text-xs text-amber-600 hover:text-amber-900 dark:text-amber-400 transition-colors"
+                      onClick={() => { setOwnerMatches([]); setExpandedOwnerId(null); }}
+                    >
+                      Ignorar
+                    </button>
+                  </div>
+
+                  {/* Owner rows */}
+                  <div className="max-h-52 overflow-y-auto divide-y divide-amber-100 dark:divide-amber-800/30">
+                    {ownerMatches.map((owner) => (
+                      <div key={owner.id} className="px-3 py-2.5">
+                        {/* Owner info + pet badges */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-foreground">
+                              {owner.firstName} {owner.lastName}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">{owner.phone}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1 justify-end shrink-0 max-w-[55%]">
+                            {owner.pets && owner.pets.length > 0 ? (
+                              owner.pets.map((pet) => (
+                                <span
+                                  key={pet.id}
+                                  className="text-[10px] bg-amber-100 dark:bg-amber-800/40 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                >
+                                  {SPECIES_EMOJI[pet.species] ?? "🐾"} {pet.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">sin mascotas</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                            onClick={() => {
+                              setMatchChoice({ type: "new-pet", ownerId: owner.id, ownerName: `${owner.firstName} ${owner.lastName}` });
+                              setOwnerMatches([]);
+                              setExpandedOwnerId(null);
+                            }}
+                          >
+                            + Mascota nueva
+                          </button>
+                          {owner.pets && owner.pets.length > 0 && (
+                            <button
+                              type="button"
+                              className="text-[11px] px-2 py-0.5 rounded bg-muted text-foreground hover:bg-muted/70 transition-colors"
+                              onClick={() => setExpandedOwnerId((prev) => (prev === owner.id ? null : owner.id))}
+                            >
+                              {expandedOwnerId === owner.id ? "Ocultar" : "Seleccionar mascota"}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Expandable pet selection */}
+                        {expandedOwnerId === owner.id && owner.pets && (
+                          <div className="mt-2 border border-border rounded-lg overflow-hidden divide-y divide-border">
+                            {owner.pets.map((pet) => (
+                              <button
+                                key={pet.id}
+                                type="button"
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                                onClick={() => applyExistingPetFromMatch({
+                                  id: pet.id,
+                                  name: pet.name,
+                                  species: pet.species,
+                                  owner: { firstName: owner.firstName, lastName: owner.lastName, phone: owner.phone },
+                                })}
+                              >
+                                <PawPrint className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <span className="text-xs font-medium">{pet.name}</span>
+                                <span className="text-[11px] text-muted-foreground ml-0.5">
+                                  {SPECIES_LABELS[pet.species] ?? pet.species}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
