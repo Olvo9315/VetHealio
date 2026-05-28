@@ -103,7 +103,19 @@
     "day": "Day",
     "agenda": "Agenda",
     "petSearch": "Search patient...",
-    "vetSearch": "Search veterinarian..."
+    "vetSearch": "Search veterinarian...",
+    "existingPatient": "Patient",
+    "primaryVisit": "New",
+    "petName": "Pet name",
+    "petSpecies": "Species",
+    "ownerFirstName": "First name",
+    "ownerLastName": "Last name",
+    "ownerPhone": "Phone",
+    "matchFound": "Owner found",
+    "matchPets": "Pets",
+    "useExistingOwner": "Add new pet",
+    "selectExistingPet": "Select existing pet",
+    "ignoreMatch": "Ignore"
   },
   "medicalRecords": {
     "title": "Medical Records",

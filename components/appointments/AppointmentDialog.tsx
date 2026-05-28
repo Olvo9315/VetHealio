@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppointmentType } from "@prisma/client";
+import { AppointmentType, Species } from "@prisma/client";
 import {
   createAppointment,
   updateAppointment,
   searchPetsForAppointment,
+  createAppointmentWithNewPatient,
 } from "@/lib/actions/appointments";
+import { searchOwnersWithPets } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import { typeConfig } from "./AppointmentConfig";
 import { toast } from "sonner";
@@ -31,12 +33,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, PawPrint, Loader2 } from "lucide-react";
+import { Search, PawPrint, Loader2, AlertCircle, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // ---- Schema ----
 const schema = z.object({
   title: z.string().min(1, "Requerido"),
-  petId: z.string().min(1, "Selecciona un paciente"),
+  petId: z.string().optional(),
   veterinarianId: z.string().min(1, "Selecciona un veterinario"),
   type: z.nativeEnum(AppointmentType),
   startTime: z.string().min(1, "Requerido"),
@@ -48,19 +51,30 @@ type FormData = z.infer<typeof schema>;
 // ---- Prop types ----
 type Vet = { id: string; name: string; role: string };
 type PetResult = { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
+type OwnerResult = { id: string; firstName: string; lastName: string; phone: string; email: string | null; pets?: { id: string; name: string; species: string }[] };
+
+type MatchChoice =
+  | { type: "new-pet"; ownerId: string; ownerName: string }
+  | { type: "existing-pet"; petId: string; pet: PetResult };
 
 interface AppointmentDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   vets: Vet[];
-  // When editing
   appointment?: AppointmentFull;
-  // Preset date when clicking on a calendar slot
   presetStart?: Date;
-  // Preset pet when opening from patient detail
   presetPet?: PetResult;
   onSaved: (appointment: AppointmentFull) => void;
 }
+
+const SPECIES_LABELS: Record<string, string> = {
+  DOG: "🐕 Perro",
+  CAT: "🐈 Gato",
+  BIRD: "🦜 Pájaro",
+  RABBIT: "🐇 Conejo",
+  REPTILE: "🦎 Reptil",
+  OTHER: "🐾 Otro",
+};
 
 export function AppointmentDialog({
   open,
@@ -75,11 +89,29 @@ export function AppointmentDialog({
   const [isSaving, startSave] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Pet search
+  // ── Mode toggle ──
+  const [mode, setMode] = useState<"existing" | "primary">("existing");
+
+  // ── Existing-patient state ──
   const [petQuery, setPetQuery] = useState("");
   const [petResults, setPetResults] = useState<PetResult[]>([]);
   const [selectedPet, setSelectedPet] = useState<PetResult | null>(presetPet ?? null);
-  const [isSearching, startSearch] = useTransition();
+  const [isSearchingPet, startSearchPet] = useTransition();
+
+  // ── Primary-visit state ──
+  const [primaryPetName, setPrimaryPetName] = useState("");
+  const [primarySpecies, setPrimarySpecies] = useState<Species | "">("");
+  const [primaryOwnerFirst, setPrimaryOwnerFirst] = useState("");
+  const [primaryOwnerLast, setPrimaryOwnerLast] = useState("");
+  const [primaryPhone, setPrimaryPhone] = useState("");
+  const [primaryErrors, setPrimaryErrors] = useState<Record<string, string>>({});
+
+  // ── Match detection ──
+  const [ownerMatches, setOwnerMatches] = useState<OwnerResult[]>([]);
+  const [matchChoice, setMatchChoice] = useState<MatchChoice | null>(null);
+  const [showPetList, setShowPetList] = useState(false);
+  const [isSearchingOwner, startSearchOwner] = useTransition();
+  const phoneDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -120,7 +152,7 @@ export function AppointmentDialog({
     }
   }, [appointment]);
 
-  // Re-initialize on open (so presetStart and current time are always fresh)
+  // Re-initialize on open
   useEffect(() => {
     if (open && !isEdit) {
       const now = new Date();
@@ -140,33 +172,68 @@ export function AppointmentDialog({
       setSelectedPet(presetPet ?? null);
       setPetQuery("");
       setPetResults([]);
+      setMode("existing");
+      resetPrimaryFields();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Pet search
+  function resetPrimaryFields() {
+    setPrimaryPetName("");
+    setPrimarySpecies("");
+    setPrimaryOwnerFirst("");
+    setPrimaryOwnerLast("");
+    setPrimaryPhone("");
+    setPrimaryErrors({});
+    setOwnerMatches([]);
+    setMatchChoice(null);
+    setShowPetList(false);
+  }
+
+  // Pet search (existing mode)
   useEffect(() => {
     if (petQuery.length < 2) { setPetResults([]); return; }
-    startSearch(async () => {
+    startSearchPet(async () => {
       const results = await searchPetsForAppointment(petQuery);
       setPetResults(results as PetResult[]);
     });
   }, [petQuery]);
 
-  // Watch fields needed for controlled inputs
+  // Phone debounce → owner match search
+  const handlePhoneChange = useCallback((value: string) => {
+    setPrimaryPhone(value);
+    setMatchChoice(null);
+    setShowPetList(false);
+    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
+    if (value.length < 7) { setOwnerMatches([]); return; }
+    phoneDebounceRef.current = setTimeout(() => {
+      startSearchOwner(async () => {
+        const results = await searchOwnersWithPets(value);
+        setOwnerMatches(results as OwnerResult[]);
+      });
+    }, 500);
+  }, []);
+
   const watchType = form.watch("type");
   const watchVetId = form.watch("veterinarianId");
   const watchStart = form.watch("startTime");
   const watchEnd = form.watch("endTime");
 
-  // Auto-fill title when pet + type changes
+  // Auto-fill title — existing mode
   useEffect(() => {
-    if (selectedPet && watchType && !isEdit) {
+    if (mode === "existing" && selectedPet && watchType && !isEdit) {
       form.setValue("title", `${typeConfig[watchType].label} — ${selectedPet.name}`);
     }
-  }, [selectedPet, watchType, isEdit, form]);
+  }, [selectedPet, watchType, mode, isEdit, form]);
 
-  // Auto-set endTime 30 min after startTime
+  // Auto-fill title — primary mode
+  useEffect(() => {
+    if (mode === "primary" && primaryPetName && watchType && !isEdit) {
+      form.setValue("title", `${typeConfig[watchType].label} — ${primaryPetName}`);
+    }
+  }, [primaryPetName, watchType, mode, isEdit, form]);
+
+  // Auto-set endTime
   useEffect(() => {
     if (watchStart && !isEdit) {
       const start = new Date(watchStart);
@@ -176,21 +243,67 @@ export function AppointmentDialog({
     }
   }, [watchStart, isEdit, form]);
 
+  function validatePrimary() {
+    const errors: Record<string, string> = {};
+    if (!primaryPetName.trim()) errors.petName = "Requerido";
+    if (!primarySpecies) errors.petSpecies = "Requerido";
+    if (!primaryOwnerFirst.trim()) errors.ownerFirst = "Requerido";
+    if (!primaryOwnerLast.trim()) errors.ownerLast = "Requerido";
+    if (primaryPhone.trim().length < 7) errors.phone = "Teléfono inválido";
+    setPrimaryErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handleSubmit(data: FormData) {
-    startSave(async () => {
-      if (isEdit) {
-        const result = await updateAppointment(appointment.id, data);
-        if ("error" in result) { toast.error("Error al actualizar"); return; }
-        toast.success("Cita actualizada");
-        onSaved(result.appointment as AppointmentFull);
-      } else {
-        const result = await createAppointment(data);
+    if (mode === "existing") {
+      if (!selectedPet) {
+        form.setError("petId", { message: "Selecciona un paciente" });
+        return;
+      }
+      startSave(async () => {
+        if (isEdit) {
+          const result = await updateAppointment(appointment.id, { ...data, petId: selectedPet.id });
+          if ("error" in result) { toast.error("Error al actualizar"); return; }
+          toast.success("Cita actualizada");
+          onSaved(result.appointment as AppointmentFull);
+        } else {
+          const result = await createAppointment({ ...data, petId: selectedPet.id });
+          if ("error" in result) { toast.error("Error al crear cita"); return; }
+          toast.success("Cita creada");
+          onSaved(result.appointment as AppointmentFull);
+        }
+        onOpenChange(false);
+      });
+    } else {
+      if (!validatePrimary()) return;
+      startSave(async () => {
+        const result = await createAppointmentWithNewPatient(
+          { ...data },
+          {
+            petName: primaryPetName.trim(),
+            petSpecies: primarySpecies as Species,
+            ownerFirstName: primaryOwnerFirst.trim(),
+            ownerLastName: primaryOwnerLast.trim(),
+            ownerPhone: primaryPhone.trim(),
+            existingOwnerId: matchChoice?.type === "new-pet" ? matchChoice.ownerId : undefined,
+            existingPetId: matchChoice?.type === "existing-pet" ? matchChoice.petId : undefined,
+          }
+        );
         if ("error" in result) { toast.error("Error al crear cita"); return; }
         toast.success("Cita creada");
         onSaved(result.appointment as AppointmentFull);
-      }
-      onOpenChange(false);
-    });
+        onOpenChange(false);
+      });
+    }
+  }
+
+  // When user picks an existing pet from match banner → switch to existing mode
+  function applyExistingPetFromMatch(pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } }) {
+    setSelectedPet(pet as PetResult);
+    form.setValue("petId", pet.id);
+    setMode("existing");
+    setOwnerMatches([]);
+    setMatchChoice(null);
   }
 
   return (
@@ -217,75 +330,262 @@ export function AppointmentDialog({
             form.handleSubmit(handleSubmit)();
           }}
         >
-          {/* Pet search */}
-          <div className="space-y-1.5">
-            <Label>Paciente *</Label>
-            {selectedPet ? (
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-center gap-2">
-                  <PawPrint className="w-4 h-4 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">{selectedPet.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedPet.owner.firstName} {selectedPet.owner.lastName} · {selectedPet.owner.phone}
-                    </p>
+          {/* ── Mode toggle (create only) ── */}
+          {!isEdit && (
+            <div className="flex rounded-lg border border-border overflow-hidden w-fit">
+              {(["existing", "primary"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setMode(m); resetPrimaryFields(); }}
+                  className={cn(
+                    "px-4 py-1.5 text-sm transition-colors",
+                    mode === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {m === "existing" ? "Paciente" : "Primario"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Existing patient search ── */}
+          {mode === "existing" && (
+            <div className="space-y-1.5">
+              <Label>Paciente *</Label>
+              {selectedPet ? (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="flex items-center gap-2">
+                    <PawPrint className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">{selectedPet.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedPet.owner.firstName} {selectedPet.owner.lastName} · {selectedPet.owner.phone}
+                      </p>
+                    </div>
                   </div>
+                  {!presetPet && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
+                    >
+                      Cambiar
+                    </button>
+                  )}
                 </div>
-                {!presetPet && (
+              ) : (
+                <div className="space-y-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar paciente..."
+                      className="pl-9"
+                      value={petQuery}
+                      onChange={(e) => setPetQuery(e.target.value)}
+                    />
+                    {isSearchingPet && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
+                  </div>
+                  {petResults.length > 0 && (
+                    <div className="border border-border rounded-lg overflow-hidden divide-y divide-border max-h-40 overflow-y-auto">
+                      {petResults.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                          onClick={() => {
+                            setSelectedPet(p);
+                            form.setValue("petId", p.id);
+                            setPetQuery("");
+                            setPetResults([]);
+                          }}
+                        >
+                          <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium">{p.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {p.owner.firstName} {p.owner.lastName}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {form.formState.errors.petId && (
+                    <p className="text-xs text-destructive">{form.formState.errors.petId.message}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Primary visit fields ── */}
+          {mode === "primary" && (
+            <div className="space-y-3">
+              {/* Pet name + species */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Nombre del paciente *</Label>
+                  <Input
+                    placeholder="Ej: Max"
+                    value={primaryPetName}
+                    onChange={(e) => setPrimaryPetName(e.target.value)}
+                  />
+                  {primaryErrors.petName && <p className="text-xs text-destructive">{primaryErrors.petName}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Especie *</Label>
+                  <Select
+                    value={primarySpecies}
+                    onValueChange={(v) => setPrimarySpecies(v as Species)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar">
+                        {primarySpecies ? SPECIES_LABELS[primarySpecies] : "Seleccionar"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SPECIES_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {primaryErrors.petSpecies && <p className="text-xs text-destructive">{primaryErrors.petSpecies}</p>}
+                </div>
+              </div>
+
+              {/* Owner name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Propietario (nombre) *</Label>
+                  <Input
+                    placeholder="Ej: Ana"
+                    value={primaryOwnerFirst}
+                    onChange={(e) => setPrimaryOwnerFirst(e.target.value)}
+                  />
+                  {primaryErrors.ownerFirst && <p className="text-xs text-destructive">{primaryErrors.ownerFirst}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Apellido *</Label>
+                  <Input
+                    placeholder="Ej: García"
+                    value={primaryOwnerLast}
+                    onChange={(e) => setPrimaryOwnerLast(e.target.value)}
+                  />
+                  {primaryErrors.ownerLast && <p className="text-xs text-destructive">{primaryErrors.ownerLast}</p>}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <Label>Teléfono *</Label>
+                <div className="relative">
+                  <Input
+                    type="tel"
+                    placeholder="+34 612 345 678"
+                    value={primaryPhone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                  />
+                  {isSearchingOwner && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {primaryErrors.phone && <p className="text-xs text-destructive">{primaryErrors.phone}</p>}
+              </div>
+
+              {/* Match banner */}
+              {ownerMatches.length > 0 && !matchChoice && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 p-3 space-y-2">
+                  {ownerMatches.slice(0, 1).map((owner) => (
+                    <div key={owner.id}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                          Propietario encontrado: {owner.firstName} {owner.lastName} · {owner.phone}
+                        </p>
+                      </div>
+
+                      {/* Pet list for "select existing" */}
+                      {showPetList && owner.pets && owner.pets.length > 0 && (
+                        <div className="mb-2 border border-border rounded-lg overflow-hidden divide-y divide-border">
+                          {owner.pets.map((pet) => (
+                            <button
+                              key={pet.id}
+                              type="button"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50 text-sm"
+                              onClick={() => applyExistingPetFromMatch({
+                                id: pet.id,
+                                name: pet.name,
+                                species: pet.species,
+                                owner: { firstName: owner.firstName, lastName: owner.lastName, phone: owner.phone },
+                              })}
+                            >
+                              <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <span className="font-medium">{pet.name}</span>
+                              <span className="text-muted-foreground text-xs ml-1">
+                                {SPECIES_LABELS[pet.species] ?? pet.species}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                          onClick={() => {
+                            setMatchChoice({ type: "new-pet", ownerId: owner.id, ownerName: `${owner.firstName} ${owner.lastName}` });
+                            setOwnerMatches([]);
+                            setShowPetList(false);
+                          }}
+                        >
+                          Añadir mascota nueva
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs px-2.5 py-1 rounded-md bg-muted text-foreground hover:bg-muted/70 transition-colors"
+                          onClick={() => setShowPetList((v) => !v)}
+                        >
+                          Seleccionar mascota existente
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs px-2.5 py-1 rounded-md bg-background border border-border text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => { setOwnerMatches([]); setShowPetList(false); }}
+                        >
+                          Ignorar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Match choice pill */}
+              {matchChoice && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/40">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <p className="text-sm text-emerald-800 dark:text-emerald-300 flex-1">
+                    {matchChoice.type === "new-pet"
+                      ? `Nueva mascota para ${matchChoice.ownerName}`
+                      : `Paciente: ${matchChoice.pet.name}`}
+                  </p>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
+                    onClick={() => { setMatchChoice(null); }}
                   >
                     Cambiar
                   </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar paciente..."
-                    className="pl-9"
-                    value={petQuery}
-                    onChange={(e) => setPetQuery(e.target.value)}
-                  />
-                  {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />}
                 </div>
-                {petResults.length > 0 && (
-                  <div className="border border-border rounded-lg overflow-hidden divide-y divide-border max-h-40 overflow-y-auto">
-                    {petResults.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedPet(p);
-                          form.setValue("petId", p.id);
-                          setPetQuery("");
-                          setPetResults([]);
-                        }}
-                      >
-                        <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {p.owner.firstName} {p.owner.lastName}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {form.formState.errors.petId && (
-                  <p className="text-xs text-destructive">{form.formState.errors.petId.message}</p>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
-          {/* Type */}
+          {/* ── Type + Veterinarian ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Tipo *</Label>
@@ -308,7 +608,6 @@ export function AppointmentDialog({
               </Select>
             </div>
 
-            {/* Veterinarian */}
             <div className="space-y-1.5">
               <Label>Veterinario *</Label>
               <Select
@@ -334,7 +633,7 @@ export function AppointmentDialog({
             </div>
           </div>
 
-          {/* Title */}
+          {/* ── Title ── */}
           <div className="space-y-1.5">
             <Label htmlFor="title">Título</Label>
             <Input id="title" {...form.register("title")} placeholder="Se genera automáticamente" />
@@ -343,7 +642,7 @@ export function AppointmentDialog({
             )}
           </div>
 
-          {/* Date/time */}
+          {/* ── Date/time ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="startTime">Inicio *</Label>
@@ -371,7 +670,7 @@ export function AppointmentDialog({
             </div>
           </div>
 
-          {/* Notes */}
+          {/* ── Notes ── */}
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notas</Label>
             <Textarea
