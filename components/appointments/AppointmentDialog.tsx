@@ -11,7 +11,7 @@ import {
   searchPetsForAppointment,
   createAppointmentWithNewPatient,
 } from "@/lib/actions/appointments";
-import { searchOwnersWithPets } from "@/lib/actions/patients";
+import { findExistingPatients } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import { typeConfig } from "./AppointmentConfig";
 import { toast } from "sonner";
@@ -111,7 +111,11 @@ export function AppointmentDialog({
   const [matchChoice, setMatchChoice] = useState<MatchChoice | null>(null);
   const [showPetList, setShowPetList] = useState(false);
   const [isSearchingOwner, startSearchOwner] = useTransition();
-  const phoneDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep latest field values in refs so runMatchSearch always has fresh data
+  const petNameRef = useRef("");
+  const ownerFirstRef = useRef("");
+  const ownerLastRef = useRef("");
+  const phoneRef = useRef("");
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -188,6 +192,10 @@ export function AppointmentDialog({
     setOwnerMatches([]);
     setMatchChoice(null);
     setShowPetList(false);
+    petNameRef.current = "";
+    ownerFirstRef.current = "";
+    ownerLastRef.current = "";
+    phoneRef.current = "";
   }
 
   // Pet search (existing mode)
@@ -199,20 +207,52 @@ export function AppointmentDialog({
     });
   }, [petQuery]);
 
-  // Phone debounce → owner match search
-  const handlePhoneChange = useCallback((value: string) => {
-    setPrimaryPhone(value);
+  // Run match search using latest values from all primary fields
+  const runMatchSearch = useCallback(() => {
+    const petName = petNameRef.current;
+    const ownerFirst = ownerFirstRef.current;
+    const ownerLast = ownerLastRef.current;
+    const phone = phoneRef.current;
+    const hasInput =
+      petName.length >= 2 || ownerFirst.length >= 2 || ownerLast.length >= 2 || phone.length >= 2;
+    if (!hasInput) { setOwnerMatches([]); return; }
+    startSearchOwner(async () => {
+      const results = await findExistingPatients({ petName, ownerFirst, ownerLast, phone });
+      setOwnerMatches(results as OwnerResult[]);
+    });
+  }, []);
+
+  const handlePetNameChange = useCallback((value: string) => {
+    setPrimaryPetName(value);
+    petNameRef.current = value;
     setMatchChoice(null);
     setShowPetList(false);
-    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
-    if (value.length < 7) { setOwnerMatches([]); return; }
-    phoneDebounceRef.current = setTimeout(() => {
-      startSearchOwner(async () => {
-        const results = await searchOwnersWithPets(value);
-        setOwnerMatches(results as OwnerResult[]);
-      });
-    }, 500);
-  }, []);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleOwnerFirstChange = useCallback((value: string) => {
+    setPrimaryOwnerFirst(value);
+    ownerFirstRef.current = value;
+    setMatchChoice(null);
+    setShowPetList(false);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleOwnerLastChange = useCallback((value: string) => {
+    setPrimaryOwnerLast(value);
+    ownerLastRef.current = value;
+    setMatchChoice(null);
+    setShowPetList(false);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handlePhoneChange = useCallback((value: string) => {
+    setPrimaryPhone(value);
+    phoneRef.current = value;
+    setMatchChoice(null);
+    setShowPetList(false);
+    runMatchSearch();
+  }, [runMatchSearch]);
 
   const watchType = form.watch("type");
   const watchVetId = form.watch("veterinarianId");
@@ -431,7 +471,7 @@ export function AppointmentDialog({
                   <Input
                     placeholder="Ej: Max"
                     value={primaryPetName}
-                    onChange={(e) => setPrimaryPetName(e.target.value)}
+                    onChange={(e) => handlePetNameChange(e.target.value)}
                   />
                   {primaryErrors.petName && <p className="text-xs text-destructive">{primaryErrors.petName}</p>}
                 </div>
@@ -461,9 +501,9 @@ export function AppointmentDialog({
                 <div className="space-y-1.5">
                   <Label>Propietario (nombre) *</Label>
                   <Input
-                    placeholder="Ej: Ana"
+                    placeholder="Ej: Alex"
                     value={primaryOwnerFirst}
-                    onChange={(e) => setPrimaryOwnerFirst(e.target.value)}
+                    onChange={(e) => handleOwnerFirstChange(e.target.value)}
                   />
                   {primaryErrors.ownerFirst && <p className="text-xs text-destructive">{primaryErrors.ownerFirst}</p>}
                 </div>
@@ -472,7 +512,7 @@ export function AppointmentDialog({
                   <Input
                     placeholder="Ej: García"
                     value={primaryOwnerLast}
-                    onChange={(e) => setPrimaryOwnerLast(e.target.value)}
+                    onChange={(e) => handleOwnerLastChange(e.target.value)}
                   />
                   {primaryErrors.ownerLast && <p className="text-xs text-destructive">{primaryErrors.ownerLast}</p>}
                 </div>

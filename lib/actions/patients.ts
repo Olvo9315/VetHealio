@@ -72,6 +72,38 @@ export async function searchOwnersWithPets(query: string) {
   });
 }
 
+export async function findExistingPatients(params: {
+  petName?: string;
+  ownerFirst?: string;
+  ownerLast?: string;
+  phone?: string;
+}) {
+  const conditions: object[] = [];
+  if (params.phone && params.phone.length >= 2)
+    conditions.push({ phone: { contains: params.phone } });
+  if (params.ownerFirst && params.ownerFirst.length >= 2)
+    conditions.push({ firstName: { contains: params.ownerFirst, mode: "insensitive" } });
+  if (params.ownerLast && params.ownerLast.length >= 2)
+    conditions.push({ lastName: { contains: params.ownerLast, mode: "insensitive" } });
+  if (params.petName && params.petName.length >= 2)
+    conditions.push({ pets: { some: { name: { contains: params.petName, mode: "insensitive" }, isActive: true } } });
+
+  if (conditions.length === 0) return [];
+
+  return prisma.owner.findMany({
+    where: { OR: conditions },
+    include: {
+      pets: {
+        where: { isActive: true },
+        select: { id: true, name: true, species: true },
+        orderBy: { name: "asc" },
+      },
+    },
+    take: 5,
+    orderBy: { lastName: "asc" },
+  });
+}
+
 export async function createOwner(data: z.infer<typeof ownerSchema>) {
   const parsed = ownerSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
