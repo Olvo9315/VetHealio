@@ -63,6 +63,30 @@ enum InvoiceItemType {
   OTHER
 }
 
+enum SalaryType {
+  HOURLY
+  MONTHLY
+}
+
+enum ContractType {
+  FULL_TIME
+  PART_TIME
+  CONTRACTOR
+}
+
+enum LeaveType {
+  VACATION
+  UNPAID_LEAVE
+  AGREEMENT
+  SICK_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                    String   @id @default(cuid())
   email                 String   @unique
@@ -78,11 +102,110 @@ model User {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  appointments   Appointment[]   @relation("VeterinarianAppointments")
-  medicalRecords MedicalRecord[]
-  vaccinations   Vaccination[]
-  accounts       Account[]
-  sessions       Session[]
+  appointments        Appointment[]   @relation("VeterinarianAppointments")
+  medicalRecords      MedicalRecord[]
+  vaccinations        Vaccination[]
+  accounts            Account[]
+  sessions            Session[]
+  staffProfile        StaffProfile?
+  staffShifts         StaffShift[]
+  reviewedLeaves      LeaveRequest[]      @relation("LeaveReviewer")
+  performanceReviews  PerformanceReview[] @relation("PerformanceReviewer")
+  staffAuditLogs      StaffAuditLog[]     @relation("StaffAuditor")
+}
+
+model StaffProfile {
+  id             String       @id @default(cuid())
+  userId         String       @unique
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  specialization String?
+  licenseNumber  String?
+  education      String?
+  diplomaPath    String?
+  contractPath   String?
+  salaryAmount   Float?
+  salaryType     SalaryType   @default(MONTHLY)
+  hireDate       DateTime?
+  contractType   ContractType @default(FULL_TIME)
+  isActive       Boolean      @default(true)
+  canManageStaff Boolean      @default(false)
+  annualLeaveDays Int         @default(21)
+  weeklyTemplate Json?
+  emergencyName  String?
+  emergencyPhone String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  leaveRequests      LeaveRequest[]
+  certifications     StaffCertification[]
+  performanceReviews PerformanceReview[]
+  auditLogs          StaffAuditLog[]
+}
+
+model StaffShift {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model LeaveRequest {
+  id             String      @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  type           LeaveType
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  reviewedById   String?
+  reviewedBy     User?       @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  reviewNote     String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model StaffCertification {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  name           String
+  issuedBy       String?
+  issuedDate     DateTime?
+  expiryDate     DateTime?
+  documentPath   String?
+  notifiedAt     DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model PerformanceReview {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  reviewer       User         @relation("PerformanceReviewer", fields: [reviewerId], references: [id])
+  period         String
+  score          Int?
+  comment        String?
+  createdAt      DateTime     @default(now())
+}
+
+model StaffAuditLog {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  changedById    String
+  changedBy      User         @relation("StaffAuditor", fields: [changedById], references: [id])
+  field          String
+  oldValue       String?
+  newValue       String?
+  createdAt      DateTime     @default(now())
 }
 
 model Account {

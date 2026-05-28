@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { FileText, Package, Settings, X, LogOut, Heart } from "lucide-react";
+import { FileText, Package, Settings, X, LogOut, Heart, Users } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 
@@ -12,14 +12,15 @@ const extraNav = [
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/settings", icon: Settings, key: "settings" },
-];
+] as const;
 
 interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
+  showStaff?: boolean;
 }
 
-export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose, showStaff }: MobileDrawerProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
@@ -102,6 +103,20 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               </Link>
             );
           })}
+          {showStaff && (
+            <Link
+              href="/staff"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3.5 rounded-xl transition-colors",
+                pathname.startsWith("/staff")
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-foreground hover:bg-muted"
+              )}
+            >
+              <Users className="w-5 h-5 shrink-0" />
+              <span className="text-sm">{t("staff")}</span>
+            </Link>
+          )}
         </nav>
 
         {/* Logout */}
