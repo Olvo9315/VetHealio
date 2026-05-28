@@ -49,6 +49,29 @@ export async function searchOwners(query: string) {
   });
 }
 
+export async function searchOwnersWithPets(query: string) {
+  if (!query || query.length < 2) return [];
+  return prisma.owner.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { phone: { contains: query } },
+        { email: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    include: {
+      pets: {
+        where: { isActive: true },
+        select: { id: true, name: true, species: true },
+        orderBy: { name: "asc" },
+      },
+    },
+    take: 5,
+    orderBy: { lastName: "asc" },
+  });
+}
+
 export async function createOwner(data: z.infer<typeof ownerSchema>) {
   const parsed = ownerSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };

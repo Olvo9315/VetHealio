@@ -103,7 +103,19 @@
     "day": "День",
     "agenda": "Список",
     "petSearch": "Поиск пациента...",
-    "vetSearch": "Поиск ветеринара..."
+    "vetSearch": "Поиск ветеринара...",
+    "existingPatient": "Пациент",
+    "primaryVisit": "Первичный",
+    "petName": "Кличка питомца",
+    "petSpecies": "Вид",
+    "ownerFirstName": "Имя",
+    "ownerLastName": "Фамилия",
+    "ownerPhone": "Телефон",
+    "matchFound": "Найден владелец",
+    "matchPets": "Питомцы",
+    "useExistingOwner": "Добавить нового питомца",
+    "selectExistingPet": "Выбрать существующего питомца",
+    "ignoreMatch": "Игнорировать"
   },
   "medicalRecords": {
     "title": "Медицинские карты",

@@ -103,7 +103,19 @@
     "day": "Día",
     "agenda": "Agenda",
     "petSearch": "Buscar paciente...",
-    "vetSearch": "Buscar veterinario..."
+    "vetSearch": "Buscar veterinario...",
+    "existingPatient": "Paciente",
+    "primaryVisit": "Primario",
+    "petName": "Nombre del paciente",
+    "petSpecies": "Especie",
+    "ownerFirstName": "Nombre",
+    "ownerLastName": "Apellido",
+    "ownerPhone": "Teléfono",
+    "matchFound": "Propietario encontrado",
+    "matchPets": "Mascotas",
+    "useExistingOwner": "Añadir mascota nueva",
+    "selectExistingPet": "Seleccionar mascota existente",
+    "ignoreMatch": "Ignorar"
   },
   "medicalRecords": {
     "title": "Historiales médicos",

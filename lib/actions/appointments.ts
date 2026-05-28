@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { AppointmentStatus, AppointmentType } from "@prisma/client";
+import { AppointmentStatus, AppointmentType, Species } from "@prisma/client";
 
 // ---- Types ----
 
@@ -199,4 +199,94 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
 export async function deleteAppointment(id: string) {
   await prisma.appointment.delete({ where: { id } });
   revalidatePath("/appointments");
+}
+
+// ---- Primary visit: create owner+pet+appointment in one transaction ----
+
+const primaryPatientSchema = z.object({
+  petName: z.string().min(1).max(50),
+  petSpecies: z.nativeEnum(Species),
+  ownerFirstName: z.string().min(1).max(50),
+  ownerLastName: z.string().min(1).max(50),
+  ownerPhone: z.string().min(7).max(20),
+  existingOwnerId: z.string().optional(),
+  existingPetId: z.string().optional(),
+});
+
+const appointmentBaseSchema = z.object({
+  title: z.string().min(1).max(100),
+  veterinarianId: z.string().min(1),
+  type: z.nativeEnum(AppointmentType),
+  startTime: z.string().min(1),
+  endTime: z.string().min(1),
+  notes: z.string().max(500).optional().or(z.literal("")),
+});
+
+export async function createAppointmentWithNewPatient(
+  apptData: z.infer<typeof appointmentBaseSchema>,
+  primary: z.infer<typeof primaryPatientSchema>
+) {
+  const parsedAppt = appointmentBaseSchema.safeParse(apptData);
+  if (!parsedAppt.success) return { error: parsedAppt.error.flatten() };
+
+  const parsedPrimary = primaryPatientSchema.safeParse(primary);
+  if (!parsedPrimary.success) return { error: parsedPrimary.error.flatten() };
+
+  const startTime = new Date(parsedAppt.data.startTime);
+  const endTime = new Date(parsedAppt.data.endTime);
+  if (endTime <= startTime) {
+    return { error: { fieldErrors: { endTime: ["Debe ser posterior al inicio"] }, formErrors: [] } };
+  }
+
+  const { petName, petSpecies, ownerFirstName, ownerLastName, ownerPhone, existingOwnerId, existingPetId } = parsedPrimary.data;
+
+  const appointment = await prisma.$transaction(async (tx) => {
+    let resolvedPetId: string;
+
+    if (existingPetId) {
+      // Case A: use existing pet directly
+      resolvedPetId = existingPetId;
+    } else if (existingOwnerId) {
+      // Case B: add new pet to existing owner
+      const pet = await tx.pet.create({
+        data: { name: petName, species: petSpecies, ownerId: existingOwnerId },
+      });
+      resolvedPetId = pet.id;
+    } else {
+      // Case C: create new owner + pet
+      const owner = await tx.owner.create({
+        data: { firstName: ownerFirstName, lastName: ownerLastName, phone: ownerPhone },
+      });
+      const pet = await tx.pet.create({
+        data: { name: petName, species: petSpecies, ownerId: owner.id },
+      });
+      resolvedPetId = pet.id;
+    }
+
+    return tx.appointment.create({
+      data: {
+        title: parsedAppt.data.title,
+        petId: resolvedPetId,
+        veterinarianId: parsedAppt.data.veterinarianId,
+        type: parsedAppt.data.type,
+        startTime,
+        endTime,
+        notes: parsedAppt.data.notes || null,
+        status: AppointmentStatus.SCHEDULED,
+      },
+      include: {
+        pet: {
+          select: {
+            id: true, name: true, species: true,
+            owner: { select: { firstName: true, lastName: true, phone: true } },
+          },
+        },
+        veterinarian: { select: { id: true, name: true } },
+      },
+    });
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/patients");
+  return { appointment };
 }
