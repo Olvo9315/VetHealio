@@ -113,6 +113,7 @@ export function AppointmentDialog({
   const [isSearchingOwner, startSearchOwner] = useTransition();
   // Keep latest field values in refs so runMatchSearch always has fresh data
   const petNameRef = useRef("");
+  const speciesRef = useRef<Species | "">("");
   const ownerFirstRef = useRef("");
   const ownerLastRef = useRef("");
   const phoneRef = useRef("");
@@ -193,6 +194,7 @@ export function AppointmentDialog({
     setMatchChoice(null);
     setShowPetList(false);
     petNameRef.current = "";
+    speciesRef.current = "";
     ownerFirstRef.current = "";
     ownerLastRef.current = "";
     phoneRef.current = "";
@@ -207,17 +209,18 @@ export function AppointmentDialog({
     });
   }, [petQuery]);
 
-  // Run match search using latest values from all primary fields
+  // Run match search using latest values from all primary fields (AND logic)
   const runMatchSearch = useCallback(() => {
     const petName = petNameRef.current;
+    const petSpecies = speciesRef.current;
     const ownerFirst = ownerFirstRef.current;
     const ownerLast = ownerLastRef.current;
     const phone = phoneRef.current;
-    const hasInput =
+    const hasTextInput =
       petName.length >= 2 || ownerFirst.length >= 2 || ownerLast.length >= 2 || phone.length >= 2;
-    if (!hasInput) { setOwnerMatches([]); return; }
+    if (!hasTextInput) { setOwnerMatches([]); return; }
     startSearchOwner(async () => {
-      const results = await findExistingPatients({ petName, ownerFirst, ownerLast, phone });
+      const results = await findExistingPatients({ petName, petSpecies, ownerFirst, ownerLast, phone });
       setOwnerMatches(results as OwnerResult[]);
     });
   }, []);
@@ -241,6 +244,14 @@ export function AppointmentDialog({
   const handleOwnerLastChange = useCallback((value: string) => {
     setPrimaryOwnerLast(value);
     ownerLastRef.current = value;
+    setMatchChoice(null);
+    setShowPetList(false);
+    runMatchSearch();
+  }, [runMatchSearch]);
+
+  const handleSpeciesChange = useCallback((value: Species | "") => {
+    setPrimarySpecies(value);
+    speciesRef.current = value;
     setMatchChoice(null);
     setShowPetList(false);
     runMatchSearch();
@@ -479,7 +490,7 @@ export function AppointmentDialog({
                   <Label>Especie *</Label>
                   <Select
                     value={primarySpecies}
-                    onValueChange={(v) => setPrimarySpecies(v as Species)}
+                    onValueChange={(v) => handleSpeciesChange(v as Species)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar">

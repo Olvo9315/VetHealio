@@ -74,24 +74,48 @@ export async function searchOwnersWithPets(query: string) {
 
 export async function findExistingPatients(params: {
   petName?: string;
+  petSpecies?: string;
   ownerFirst?: string;
   ownerLast?: string;
   phone?: string;
 }) {
-  const conditions: object[] = [];
-  if (params.phone && params.phone.length >= 2)
-    conditions.push({ phone: { contains: params.phone } });
-  if (params.ownerFirst && params.ownerFirst.length >= 2)
-    conditions.push({ firstName: { contains: params.ownerFirst, mode: "insensitive" } });
-  if (params.ownerLast && params.ownerLast.length >= 2)
-    conditions.push({ lastName: { contains: params.ownerLast, mode: "insensitive" } });
-  if (params.petName && params.petName.length >= 2)
-    conditions.push({ pets: { some: { name: { contains: params.petName, mode: "insensitive" }, isActive: true } } });
+  // At least one text field must have meaningful input to trigger search
+  const hasTextInput =
+    (params.petName?.length ?? 0) >= 2 ||
+    (params.ownerFirst?.length ?? 0) >= 2 ||
+    (params.ownerLast?.length ?? 0) >= 2 ||
+    (params.phone?.length ?? 0) >= 2;
+  if (!hasTextInput) return [];
 
-  if (conditions.length === 0) return [];
+  // Pet conditions: petName AND petSpecies apply to the same pet record
+  const hasPetFilter = (params.petName?.length ?? 0) >= 2 || !!params.petSpecies;
+  const petCondition = hasPetFilter
+    ? {
+        pets: {
+          some: {
+            isActive: true,
+            ...((params.petName?.length ?? 0) >= 2
+              ? { name: { contains: params.petName, mode: "insensitive" as const } }
+              : {}),
+            ...(params.petSpecies ? { species: params.petSpecies as Species } : {}),
+          },
+        },
+      }
+    : {};
+
+  // Owner conditions: all specified fields must match (AND)
+  const ownerConditions = {
+    ...((params.ownerFirst?.length ?? 0) >= 2
+      ? { firstName: { contains: params.ownerFirst, mode: "insensitive" as const } }
+      : {}),
+    ...((params.ownerLast?.length ?? 0) >= 2
+      ? { lastName: { contains: params.ownerLast, mode: "insensitive" as const } }
+      : {}),
+    ...((params.phone?.length ?? 0) >= 2 ? { phone: { contains: params.phone } } : {}),
+  };
 
   return prisma.owner.findMany({
-    where: { OR: conditions },
+    where: { ...ownerConditions, ...petCondition },
     include: {
       pets: {
         where: { isActive: true },
