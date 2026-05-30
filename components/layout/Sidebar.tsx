@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const navItems = [
+const baseNavItems = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
   { href: "/patients", icon: PawPrint, key: "patients" },
   { href: "/appointments", icon: Calendar, key: "appointments" },
@@ -35,12 +36,20 @@ const navItems = [
   { href: "/finances", icon: DollarSign, key: "finances" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/settings", icon: Settings, key: "settings" },
-];
+] as const;
 
-export function Sidebar() {
+interface SidebarProps {
+  showStaff?: boolean;
+}
+
+export function Sidebar({ showStaff }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useTranslations("nav");
+
+  const navItems = showStaff
+    ? [...baseNavItems, { href: "/staff", icon: Users, key: "staff" } as const]
+    : baseNavItems;
 
   return (
     <TooltipProvider delay={0}>

@@ -21,12 +21,16 @@ const primaryNav = [
   { href: "/finances", icon: DollarSign, key: "finances" },
 ];
 
-export function BottomNav() {
+interface BottomNavProps {
+  showStaff?: boolean;
+}
+
+export function BottomNav({ showStaff }: BottomNavProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const isMoreActive = ["/medical-records", "/inventory", "/settings"].some((p) =>
+  const isMoreActive = ["/medical-records", "/inventory", "/settings", ...(showStaff ? ["/staff"] : [])].some((p) =>
     pathname.startsWith(p)
   );
 
@@ -100,7 +104,7 @@ export function BottomNav() {
         </ul>
       </nav>
 
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} showStaff={showStaff} />
     </>
   );
 }

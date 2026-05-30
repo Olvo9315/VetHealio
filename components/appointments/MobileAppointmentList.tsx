@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, addDays, subDays, isToday, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
@@ -8,7 +8,7 @@ import { typeConfig, statusConfig } from "./AppointmentConfig";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Vet = { id: string; name: string; role: string };
@@ -28,6 +28,24 @@ export function MobileAppointmentList({ initialAppointments, vets }: MobileAppoi
   const dayAppointments = appointments
     .filter((a) => isSameDay(new Date(a.startTime), date))
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  const conflictIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (let i = 0; i < dayAppointments.length; i++) {
+      for (let j = i + 1; j < dayAppointments.length; j++) {
+        const a = dayAppointments[i], b = dayAppointments[j];
+        if (
+          a.veterinarianId === b.veterinarianId &&
+          new Date(a.startTime) < new Date(b.endTime) &&
+          new Date(a.endTime) > new Date(b.startTime)
+        ) {
+          ids.add(a.id);
+          ids.add(b.id);
+        }
+      }
+    }
+    return ids;
+  }, [dayAppointments]);
 
   function handleUpdated(apt: AppointmentFull) {
     setAppointments((prev) => prev.map((a) => (a.id === apt.id ? apt : a)));
@@ -114,16 +132,20 @@ export function MobileAppointmentList({ initialAppointments, vets }: MobileAppoi
           {dayAppointments.map((apt) => {
             const typeCfg = typeConfig[apt.type];
             const stCfg = statusConfig[apt.status];
+            const hasConflict = conflictIds.has(apt.id);
             return (
               <button
                 key={apt.id}
-                className="w-full flex items-start gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors text-left"
+                className={cn(
+                  "w-full flex items-start gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 transition-colors text-left",
+                  hasConflict ? "border-red-400 dark:border-red-600" : "border-border"
+                )}
                 onClick={() => { setSelectedApt(apt); setDetailOpen(true); }}
               >
                 {/* Color bar */}
                 <div
                   className="w-1 self-stretch rounded-full shrink-0 mt-0.5"
-                  style={{ backgroundColor: typeCfg.border }}
+                  style={{ backgroundColor: hasConflict ? "#ef4444" : typeCfg.border }}
                 />
                 {/* Time */}
                 <div className="text-xs font-mono text-muted-foreground w-10 shrink-0 pt-0.5">
@@ -132,17 +154,22 @@ export function MobileAppointmentList({ initialAppointments, vets }: MobileAppoi
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{apt.pet.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
                     {typeCfg.label} · Dr. {apt.veterinarian.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {apt.pet.owner.firstName} {apt.pet.owner.lastName}
                   </p>
                 </div>
-                {/* Status badge */}
-                <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0", stCfg.className)}>
-                  {stCfg.label}
-                </span>
+                {/* Conflict warning / Status badge */}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {hasConflict && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                  )}
+                  <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
+                    {stCfg.label}
+                  </span>
+                </div>
               </button>
             );
           })}

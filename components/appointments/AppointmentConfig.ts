@@ -21,18 +21,20 @@ export const statusConfig: Record<AppointmentStatus, { label: string; className:
 // Opacity modifier by status for calendar events
 export function getEventStyle(type: AppointmentType, status: AppointmentStatus) {
   const cfg = typeConfig[type];
-  const opacity = status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW" ? 0.5 : 1;
+  const faded = status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW";
   return {
     backgroundColor: cfg.bg,
-    borderLeft: `3px solid ${cfg.border}`,
+    border: `1px solid ${cfg.border}`,
+    borderLeftWidth: "3px",
+    borderLeftColor: cfg.color,
     color: cfg.color,
-    opacity,
-    borderRadius: "4px",
-    padding: "1px 4px",
-    fontSize: "12px",
+    opacity: faded ? 0.55 : 1,
+    borderRadius: "5px",
+    padding: "2px 5px",
+    fontSize: "11px",
     fontWeight: 500,
     overflow: "hidden",
-    border: "none",
-    boxShadow: "none",
+    // stacked-paper depth effect
+    boxShadow: `2px 2px 0 ${cfg.border}, 4px 4px 0 ${cfg.border}80`,
   };
 }

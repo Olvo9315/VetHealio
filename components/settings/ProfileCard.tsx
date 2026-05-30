@@ -23,7 +23,8 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const schema = z.object({
-  name: z.string().min(1, "required").max(100),
+  firstName: z.string().min(1, "required").max(50),
+  lastName: z.string().min(1, "required").max(50),
   phone: z.string().max(20).optional().or(z.literal("")),
   avatar: z.string().url("invalid").optional().or(z.literal("")),
 });
@@ -46,19 +47,18 @@ export function ProfileCard({ user }: ProfileCardProps) {
     ASSISTANT: t("roleAssistant"),
   };
 
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .slice(0, 2)
+  const initials = [user.firstName?.[0], user.lastName?.[0]]
+    .filter(Boolean)
     .join("")
-    .toUpperCase();
+    .toUpperCase() || user.name.slice(0, 2).toUpperCase();
 
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: user.name ?? "",
+      firstName: user.firstName ?? "",
+      lastName: user.lastName ?? "",
       phone: user.phone ?? "",
       avatar: user.avatar ?? "",
     },
@@ -114,13 +114,22 @@ export function ProfileCard({ user }: ProfileCardProps) {
           form.handleSubmit(handleSubmit)();
         }}
       >
-        {/* Name */}
-        <div className="space-y-1.5">
-          <Label htmlFor="name">{t("name")} *</Label>
-          <Input id="name" {...form.register("name")} />
-          {form.formState.errors.name && (
-            <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-          )}
+        {/* First + Last name */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="firstName">{t("firstName")} *</Label>
+            <Input id="firstName" {...form.register("firstName")} />
+            {form.formState.errors.firstName && (
+              <p className="text-xs text-destructive">{form.formState.errors.firstName.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lastName">{t("lastName")} *</Label>
+            <Input id="lastName" {...form.register("lastName")} />
+            {form.formState.errors.lastName && (
+              <p className="text-xs text-destructive">{form.formState.errors.lastName.message}</p>
+            )}
+          </div>
         </div>
 
         {/* Email (read-only) */}
