@@ -28,15 +28,14 @@ interface NewStaffDialogProps {
   onOpenChange: (v: boolean) => void;
 }
 
-const ROLES: Role[] = ["VETERINARIAN", "RECEPTIONIST", "ASSISTANT", "ADMIN"];
-
 export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
   const t = useTranslations("staff");
   const tc = useTranslations("common");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     role: "VETERINARIAN" as Role,
@@ -60,7 +59,7 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
       }
       toast.success(t("saved"));
       onOpenChange(false);
-      setForm({ name: "", email: "", password: "", role: "VETERINARIAN", phone: "" });
+      setForm({ firstName: "", lastName: "", email: "", password: "", role: "VETERINARIAN", phone: "" });
       router.refresh();
     });
   }
@@ -72,10 +71,17 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
           <DialogTitle>{t("new")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <Label>{t("name")}</Label>
-            <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
-            {errors.name && <p className="text-xs text-destructive">{errors.name[0]}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>{t("firstName")}</Label>
+              <Input value={form.firstName} onChange={(e) => set("firstName", e.target.value)} required />
+              {errors.firstName && <p className="text-xs text-destructive">{errors.firstName[0]}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label>{t("lastName")}</Label>
+              <Input value={form.lastName} onChange={(e) => set("lastName", e.target.value)} required />
+              {errors.lastName && <p className="text-xs text-destructive">{errors.lastName[0]}</p>}
+            </div>
           </div>
           <div className="space-y-1">
             <Label>{t("email")}</Label>
@@ -90,11 +96,16 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
           <div className="space-y-1">
             <Label>{t("role")}</Label>
             <Select value={form.role} onValueChange={(v) => set("role", v ?? "VETERINARIAN")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue>
+                  {({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") })[form.role]}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
-                {ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>{r}</SelectItem>
-                ))}
+                <SelectItem value="VETERINARIAN">{t("roleVeterinarian")}</SelectItem>
+                <SelectItem value="RECEPTIONIST">{t("roleReceptionist")}</SelectItem>
+                <SelectItem value="ASSISTANT">{t("roleAssistant")}</SelectItem>
+                <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -66,7 +66,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
           <div className="space-y-1">
             <Label>{t("leaveType")}</Label>
             <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as LeaveType }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{TYPE_LABELS[form.type]}</SelectValue></SelectTrigger>
               <SelectContent>
                 {LEAVE_TYPES.map((t) => <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>)}
               </SelectContent>

@@ -11,6 +11,8 @@ import type { Role } from "@prisma/client";
 export type UserProfile = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string | null;
   avatar: string | null;
@@ -22,7 +24,8 @@ export type UserProfile = {
 // ---- Schemas ----
 
 const profileSchema = z.object({
-  name: z.string().min(1).max(100),
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
   phone: z.string().max(20).optional().or(z.literal("")),
   avatar: z.string().url().optional().or(z.literal("")),
 });
@@ -46,6 +49,8 @@ export async function getUserById(id: string): Promise<UserProfile | null> {
     select: {
       id: true,
       name: true,
+      firstName: true,
+      lastName: true,
       email: true,
       phone: true,
       avatar: true,
@@ -66,11 +71,13 @@ export async function updateProfile(userId: string, data: z.infer<typeof profile
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      name: parsed.data.name,
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      name: `${parsed.data.firstName} ${parsed.data.lastName}`.trim(),
       phone: parsed.data.phone || null,
       avatar: parsed.data.avatar || null,
     },
-    select: { id: true, name: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
+    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
   });
 
   revalidatePath("/settings");
@@ -107,7 +114,7 @@ export async function updatePreferences(userId: string, data: z.infer<typeof pre
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
       ...(parsed.data.theme ? { theme: parsed.data.theme } : {}),
     },
-    select: { id: true, name: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
+    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
   });
 
   revalidatePath("/settings");

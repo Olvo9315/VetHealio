@@ -54,9 +54,24 @@ const ROLE_COLORS: Record<Role, string> = {
   ASSISTANT: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
 };
 
+const SPEC_KEYS = [
+  "generalPractice", "smallAnimals", "largeAnimals", "exoticAnimals",
+  "surgery", "internalMedicine", "cardiology", "gastroenterology", "dermatology",
+  "oncology", "ophthalmology", "neurology", "orthopedics", "emergency",
+  "dentistry", "reproduction", "anesthesia", "radiology", "nutrition",
+  "rehabilitation", "preventiveMedicine",
+] as const;
+
 export function StaffList({ staff, isAdmin }: StaffListProps) {
   const t = useTranslations("staff");
   const router = useRouter();
+
+  function translateSpec(spec: string | null): string {
+    if (!spec) return "—";
+    return SPEC_KEYS.includes(spec as typeof SPEC_KEYS[number])
+      ? t(`spec_${spec}` as Parameters<typeof t>[0])
+      : spec;
+  }
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [activeFilter, setActiveFilter] = useState<string>("true");
@@ -90,18 +105,23 @@ export function StaffList({ staff, isAdmin }: StaffListProps) {
         </div>
         <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v ?? "ALL")}>
           <SelectTrigger className="w-full sm:w-40">
-            <SelectValue />
+            <SelectValue>
+              {roleFilter === "ALL" ? t("all") : ({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") } as Record<string, string>)[roleFilter]}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">{t("all")}</SelectItem>
-            {(["ADMIN", "VETERINARIAN", "RECEPTIONIST", "ASSISTANT"] as Role[]).map((r) => (
-              <SelectItem key={r} value={r}>{r}</SelectItem>
-            ))}
+            <SelectItem value="VETERINARIAN">{t("roleVeterinarian")}</SelectItem>
+            <SelectItem value="RECEPTIONIST">{t("roleReceptionist")}</SelectItem>
+            <SelectItem value="ASSISTANT">{t("roleAssistant")}</SelectItem>
+            <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v ?? "true")}>
           <SelectTrigger className="w-full sm:w-36">
-            <SelectValue />
+            <SelectValue>
+              {{ true: t("active"), false: t("inactive"), all: t("all") }[activeFilter]}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="true">{t("active")}</SelectItem>
@@ -161,10 +181,10 @@ export function StaffList({ staff, isAdmin }: StaffListProps) {
                   </TableCell>
                   <TableCell>
                     <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", ROLE_COLORS[s.user.role])}>
-                      {s.user.role}
+                      {({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") })[s.user.role]}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{s.specialization ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{translateSpec(s.specialization)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{s.user.phone ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant={s.isActive ? "default" : "secondary"}>
@@ -204,7 +224,7 @@ export function StaffList({ staff, isAdmin }: StaffListProps) {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", ROLE_COLORS[s.user.role])}>
-                    {s.user.role}
+                    {({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") })[s.user.role]}
                   </span>
                   <Badge variant={s.isActive ? "default" : "secondary"} className="text-[10px]">
                     {s.isActive ? t("active") : t("inactive")}
@@ -212,7 +232,7 @@ export function StaffList({ staff, isAdmin }: StaffListProps) {
                 </div>
               </div>
               {s.specialization && (
-                <p className="mt-2 text-xs text-muted-foreground">{s.specialization}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{translateSpec(s.specialization)}</p>
               )}
             </Link>
           ))

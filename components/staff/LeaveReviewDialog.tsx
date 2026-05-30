@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { reviewLeaveRequest } from "@/lib/actions/leaveRequests";
-import { LeaveType, LeaveStatus } from "@prisma/client";
+import { LeaveType } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";

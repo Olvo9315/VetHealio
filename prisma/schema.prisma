@@ -92,6 +92,8 @@ model User {
   email                 String   @unique
   password              String
   name                  String
+  firstName             String   @default("")
+  lastName              String   @default("")
   role                  Role     @default(RECEPTIONIST)
   avatar                String?
   phone                 String?

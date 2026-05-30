@@ -25,16 +25,16 @@ interface LeaveRequestsTableProps {
   leaves: LeaveItem[];
 }
 
-const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
-  VACATION: "Vacaciones",
-  SICK_LEAVE: "Baja médica",
-  UNPAID_LEAVE: "Excedencia",
-  AGREEMENT: "Permiso acordado",
-};
-
 export function LeaveRequestsTable({ leaves }: LeaveRequestsTableProps) {
   const t = useTranslations("staff");
   const [reviewLeave, setReviewLeave] = useState<LeaveItem | null>(null);
+
+  const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+    VACATION: t("vacation"),
+    SICK_LEAVE: t("sickLeave"),
+    UNPAID_LEAVE: t("unpaidLeave"),
+    AGREEMENT: t("agreement"),
+  };
 
   if (leaves.length === 0) {
     return (

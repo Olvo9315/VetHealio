@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { updateStaffProfile, deactivateStaff, reactivateStaff, getLeaveBalance } from "@/lib/actions/staff";
+import { updateStaffProfile, deactivateStaff, reactivateStaff } from "@/lib/actions/staff";
 import { Role, LeaveType, LeaveStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StaffDocuments } from "./StaffDocuments";
 import { StaffShiftCalendar } from "./StaffShiftCalendar";
@@ -69,24 +68,35 @@ const STATUS_ICONS = {
   REJECTED: <XCircle className="h-3.5 w-3.5 text-red-500" />,
 };
 
-const STATUS_LABELS: Record<LeaveStatus, string> = {
-  PENDING: "Pendiente",
-  APPROVED: "Aprobado",
-  REJECTED: "Rechazado",
-};
+type TabId = "profile" | "documents" | "schedule" | "leaves" | "certifications" | "reviews";
 
-const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
-  VACATION: "Vacaciones",
-  SICK_LEAVE: "Baja médica",
-  UNPAID_LEAVE: "Excedencia",
-  AGREEMENT: "Permiso acordado",
-};
+const SPEC_KEYS = [
+  "generalPractice", "smallAnimals", "largeAnimals", "exoticAnimals",
+  "surgery", "internalMedicine", "cardiology", "gastroenterology", "dermatology",
+  "oncology", "ophthalmology", "neurology", "orthopedics", "emergency",
+  "dentistry", "reproduction", "anesthesia", "radiology", "nutrition",
+  "rehabilitation", "preventiveMedicine",
+] as const;
 
 export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffProfileTabsProps) {
   const t = useTranslations("staff");
   const tc = useTranslations("common");
   const router = useRouter();
+
+  const STATUS_LABELS: Record<LeaveStatus, string> = {
+    PENDING: t("pending"),
+    APPROVED: t("approved"),
+    REJECTED: t("rejected"),
+  };
+
+  const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+    VACATION: t("vacation"),
+    SICK_LEAVE: t("sickLeave"),
+    UNPAID_LEAVE: t("unpaidLeave"),
+    AGREEMENT: t("agreement"),
+  };
   const [isPending, startTransition] = useTransition();
+  const [activeTab, setActiveTab] = useState<TabId>("profile");
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [reviewLeave, setReviewLeave] = useState<(typeof staff.leaveRequests)[0] | null>(null);
 
@@ -153,7 +163,9 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
             <h2 className="text-xl font-semibold">{staff.user.name}</h2>
             <p className="text-sm text-muted-foreground">{staff.user.email}</p>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-xs">{staff.user.role}</Badge>
+              <Badge variant="outline" className="text-xs">
+                {({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") })[staff.user.role]}
+              </Badge>
               <Badge variant={staff.isActive ? "default" : "secondary"} className="text-xs">
                 {staff.isActive ? t("active") : t("inactive")}
               </Badge>
@@ -172,23 +184,55 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
         )}
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="w-full overflow-x-auto">
-          <TabsTrigger value="profile">{t("profile")}</TabsTrigger>
-          <TabsTrigger value="documents">{t("documents")}</TabsTrigger>
-          <TabsTrigger value="schedule">{t("schedule")}</TabsTrigger>
-          <TabsTrigger value="leaves">{t("leaves")}</TabsTrigger>
-          <TabsTrigger value="certifications">{t("certifications")}</TabsTrigger>
-          <TabsTrigger value="reviews">{t("reviews")}</TabsTrigger>
-        </TabsList>
+      {/* Tab bar */}
+      <div className="border-b border-border">
+        <div className="flex overflow-x-auto">
+          {(["profile", "documents", "schedule", "leaves", "certifications", "reviews"] as TabId[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
+                activeTab === tab
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              )}
+            >
+              {t(tab === "profile" ? "profile" : tab === "documents" ? "documents" : tab === "schedule" ? "schedule" : tab === "leaves" ? "leaves" : tab === "certifications" ? "certifications" : "reviews")}
+            </button>
+          ))}
+        </div>
+      </div>
 
         {/* Profile tab */}
-        <TabsContent value="profile" className="mt-4">
+        {activeTab === "profile" && <div className="mt-4">
           <form onSubmit={handleSaveProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>{t("specialization")}</Label>
-                <Input value={form.specialization} onChange={(e) => setForm((f) => ({ ...f, specialization: e.target.value }))} />
+                <Select
+                  value={form.specialization || "__none__"}
+                  onValueChange={(v) => setForm((f) => ({ ...f, specialization: v === "__none__" ? "" : (v ?? "") }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue>
+                      {form.specialization
+                        ? SPEC_KEYS.includes(form.specialization as typeof SPEC_KEYS[number])
+                          ? t(`spec_${form.specialization}` as Parameters<typeof t>[0])
+                          : form.specialization
+                        : <span className="text-muted-foreground">{t("specPlaceholder")}</span>}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" className="text-muted-foreground">—</SelectItem>
+                    {SPEC_KEYS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {t(`spec_${key}` as Parameters<typeof t>[0])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>{t("licenseNumber")}</Label>
@@ -205,7 +249,9 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
               <div className="space-y-1">
                 <Label>{t("salaryType")}</Label>
                 <Select value={form.salaryType} onValueChange={(v) => setForm((f) => ({ ...f, salaryType: v as "HOURLY" | "MONTHLY" }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue>{form.salaryType === "MONTHLY" ? t("monthly") : t("hourly")}</SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
                     <SelectItem value="HOURLY">{t("hourly")}</SelectItem>
@@ -219,7 +265,11 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
               <div className="space-y-1">
                 <Label>{t("contractType")}</Label>
                 <Select value={form.contractType} onValueChange={(v) => setForm((f) => ({ ...f, contractType: v as typeof form.contractType }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {{ FULL_TIME: t("fullTime"), PART_TIME: t("partTime"), CONTRACTOR: t("contractor") }[form.contractType]}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="FULL_TIME">{t("fullTime")}</SelectItem>
                     <SelectItem value="PART_TIME">{t("partTime")}</SelectItem>
@@ -283,24 +333,24 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
               </div>
             </div>
           )}
-        </TabsContent>
+        </div>}
 
         {/* Documents tab */}
-        <TabsContent value="documents" className="mt-4">
+        {activeTab === "documents" && <div className="mt-4">
           <StaffDocuments
             staffProfileId={staff.id}
             diplomaPath={staff.diplomaPath}
             contractPath={staff.contractPath}
           />
-        </TabsContent>
+        </div>}
 
         {/* Schedule tab */}
-        <TabsContent value="schedule" className="mt-4">
+        {activeTab === "schedule" && <div className="mt-4">
           <StaffShiftCalendar userId={staff.user.id} initialShifts={shifts} />
-        </TabsContent>
+        </div>}
 
         {/* Leaves tab */}
-        <TabsContent value="leaves" className="mt-4">
+        {activeTab === "leaves" && <div className="mt-4">
           <div className="space-y-4">
             {/* Leave balance card */}
             <div className="grid grid-cols-3 gap-3">
@@ -339,7 +389,7 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
                           {format(new Date(leave.startDate), "dd/MM/yyyy")} – {format(new Date(leave.endDate), "dd/MM/yyyy")}
                         </p>
                         {leave.reason && <p className="text-xs text-muted-foreground">{leave.reason}</p>}
-                        {leave.reviewNote && <p className="text-xs text-muted-foreground italic">"{leave.reviewNote}"</p>}
+                        {leave.reviewNote && <p className="text-xs text-muted-foreground italic">&ldquo;{leave.reviewNote}&rdquo;</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className={cn(
@@ -362,18 +412,17 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
               </div>
             )}
           </div>
-        </TabsContent>
+        </div>}
 
         {/* Certifications tab */}
-        <TabsContent value="certifications" className="mt-4">
+        {activeTab === "certifications" && <div className="mt-4">
           <StaffCertificationsTab staffProfileId={staff.id} certifications={staff.certifications} />
-        </TabsContent>
+        </div>}
 
         {/* Performance reviews tab */}
-        <TabsContent value="reviews" className="mt-4">
+        {activeTab === "reviews" && <div className="mt-4">
           <PerformanceReviewsTab staffProfileId={staff.id} reviews={staff.performanceReviews} isAdmin={isAdmin} />
-        </TabsContent>
-      </Tabs>
+        </div>}
 
       <LeaveRequestDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen} />
       {reviewLeave && (

@@ -36,7 +36,6 @@ const localizer = dateFnsLocalizer({
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
-// 8-color palette cycling by staff index
 const PALETTE = [
   "#1D9E75", "#2563eb", "#d97706", "#7c3aed",
   "#db2777", "#059669", "#dc2626", "#0891b2",
@@ -56,9 +55,12 @@ type CalEvent = {
   title: string;
   start: Date;
   end: Date;
-  resource: StaffShift;
+  shift: StaffShift;
+  resourceId: string;
   color: string;
 };
+
+type StaffResource = { id: string; name: string; role: string };
 
 interface TeamScheduleCalendarProps {
   initialShifts: StaffShift[];
@@ -70,13 +72,19 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
   const [filterUserId, setFilterUserId] = useState<string>("ALL");
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const colorMap = useMemo(() => {
     const map: Record<string, string> = {};
     staffMembers.forEach((s, i) => { map[s.id] = PALETTE[i % PALETTE.length]; });
     return map;
   }, [staffMembers]);
+
+  // Resources: all staff or just the filtered one — drives the columns
+  const resources = useMemo<StaffResource[]>(
+    () => filterUserId === "ALL" ? staffMembers : staffMembers.filter((s) => s.id === filterUserId),
+    [staffMembers, filterUserId]
+  );
 
   const filteredShifts = useMemo(
     () => filterUserId === "ALL" ? shifts : shifts.filter((s) => s.userId === filterUserId),
@@ -87,10 +95,11 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
     () =>
       filteredShifts.map((s) => ({
         id: s.id,
-        title: `${s.user.name}${s.note ? ` — ${s.note}` : ""}`,
+        title: s.note ?? "Turno",
         start: new Date(s.startTime),
         end: new Date(s.endTime),
-        resource: s,
+        shift: s,
+        resourceId: s.userId,
         color: colorMap[s.userId] ?? PALETTE[0],
       })),
     [filteredShifts, colorMap]
@@ -103,6 +112,7 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
         borderColor: event.color,
         color: "#fff",
         borderRadius: "6px",
+        fontSize: "0.75rem",
       },
     }),
     []
@@ -155,26 +165,17 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
         </div>
       </div>
 
-      {/* Color legend */}
-      <div className="flex flex-wrap gap-3">
-        {staffMembers.map((s) => (
-          <div key={s.id} className="flex items-center gap-1.5 text-xs">
-            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: colorMap[s.id] }} />
-            <span className="text-muted-foreground">{s.name}</span>
-          </div>
-        ))}
-      </div>
-
       <div
         className={cn(
           "rounded-xl border border-border overflow-hidden bg-card",
           "[&_.rbc-toolbar]:hidden",
           "[&_.rbc-time-view]:border-none",
-          "[&_.rbc-header]:border-border [&_.rbc-header]:text-xs [&_.rbc-header]:font-medium",
+          "[&_.rbc-header]:border-border [&_.rbc-header]:text-xs [&_.rbc-header]:font-medium [&_.rbc-header]:py-2",
           "[&_.rbc-time-slot]:border-border [&_.rbc-timeslot-group]:border-border",
           "[&_.rbc-today]:bg-primary/5",
+          "[&_.rbc-resource-header]:text-xs [&_.rbc-resource-header]:font-semibold [&_.rbc-resource-header]:py-1.5 [&_.rbc-resource-header]:truncate",
         )}
-        style={{ height: 560 }}
+        style={{ height: 580 }}
       >
         <DnDCalendar
           localizer={localizer}
@@ -186,6 +187,9 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
           eventPropGetter={eventStyleGetter as never}
           onEventDrop={handleEventDrop as never}
           culture="es"
+          resources={resources}
+          resourceIdAccessor={(r: object) => (r as StaffResource).id}
+          resourceTitleAccessor={(r: object) => (r as StaffResource).name}
         />
       </div>
     </div>

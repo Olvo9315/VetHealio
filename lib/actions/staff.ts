@@ -32,7 +32,8 @@ async function requireAdmin() {
 // ---- Schemas ----
 
 const createStaffSchema = z.object({
-  name: z.string().min(1).max(100),
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
   email: z.string().email(),
   password: z.string().min(6),
   role: z.nativeEnum(Role),
@@ -101,7 +102,9 @@ export async function createStaffMember(data: z.infer<typeof createStaffSchema>)
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        name: parsed.data.name,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        name: `${parsed.data.firstName} ${parsed.data.lastName}`.trim(),
         email: parsed.data.email,
         password: hashed,
         role: parsed.data.role,

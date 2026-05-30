@@ -18,7 +18,7 @@ import { getEventStyle, typeConfig, statusConfig } from "./AppointmentConfig";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, Phone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,6 +54,91 @@ const VIEW_LABELS: Record<string, string> = {
   day: "Día",
 };
 
+function AppointmentCard({
+  apt,
+  startTime,
+  endTime,
+  highlight = false,
+  conflict = false,
+}: {
+  apt: AppointmentFull;
+  startTime: Date;
+  endTime: Date;
+  highlight?: boolean;
+  conflict?: boolean;
+}) {
+  const typeCfg = typeConfig[apt.type];
+  const statusCfg = statusConfig[apt.status];
+  const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+  return (
+    <div
+      className={cn(
+        "px-3 py-2.5 space-y-1.5",
+        highlight ? "border-b border-border" : "border-b border-border/50 last:border-0"
+      )}
+    >
+      {/* Pet name + type badge */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p
+            className="font-semibold text-sm leading-tight"
+            style={{ color: typeCfg.color }}
+          >
+            {apt.pet.name}
+          </p>
+          <p className="text-xs opacity-70 leading-tight" style={{ color: typeCfg.color }}>
+            {apt.title}
+          </p>
+        </div>
+        <span
+          className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: typeCfg.bg, color: typeCfg.color, border: `1px solid ${typeCfg.border}` }}
+        >
+          {typeCfg.label}
+        </span>
+      </div>
+
+      {/* Time */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Clock className="w-3 h-3 shrink-0" />
+        <span>
+          {format(startTime, "HH:mm")} – {format(endTime, "HH:mm")}
+          <span className="ml-1 opacity-60">({durationMin} min)</span>
+        </span>
+      </div>
+
+      {/* Vet */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Stethoscope className="w-3 h-3 shrink-0" />
+        <span>{apt.veterinarian.name}</span>
+        {conflict && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
+      </div>
+
+      {/* Owner + phone */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <User className="w-3 h-3 shrink-0" />
+        <span>{apt.pet.owner.firstName} {apt.pet.owner.lastName}</span>
+        {apt.pet.owner.phone && (
+          <span className="text-muted-foreground/60">· {apt.pet.owner.phone}</span>
+        )}
+      </div>
+
+      {/* Status */}
+      <span className={cn("inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full", statusCfg.className)}>
+        {statusCfg.label}
+      </span>
+
+      {/* Notes */}
+      {apt.notes && (
+        <p className="text-xs text-muted-foreground border-t border-border/50 pt-1.5 leading-relaxed">
+          {apt.notes}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function AppointmentsCalendar({ initialAppointments, vets }: AppointmentsCalendarProps) {
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [view, setView] = useState<View>(Views.WEEK);
@@ -70,9 +155,32 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
   const [zoom, setZoom] = useState<"compact" | "normal" | "large">("compact");
 
-  // Ref keeps EventComponent reference stable so DnD HOC doesn't break when view changes
+  // Refs keep EventComponent stable so DnD HOC doesn't break on state changes
   const viewRef = useRef(view);
   viewRef.current = view;
+  const appointmentsRef = useRef(appointments);
+  appointmentsRef.current = appointments;
+
+  // IDs of appointments where same vet has overlapping time
+  const conflictIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (let i = 0; i < appointments.length; i++) {
+      for (let j = i + 1; j < appointments.length; j++) {
+        const a = appointments[i], b = appointments[j];
+        if (
+          a.veterinarianId === b.veterinarianId &&
+          new Date(a.startTime) < new Date(b.endTime) &&
+          new Date(a.endTime) > new Date(b.startTime)
+        ) {
+          ids.add(a.id);
+          ids.add(b.id);
+        }
+      }
+    }
+    return ids;
+  }, [appointments]);
+  const conflictIdsRef = useRef(conflictIds);
+  conflictIdsRef.current = conflictIds;
 
   const events = useMemo<CalEvent[]>(() =>
     appointments.map((apt) => ({
@@ -176,10 +284,21 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
   }
 
   const eventPropGetter = useCallback(
-    (event: CalEvent) => ({
-      style: getEventStyle(event.resource.type, event.resource.status),
-    }),
-    []
+    (event: CalEvent) => {
+      const style = getEventStyle(event.resource.type, event.resource.status);
+      if (conflictIds.has(event.id)) {
+        return {
+          style: {
+            ...style,
+            borderLeftColor: "#EF4444",
+            borderColor: "#FCA5A5",
+            boxShadow: "2px 2px 0 #FCA5A5, 4px 4px 0 #FCA5A580",
+          },
+        };
+      }
+      return { style };
+    },
+    [conflictIds]
   );
 
   // Memoized per-view to avoid remounting events on unrelated state changes
@@ -191,22 +310,38 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
           (event.end.getTime() - event.start.getTime()) / 60000
         );
         const isMonthView = viewRef.current === Views.MONTH;
-        const typeCfg = typeConfig[apt.type];
-        const statusCfg = statusConfig[apt.status];
+
+        // All appointments overlapping with this event (including itself)
+        const overlapping = appointmentsRef.current.filter(
+          (a) => new Date(a.startTime) < event.end && new Date(a.endTime) > event.start
+        );
+        const others = overlapping.filter((a) => a.id !== apt.id);
+        const hasConflict = conflictIdsRef.current.has(apt.id);
 
         return (
-          <TooltipPrimitive.Root delayDuration={500}>
+          <TooltipPrimitive.Root delayDuration={300}>
             <TooltipPrimitive.Trigger asChild>
               <div className="h-full w-full overflow-hidden">
                 {isMonthView ? (
-                  <div className="truncate font-semibold text-xs leading-none">
-                    {apt.pet.name}
+                  <div className="flex items-center gap-1 overflow-hidden">
+                    {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500" />}
+                    <span className="truncate font-semibold text-xs leading-none">{apt.pet.name}</span>
                   </div>
                 ) : (
-                  <div className="h-full w-full flex items-center gap-1.5 overflow-hidden leading-none">
-                    <span className="font-semibold text-xs truncate flex-1 min-w-0">{apt.pet.name}</span>
-                    {durationMin > 20 && (
-                      <span className="text-[11px] opacity-80 truncate shrink-0 max-w-[45%]">{apt.veterinarian.name}</span>
+                  <div className="h-full flex flex-col justify-start gap-px overflow-hidden">
+                    <div className="flex items-center gap-1 overflow-hidden">
+                      {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                      <span className="font-semibold text-[11px] leading-tight truncate">
+                        {apt.pet.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] leading-tight truncate opacity-80">
+                      {apt.veterinarian.name}
+                    </span>
+                    {durationMin >= 45 && apt.notes && (
+                      <span className="text-[9px] leading-tight truncate opacity-60 italic">
+                        {apt.notes}
+                      </span>
                     )}
                   </div>
                 )}
@@ -220,79 +355,58 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
                 avoidCollisions
                 collisionPadding={12}
                 className={cn(
-                  "z-[9999] w-64 rounded-xl border border-border bg-popover shadow-lg",
+                  "z-[9999] rounded-xl border bg-popover shadow-xl overflow-hidden",
+                  hasConflict ? "border-red-300" : "border-border",
+                  others.length > 0 ? "w-72" : "w-64",
                   "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
                   "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
                 )}
               >
-                {/* Header: pet name + type badge */}
-                <div
-                  className="flex items-center justify-between px-3 pt-3 pb-2 rounded-t-xl"
-                  style={{ backgroundColor: typeCfg.bg }}
-                >
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: typeCfg.color }}>
-                      {apt.pet.name}
-                    </p>
-                    <p className="text-xs opacity-70" style={{ color: typeCfg.color }}>
-                      {apt.title}
+                {/* Conflict warning banner */}
+                {hasConflict && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                      Conflicto: {apt.veterinarian.name} tiene otra cita a esta hora
                     </p>
                   </div>
-                  <span
-                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                    style={{ backgroundColor: typeCfg.border, color: typeCfg.color }}
-                  >
-                    {typeCfg.label}
-                  </span>
-                </div>
+                )}
 
-                {/* Body */}
-                <div className="px-3 py-2.5 space-y-2">
-                  {/* Time */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    <span>
-                      {format(event.start, "HH:mm")} – {format(event.end, "HH:mm")}
-                      <span className="ml-1 opacity-60">({durationMin} min)</span>
-                    </span>
-                  </div>
-
-                  {/* Owner */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <User className="w-3.5 h-3.5 shrink-0" />
-                    <span>{apt.pet.owner.firstName} {apt.pet.owner.lastName}</span>
-                  </div>
-
-                  {/* Phone */}
-                  {apt.pet.owner.phone && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="w-3.5 h-3.5 shrink-0" />
-                      <span>{apt.pet.owner.phone}</span>
-                    </div>
-                  )}
-
-                  {/* Vet */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Stethoscope className="w-3.5 h-3.5 shrink-0" />
-                    <span>{apt.veterinarian.name}</span>
-                  </div>
-
-                  {/* Status */}
-                  <div className="pt-1">
-                    <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", statusCfg.className)}>
-                      {statusCfg.label}
-                    </span>
-                  </div>
-
-                  {/* Notes */}
-                  {apt.notes && (
-                    <p className="text-xs text-muted-foreground border-t border-border pt-2 leading-relaxed">
-                      {apt.notes}
+                {/* Group header when multiple appointments overlap */}
+                {others.length > 0 && !hasConflict && (
+                  <div className="px-3 pt-2.5 pb-1.5 border-b border-border">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      {overlapping.length} citas simultáneas
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
+                {others.length > 0 && hasConflict && (
+                  <div className="px-3 pt-2 pb-1.5 border-b border-border">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      {overlapping.length} citas simultáneas
+                    </p>
+                  </div>
+                )}
 
-                <TooltipPrimitive.Arrow className="fill-border" width={10} height={5} />
+                {/* Current appointment (highlighted) */}
+                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight />
+
+                {/* Other overlapping appointments */}
+                {others.map((oa) => (
+                  <AppointmentCard
+                    key={oa.id}
+                    apt={oa}
+                    startTime={new Date(oa.startTime)}
+                    endTime={new Date(oa.endTime)}
+                    conflict={conflictIdsRef.current.has(oa.id)}
+                  />
+                ))}
+
+                <TooltipPrimitive.Arrow
+                  className={hasConflict ? "fill-red-300" : "fill-border"}
+                  width={10}
+                  height={5}
+                />
               </TooltipPrimitive.Content>
             </TooltipPrimitive.Portal>
           </TooltipPrimitive.Root>
