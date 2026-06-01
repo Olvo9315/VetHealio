@@ -8,7 +8,7 @@ import {
   updateAppointmentStatus,
   deleteAppointment,
 } from "@/lib/actions/appointments";
-import { typeConfig, statusConfig } from "./AppointmentConfig";
+import { statusConfig, getTypeCfgForAppointment } from "./AppointmentConfig";
 import { AppointmentStatus } from "@prisma/client";
 import { toast } from "sonner";
 import {
@@ -58,7 +58,7 @@ export function AppointmentDetailSheet({
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
 
-  const typeCfg = typeConfig[appointment.type];
+  const typeCfg = getTypeCfgForAppointment(appointment);
   const stCfg = statusConfig[appointment.status];
   const duration = differenceInMinutes(
     new Date(appointment.endTime),

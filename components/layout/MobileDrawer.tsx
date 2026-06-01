@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { FileText, Package, Settings, X, LogOut, Heart, Users } from "lucide-react";
+import { FileText, Package, Scissors, Settings, X, LogOut, Heart, Users } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 
 const extraNav = [
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
   { href: "/inventory", icon: Package, key: "inventory" },
+  { href: "/services", icon: Scissors, key: "services" },
   { href: "/settings", icon: Settings, key: "settings" },
 ] as const;
 

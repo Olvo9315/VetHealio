@@ -11,6 +11,7 @@ import {
   FileText,
   DollarSign,
   Package,
+  Scissors,
   Settings,
   LogOut,
   ChevronLeft,
@@ -35,6 +36,7 @@ const baseNavItems = [
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
   { href: "/finances", icon: DollarSign, key: "finances" },
   { href: "/inventory", icon: Package, key: "inventory" },
+  { href: "/services", icon: Scissors, key: "services" },
   { href: "/settings", icon: Settings, key: "settings" },
 ] as const;
 

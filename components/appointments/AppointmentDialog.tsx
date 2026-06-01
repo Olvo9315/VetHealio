@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AppointmentType, Species } from "@prisma/client";
+import { Species } from "@prisma/client";
 import {
   createAppointment,
   updateAppointment,
@@ -13,7 +13,9 @@ import {
 } from "@/lib/actions/appointments";
 import { findExistingPatients } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
-import { typeConfig } from "./AppointmentConfig";
+import type { ServiceFlat, SelectedService } from "@/lib/actions/services";
+import { ServicePicker } from "@/components/services/ServicePicker";
+import { ServiceQuickAddDialog } from "@/components/services/ServiceQuickAddDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -41,7 +43,6 @@ const schema = z.object({
   title: z.string().min(1, "Requerido"),
   petId: z.string().optional(),
   veterinarianId: z.string().min(1, "Selecciona un veterinario"),
-  type: z.nativeEnum(AppointmentType),
   startTime: z.string().min(1, "Requerido"),
   endTime: z.string().min(1, "Requerido"),
   notes: z.string().max(500).optional().or(z.literal("")),
@@ -61,6 +62,7 @@ interface AppointmentDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   vets: Vet[];
+  services?: ServiceFlat[];
   appointment?: AppointmentFull;
   presetStart?: Date;
   presetPet?: PetResult;
@@ -84,6 +86,7 @@ export function AppointmentDialog({
   open,
   onOpenChange,
   vets,
+  services = [],
   appointment,
   presetStart,
   presetPet,
@@ -92,6 +95,14 @@ export function AppointmentDialog({
   const isEdit = !!appointment;
   const [isSaving, startSave] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+
+  // ── Service selection ──
+  const [selectedService, setSelectedService] = useState<SelectedService | null>(
+    appointment?.service ? { id: appointment.service.id, name: appointment.service.name, price: null } : null
+  );
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
+  const [serviceError, setServiceError] = useState<string | undefined>();
 
   // ── Mode toggle ──
   const [mode, setMode] = useState<"existing" | "primary">("existing");
@@ -129,7 +140,6 @@ export function AppointmentDialog({
           title: appointment.title,
           petId: appointment.petId,
           veterinarianId: appointment.veterinarianId,
-          type: appointment.type,
           startTime: format(new Date(appointment.startTime), "yyyy-MM-dd'T'HH:mm"),
           endTime: format(new Date(appointment.endTime), "yyyy-MM-dd'T'HH:mm"),
           notes: appointment.notes ?? "",
@@ -138,7 +148,6 @@ export function AppointmentDialog({
           title: "",
           petId: presetPet?.id ?? "",
           veterinarianId: vets[0]?.id ?? "",
-          type: AppointmentType.CONSULTATION,
           startTime: presetStart
             ? format(presetStart, "yyyy-MM-dd'T'HH:mm")
             : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -169,7 +178,6 @@ export function AppointmentDialog({
         title: "",
         petId: presetPet?.id ?? "",
         veterinarianId: vets[0]?.id ?? "",
-        type: AppointmentType.CONSULTATION,
         startTime: presetStart
           ? format(presetStart, "yyyy-MM-dd'T'HH:mm")
           : format(now, "yyyy-MM-dd'T'HH:mm"),
@@ -182,6 +190,8 @@ export function AppointmentDialog({
       setPetQuery("");
       setPetResults([]);
       setMode("existing");
+      setSelectedService(null);
+      setServiceError(undefined);
       resetPrimaryFields();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,24 +279,23 @@ export function AppointmentDialog({
     runMatchSearch();
   }, [runMatchSearch]);
 
-  const watchType = form.watch("type");
   const watchVetId = form.watch("veterinarianId");
   const watchStart = form.watch("startTime");
   const watchEnd = form.watch("endTime");
 
   // Auto-fill title — existing mode
   useEffect(() => {
-    if (mode === "existing" && selectedPet && watchType && !isEdit) {
-      form.setValue("title", `${typeConfig[watchType].label} — ${selectedPet.name}`);
+    if (mode === "existing" && selectedPet && selectedService && !isEdit) {
+      form.setValue("title", `${selectedService.name} — ${selectedPet.name}`);
     }
-  }, [selectedPet, watchType, mode, isEdit, form]);
+  }, [selectedPet, selectedService, mode, isEdit, form]);
 
   // Auto-fill title — primary mode
   useEffect(() => {
-    if (mode === "primary" && primaryPetName && watchType && !isEdit) {
-      form.setValue("title", `${typeConfig[watchType].label} — ${primaryPetName}`);
+    if (mode === "primary" && primaryPetName && selectedService && !isEdit) {
+      form.setValue("title", `${selectedService.name} — ${primaryPetName}`);
     }
-  }, [primaryPetName, watchType, mode, isEdit, form]);
+  }, [primaryPetName, selectedService, mode, isEdit, form]);
 
   // Auto-set endTime
   useEffect(() => {
@@ -310,6 +319,11 @@ export function AppointmentDialog({
   }
 
   async function handleSubmit(data: FormData) {
+    if (!selectedService && localServices.length > 0) {
+      setServiceError("Selecciona un servicio");
+      return;
+    }
+    setServiceError(undefined);
     if (mode === "existing") {
       if (!selectedPet) {
         form.setError("petId", { message: "Selecciona un paciente" });
@@ -317,12 +331,12 @@ export function AppointmentDialog({
       }
       startSave(async () => {
         if (isEdit) {
-          const result = await updateAppointment(appointment.id, { ...data, petId: selectedPet.id });
+          const result = await updateAppointment(appointment.id, { ...data, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
           if ("error" in result) { toast.error("Error al actualizar"); return; }
           toast.success("Cita actualizada");
           onSaved(result.appointment as AppointmentFull);
         } else {
-          const result = await createAppointment({ ...data, petId: selectedPet.id });
+          const result = await createAppointment({ ...data, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
           if ("error" in result) { toast.error("Error al crear cita"); return; }
           toast.success("Cita creada");
           onSaved(result.appointment as AppointmentFull);
@@ -333,7 +347,7 @@ export function AppointmentDialog({
       if (!validatePrimary()) return;
       startSave(async () => {
         const result = await createAppointmentWithNewPatient(
-          { ...data },
+          { ...data, serviceId: selectedService?.id ?? null },
           {
             petName: primaryPetName.trim(),
             petSpecies: primarySpecies as Species,
@@ -362,6 +376,7 @@ export function AppointmentDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -675,52 +690,41 @@ export function AppointmentDialog({
             </div>
           )}
 
-          {/* ── Type + Veterinarian ── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo *</Label>
-              <Select
-                value={watchType}
-                onValueChange={(v) => form.setValue("type", (v ?? AppointmentType.CONSULTATION) as AppointmentType)}
-              >
-                <SelectTrigger>
-                  <SelectValue>
-                    {watchType ? typeConfig[watchType]?.label : "Seleccionar"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(typeConfig).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>
-                      {cfg.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* ── Service ── */}
+          <div className="space-y-1.5">
+            <Label>Servicio *</Label>
+            <ServicePicker
+              services={localServices}
+              value={selectedService?.id ?? null}
+              onChange={(svc) => { setSelectedService(svc); setServiceError(undefined); }}
+              onAddNew={() => setQuickAddOpen(true)}
+              error={serviceError}
+            />
+          </div>
 
-            <div className="space-y-1.5">
-              <Label>Veterinario *</Label>
-              <Select
-                value={watchVetId}
-                onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar">
-                    {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {vets.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name ?? v.id.slice(0, 8)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.veterinarianId && (
-                <p className="text-xs text-destructive">{form.formState.errors.veterinarianId.message}</p>
-              )}
-            </div>
+          {/* ── Veterinarian ── */}
+          <div className="space-y-1.5">
+            <Label>Veterinario *</Label>
+            <Select
+              value={watchVetId}
+              onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar">
+                  {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {vets.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name ?? v.id.slice(0, 8)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.formState.errors.veterinarianId && (
+              <p className="text-xs text-destructive">{form.formState.errors.veterinarianId.message}</p>
+            )}
           </div>
 
           {/* ── Title ── */}
@@ -783,5 +787,26 @@ export function AppointmentDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <ServiceQuickAddDialog
+      open={quickAddOpen}
+      onOpenChange={setQuickAddOpen}
+      services={localServices}
+      onCreated={(svc) => {
+        const flat: ServiceFlat = {
+          id: svc.id,
+          name: svc.name,
+          price: svc.price,
+          color: null,
+          isActive: true,
+          sortOrder: 0,
+          parentId: null,
+        };
+        setLocalServices((prev) => [...prev, flat]);
+        setSelectedService(svc);
+        setServiceError(undefined);
+      }}
+    />
+    </>
   );
 }

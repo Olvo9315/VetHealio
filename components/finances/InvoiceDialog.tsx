@@ -10,6 +10,9 @@ import {
   updateInvoice,
   searchAppointmentsWithoutInvoice,
 } from "@/lib/actions/invoices";
+import type { ServiceFlat } from "@/lib/actions/services";
+import { ServicePicker } from "@/components/services/ServicePicker";
+import { ServiceQuickAddDialog } from "@/components/services/ServiceQuickAddDialog";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -20,19 +23,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ItemType = "CONSULTATION" | "MEDICATION" | "SERVICE" | "OTHER";
-const ITEM_TYPES: ItemType[] = ["CONSULTATION", "MEDICATION", "SERVICE", "OTHER"];
 
 interface ItemData {
   id: string;
@@ -40,13 +35,14 @@ interface ItemData {
   quantity: number;
   unitPrice: number;
   type: ItemType;
+  serviceId: string | null;
 }
 
 let _id = 0;
 const nextId = () => String(++_id);
 
 function newItem(): ItemData {
-  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "CONSULTATION" };
+  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE", serviceId: null };
 }
 
 function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
@@ -55,7 +51,8 @@ function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
     description: item.description,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
-    type: item.type as ItemType,
+    type: (item.type as ItemType) ?? "SERVICE",
+    serviceId: item.serviceId ?? null,
   };
 }
 
@@ -66,22 +63,17 @@ function fmt(v: number) {
 interface ItemRowProps {
   idx: number;
   item: ItemData;
+  services: ServiceFlat[];
   onUpdate: (id: string, patch: Partial<ItemData>) => void;
   onRemove: (id: string) => void;
+  onAddNewService: (rowId: string) => void;
   isOnly: boolean;
   descriptionError?: string;
 }
 
-const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, descriptionError }: ItemRowProps) {
+const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove, onAddNewService, isOnly, descriptionError }: ItemRowProps) {
   const t = useTranslations("finances");
   const lineTotal = item.quantity * item.unitPrice;
-
-  const typeLabels: Record<ItemType, string> = {
-    CONSULTATION: t("itemTypeConsultation"),
-    MEDICATION: t("itemTypeMedication"),
-    SERVICE: t("itemTypeService"),
-    OTHER: t("itemTypeOther"),
-  };
 
   return (
     <div className="border border-border rounded-lg p-3 space-y-2.5 bg-card">
@@ -102,6 +94,25 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
         </div>
       </div>
 
+      {/* Service picker */}
+      <ServicePicker
+        services={services}
+        value={item.serviceId}
+        onChange={(svc) => {
+          if (svc) {
+            onUpdate(item.id, {
+              serviceId: svc.id,
+              description: svc.name,
+              unitPrice: item.unitPrice === 0 && svc.price != null ? svc.price : item.unitPrice,
+            });
+          } else {
+            onUpdate(item.id, { serviceId: null });
+          }
+        }}
+        onAddNew={() => onAddNewService(item.id)}
+        compact
+      />
+
       <div>
         <Input
           placeholder={`${t("description")} *`}
@@ -114,21 +125,7 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
         )}
       </div>
 
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t("type")}</Label>
-          <Select value={item.type} onValueChange={(v) => onUpdate(item.id, { type: v as ItemType })}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue>{typeLabels[item.type]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {ITEM_TYPES.map((v) => (
-                <SelectItem key={v} value={v} className="text-xs">{typeLabels[v]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+      <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("quantityShort")}</Label>
           <Input
@@ -160,10 +157,11 @@ interface InvoiceDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   invoice?: InvoiceFull;
+  services: ServiceFlat[];
   onSaved: (invoice: InvoiceFull) => void;
 }
 
-export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceDialogProps) {
+export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }: InvoiceDialogProps) {
   const t = useTranslations("finances");
   const tc = useTranslations("common");
   const isEdit = !!invoice;
@@ -181,6 +179,11 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
     invoice?.items.length ? invoice.items.map(itemFromInvoice) : [newItem()]
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Service quick-add
+  const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddRowId, setQuickAddRowId] = useState<string | null>(null);
 
   // Populate selected appointment on edit
   useEffect(() => {
@@ -233,6 +236,11 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
     setItems((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  const openQuickAdd = useCallback((rowId: string) => {
+    setQuickAddRowId(rowId);
+    setQuickAddOpen(true);
+  }, []);
+
   const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
   function validate(): boolean {
@@ -251,11 +259,12 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
     startSave(async () => {
       const data = {
         appointmentId,
-        items: items.map(({ description, quantity, unitPrice, type }) => ({
+        items: items.map(({ description, quantity, unitPrice, type, serviceId }) => ({
           description,
           quantity,
           unitPrice: unitPrice || 0.01,
           type,
+          serviceId: serviceId ?? null,
         })),
       };
       if (isEdit) {
@@ -274,6 +283,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -379,8 +389,10 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
                 key={item.id}
                 idx={idx}
                 item={item}
+                services={localServices}
                 onUpdate={updateItem}
                 onRemove={removeItem}
+                onAddNewService={openQuickAdd}
                 isOnly={items.length === 1}
                 descriptionError={errors[`${item.id}.desc`]}
               />
@@ -407,5 +419,40 @@ export function InvoiceDialog({ open, onOpenChange, invoice, onSaved }: InvoiceD
         </form>
       </DialogContent>
     </Dialog>
+
+    <ServiceQuickAddDialog
+      open={quickAddOpen}
+      onOpenChange={setQuickAddOpen}
+      services={localServices}
+      onCreated={(svc) => {
+        const flat: ServiceFlat = {
+          id: svc.id,
+          name: svc.name,
+          price: svc.price,
+          color: null,
+          isActive: true,
+          sortOrder: 0,
+          parentId: null,
+        };
+        setLocalServices((prev) => [...prev, flat]);
+        if (quickAddRowId) {
+          updateItem(quickAddRowId, {
+            serviceId: svc.id,
+            description: svc.name,
+          });
+          if (svc.price != null) {
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === quickAddRowId && item.unitPrice === 0
+                  ? { ...item, unitPrice: svc.price! }
+                  : item
+              )
+            );
+          }
+        }
+        setQuickAddRowId(null);
+      }}
+    />
+    </>
   );
 }

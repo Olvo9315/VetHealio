@@ -207,7 +207,7 @@ export function InvoiceDetailSheet({
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.description}</p>
                     <p className="text-xs text-muted-foreground">
-                      {itemTypeLabels[item.type]} · {item.quantity} × {fmt(item.unitPrice)}
+                      {item.service?.name ?? (item.type ? itemTypeLabels[item.type] : "Servicio")} · {item.quantity} × {fmt(item.unitPrice)}
                     </p>
                   </div>
                   <span className="text-sm font-semibold shrink-0">{fmt(item.total)}</span>

@@ -14,7 +14,8 @@ import { format, parse, startOfWeek, getDay, addMonths, addWeeks } from "date-fn
 import { es } from "date-fns/locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import { updateAppointmentTime } from "@/lib/actions/appointments";
-import { getEventStyle, typeConfig, statusConfig } from "./AppointmentConfig";
+import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig } from "./AppointmentConfig";
+import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ type Vet = { id: string; name: string; role: string };
 interface AppointmentsCalendarProps {
   initialAppointments: AppointmentFull[];
   vets: Vet[];
+  services: ServiceFlat[];
 }
 
 const VIEW_LABELS: Record<string, string> = {
@@ -67,7 +69,7 @@ function AppointmentCard({
   highlight?: boolean;
   conflict?: boolean;
 }) {
-  const typeCfg = typeConfig[apt.type];
+  const typeCfg = getTypeCfgForAppointment(apt);
   const statusCfg = statusConfig[apt.status];
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
@@ -139,7 +141,7 @@ function AppointmentCard({
   );
 }
 
-export function AppointmentsCalendar({ initialAppointments, vets }: AppointmentsCalendarProps) {
+export function AppointmentsCalendar({ initialAppointments, vets, services }: AppointmentsCalendarProps) {
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
@@ -285,7 +287,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
 
   const eventPropGetter = useCallback(
     (event: CalEvent) => {
-      const style = getEventStyle(event.resource.type, event.resource.status);
+      const style = getEventStyleForAppointment(event.resource, event.resource.status);
       if (conflictIds.has(event.id)) {
         return {
           style: {
@@ -479,12 +481,21 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
 
         {/* Legend */}
         <div className="flex flex-wrap gap-3">
-          {Object.entries(typeConfig).map(([key, cfg]) => (
-            <span key={key} className="flex items-center gap-1.5 text-xs">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cfg.border }} />
-              {cfg.label}
-            </span>
-          ))}
+          {services.filter((s) => s.parentId === null && s.color).length > 0
+            ? services
+                .filter((s) => s.parentId === null && s.color)
+                .map((s) => (
+                  <span key={s.id} className="flex items-center gap-1.5 text-xs">
+                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: s.color + "88" }} />
+                    {s.name}
+                  </span>
+                ))
+            : Object.entries(typeConfig).map(([key, cfg]) => (
+                <span key={key} className="flex items-center gap-1.5 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cfg.border }} />
+                  {cfg.label}
+                </span>
+              ))}
         </div>
 
         {/* Calendar */}
@@ -551,6 +562,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           vets={vets}
+          services={services}
           presetStart={presetStart}
           onSaved={handleAppointmentSaved}
         />
@@ -561,6 +573,7 @@ export function AppointmentsCalendar({ initialAppointments, vets }: Appointments
             open={editDialogOpen}
             onOpenChange={setEditDialogOpen}
             vets={vets}
+            services={services}
             appointment={editingAppointment}
             onSaved={handleAppointmentSaved}
           />

@@ -8,6 +8,7 @@ import { getInvoices } from "@/lib/actions/invoices";
 import type { InvoiceStatus } from "@prisma/client";
 import { InvoiceDialog } from "./InvoiceDialog";
 import { InvoiceDetailSheet } from "./InvoiceDetailSheet";
+import type { ServiceFlat } from "@/lib/actions/services";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,9 +67,10 @@ function exportCSV(invoices: InvoiceFull[]) {
 
 interface InvoicesTableProps {
   initialInvoices: InvoiceFull[];
+  services: ServiceFlat[];
 }
 
-export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
+export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps) {
   const [invoices, setInvoices] = useState<InvoiceFull[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
@@ -302,6 +304,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
       <InvoiceDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        services={services}
         onSaved={(inv) => { handleSaved(inv); setDetailOpen(true); }}
       />
 
@@ -311,6 +314,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
           open={editOpen}
           onOpenChange={setEditOpen}
           invoice={editingInvoice}
+          services={services}
           onSaved={handleSaved}
         />
       )}
