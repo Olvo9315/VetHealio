@@ -19,7 +19,7 @@ import type { AppointmentFull } from "@/lib/actions/appointments";
 import type { PrescriptionFull } from "@/lib/actions/prescriptions";
 import { getVeterinarians } from "@/lib/actions/appointments";
 import { format } from "date-fns";
-import { Calendar, DollarSign, Clock, Plus, Receipt, Pill } from "lucide-react";
+import { Calendar, DollarSign, Clock, Plus, Receipt } from "lucide-react";
 import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
 
 type Tab = "medical" | "vaccinations" | "appointments" | "prescriptions" | "finances";
