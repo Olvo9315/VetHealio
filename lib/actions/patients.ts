@@ -12,7 +12,9 @@ const ownerSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
   phone: z.string().min(7).max(20),
+  phone2: z.string().max(20).optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
+  postalCode: z.string().max(10).optional().or(z.literal("")),
   address: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
 });
@@ -26,6 +28,8 @@ const petSchema = z.object({
   weight: z.coerce.number().positive().optional().or(z.literal("")),
   gender: z.nativeEnum(Gender).optional().or(z.literal("")),
   microchipNumber: z.string().max(30).optional().or(z.literal("")),
+  passportNumber: z.string().max(30).optional().or(z.literal("")),
+  sterilized: z.boolean().optional(),
   ownerId: z.string().min(1),
 });
 
@@ -137,11 +141,34 @@ export async function createOwner(data: z.infer<typeof ownerSchema>) {
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
       phone: parsed.data.phone,
+      phone2: parsed.data.phone2 || null,
       email: parsed.data.email || null,
+      postalCode: parsed.data.postalCode || null,
       address: parsed.data.address || null,
       notes: parsed.data.notes || null,
     },
   });
+  return { owner };
+}
+
+export async function updateOwner(id: string, data: z.infer<typeof ownerSchema>) {
+  const parsed = ownerSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.flatten() };
+
+  const owner = await prisma.owner.update({
+    where: { id },
+    data: {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      phone: parsed.data.phone,
+      phone2: parsed.data.phone2 || null,
+      email: parsed.data.email || null,
+      postalCode: parsed.data.postalCode || null,
+      address: parsed.data.address || null,
+      notes: parsed.data.notes || null,
+    },
+  });
+  revalidatePath("/patients");
   return { owner };
 }
 
@@ -213,6 +240,15 @@ export async function getPetById(id: string): Promise<PetFull | null> {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      prescriptions: {
+        include: {
+          veterinarian: { select: { name: true } },
+          appointment: { select: { id: true, title: true, startTime: true, number: true } },
+          items: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      },
     },
   }) as unknown as PetFull | null;
 }
@@ -231,6 +267,8 @@ export async function createPet(data: z.infer<typeof petSchema>) {
       weight: parsed.data.weight ? Number(parsed.data.weight) : null,
       gender: parsed.data.gender || null,
       microchipNumber: parsed.data.microchipNumber || null,
+      passportNumber: parsed.data.passportNumber || null,
+      sterilized: parsed.data.sterilized ?? null,
       ownerId: parsed.data.ownerId,
     },
     include: { owner: true },
@@ -261,6 +299,10 @@ export async function updatePet(id: string, data: z.infer<typeof petUpdateSchema
       ...(parsed.data.microchipNumber !== undefined
         ? { microchipNumber: parsed.data.microchipNumber || null }
         : {}),
+      ...(parsed.data.passportNumber !== undefined
+        ? { passportNumber: parsed.data.passportNumber || null }
+        : {}),
+      ...(parsed.data.sterilized !== undefined ? { sterilized: parsed.data.sterilized ?? null } : {}),
       ...(typeof parsed.data.isActive === "boolean" ? { isActive: parsed.data.isActive } : {}),
     },
     include: { owner: true },

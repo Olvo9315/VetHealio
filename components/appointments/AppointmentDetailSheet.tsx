@@ -35,8 +35,10 @@ import {
   Phone,
   FileText,
   Loader2,
+  Receipt,
+  Pill,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatAppointmentId } from "@/lib/utils";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -45,6 +47,8 @@ interface AppointmentDetailSheetProps {
   onUpdated: (apt: AppointmentFull) => void;
   onDeleted: (id: string) => void;
   onEdit: () => void;
+  onCreateInvoice?: () => void;
+  onCreatePrescription?: () => void;
 }
 
 export function AppointmentDetailSheet({
@@ -54,6 +58,8 @@ export function AppointmentDetailSheet({
   onUpdated,
   onDeleted,
   onEdit,
+  onCreateInvoice,
+  onCreatePrescription,
 }: AppointmentDetailSheetProps) {
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
@@ -98,6 +104,7 @@ export function AppointmentDetailSheet({
               <SheetTitle className="text-base leading-tight">{appointment.title}</SheetTitle>
               <p className="text-sm text-muted-foreground capitalize mt-0.5">
                 {typeCfg.label}
+                <span className="ml-1.5 font-mono text-xs">{formatAppointmentId(appointment.number)}</span>
               </p>
             </div>
           </div>
@@ -211,6 +218,18 @@ export function AppointmentDetailSheet({
 
         {/* Actions */}
         <div className="pt-4 border-t border-border space-y-2">
+          {onCreateInvoice && (
+            <Button className="w-full" variant="outline" onClick={onCreateInvoice}>
+              <Receipt className="w-4 h-4 mr-2" />
+              Crear factura
+            </Button>
+          )}
+          {onCreatePrescription && (
+            <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
+              <Pill className="w-4 h-4 mr-2" />
+              Crear receta
+            </Button>
+          )}
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
             Editar cita

@@ -66,7 +66,15 @@
     "lastVisit": "Последний приём",
     "newVaccination": "Добавить вакцинацию",
     "noAppointments": "Нет записей на приём",
-    "noInvoices": "Нет счетов"
+    "noInvoices": "Нет счетов",
+    "phone2": "Телефон 2",
+    "postalCode": "Почтовый индекс",
+    "passportNumber": "№ паспорта",
+    "sterilized": "Стерилизован / Кастрирован",
+    "editOwner": "Редактировать владельца",
+    "editMedicalRecord": "Редактировать запись",
+    "prescriptions": "Рецепты",
+    "noPrescriptions": "Нет рецептов"
   },
   "appointments": {
     "title": "Расписание",
@@ -207,7 +215,9 @@
     "itemTypeService": "Услуга",
     "itemTypeOther": "Другое",
     "noAppointment": "Оказанные услуги",
-    "type": "Тип"
+    "type": "Тип",
+    "appointmentSearch": "Поиск приёма или пациента...",
+    "createInvoiceFromApt": "Создать счёт"
   },
   "inventory": {
     "title": "Склад",
@@ -416,6 +426,33 @@
     "spec_preventiveMedicine": "Профилактическая медицина",
     "spec_gastroenterology": "Гастроэнтерология",
     "specOther": "Другая специализация"
+  },
+  "prescriptions": {
+    "title": "Рецепты",
+    "new": "Новый рецепт",
+    "edit": "Редактировать рецепт",
+    "deleteConfirm": "Удалить этот рецепт?",
+    "saved": "Рецепт сохранён",
+    "deleted": "Рецепт удалён",
+    "errorSave": "Ошибка при сохранении рецепта",
+    "errorDelete": "Ошибка при удалении рецепта",
+    "notes": "Общие примечания",
+    "veterinarian": "Ветеринар",
+    "linkedAppointment": "Связанный приём",
+    "noLinkedAppointment": "Без связанного приёма",
+    "createFromAppointment": "Создать рецепт",
+    "noPrescriptions": "Рецептов не найдено",
+    "number": "Рецепт",
+    "addMedication": "Добавить препарат",
+    "removeMedication": "Удалить",
+    "medicationNumber": "Препарат",
+    "medicationName": "Препарат",
+    "units": "Единицы",
+    "activeIngredient": "Действующее вещество",
+    "posology": "Режим дозирования",
+    "indications": "Показания",
+    "warnings": "Предупреждения",
+    "atLeastOne": "Добавьте хотя бы один препарат"
   },
   "services": {
     "title": "Услуги",

@@ -16,8 +16,11 @@ import type { AppointmentFull } from "@/lib/actions/appointments";
 import { updateAppointmentTime } from "@/lib/actions/appointments";
 import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig } from "./AppointmentConfig";
 import type { ServiceFlat } from "@/lib/actions/services";
+import type { AppointmentOption } from "@/lib/actions/invoices";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
+import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
+import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -157,6 +160,11 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
   const [zoom, setZoom] = useState<"compact" | "normal" | "large">("compact");
 
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoicePresetApt, setInvoicePresetApt] = useState<AppointmentOption | undefined>();
+  const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  const [prescriptionApt, setPrescriptionApt] = useState<AppointmentFull | null>(null);
+
   // Refs keep EventComponent stable so DnD HOC doesn't break on state changes
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -283,6 +291,30 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
     setEditingAppointment(selectedAppointment);
     setDetailOpen(false);
     setEditDialogOpen(true);
+  }
+
+  function handleCreatePrescriptionFromDetail() {
+    if (!selectedAppointment) return;
+    setPrescriptionApt(selectedAppointment);
+    setDetailOpen(false);
+    setPrescriptionDialogOpen(true);
+  }
+
+  function handleCreateInvoiceFromDetail() {
+    if (!selectedAppointment) return;
+    const svc = selectedAppointment.service
+      ? { ...selectedAppointment.service, price: services.find((s) => s.id === selectedAppointment.service!.id)?.price ?? null }
+      : null;
+    setInvoicePresetApt({
+      id: selectedAppointment.id,
+      title: selectedAppointment.title,
+      startTime: selectedAppointment.startTime,
+      type: selectedAppointment.type,
+      service: svc,
+      pet: selectedAppointment.pet,
+    });
+    setDetailOpen(false);
+    setInvoiceDialogOpen(true);
   }
 
   const eventPropGetter = useCallback(
@@ -588,6 +620,31 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             onUpdated={handleAppointmentUpdated}
             onDeleted={handleAppointmentDeleted}
             onEdit={handleEditFromDetail}
+            onCreateInvoice={handleCreateInvoiceFromDetail}
+            onCreatePrescription={handleCreatePrescriptionFromDetail}
+          />
+        )}
+
+        {/* Invoice Dialog (from appointment) */}
+        <InvoiceDialog
+          open={invoiceDialogOpen}
+          onOpenChange={setInvoiceDialogOpen}
+          services={services}
+          presetAppointment={invoicePresetApt}
+          onSaved={() => { setInvoiceDialogOpen(false); }}
+        />
+
+        {/* Prescription Dialog (from appointment) */}
+        {prescriptionDialogOpen && prescriptionApt && (
+          <PrescriptionDialog
+            open={prescriptionDialogOpen}
+            onOpenChange={setPrescriptionDialogOpen}
+            petId={prescriptionApt.petId}
+            petName={prescriptionApt.pet.name}
+            veterinarianId={prescriptionApt.veterinarianId}
+            appointmentId={prescriptionApt.id}
+            appointmentTitle={prescriptionApt.title}
+            onSaved={() => { setPrescriptionDialogOpen(false); }}
           />
         )}
       </div>

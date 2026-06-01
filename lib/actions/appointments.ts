@@ -9,6 +9,7 @@ import { AppointmentStatus, AppointmentType, Species } from "@prisma/client";
 
 export type AppointmentFull = {
   id: string;
+  number: number;
   title: string;
   startTime: Date;
   endTime: Date;

@@ -66,7 +66,15 @@
     "lastVisit": "Last visit",
     "newVaccination": "Add vaccination",
     "noAppointments": "No appointments recorded",
-    "noInvoices": "No invoices"
+    "noInvoices": "No invoices",
+    "phone2": "Phone 2",
+    "postalCode": "Postal code",
+    "passportNumber": "Passport no.",
+    "sterilized": "Spayed / Neutered",
+    "editOwner": "Edit owner",
+    "editMedicalRecord": "Edit medical record",
+    "prescriptions": "Prescriptions",
+    "noPrescriptions": "No prescriptions"
   },
   "appointments": {
     "title": "Appointments",
@@ -207,7 +215,9 @@
     "itemTypeService": "Service",
     "itemTypeOther": "Other",
     "noAppointment": "Services rendered",
-    "type": "Type"
+    "type": "Type",
+    "appointmentSearch": "Search appointment or patient...",
+    "createInvoiceFromApt": "Create invoice"
   },
   "inventory": {
     "title": "Inventory",
@@ -416,6 +426,33 @@
     "spec_preventiveMedicine": "Preventive medicine",
     "spec_gastroenterology": "Gastroenterology",
     "specOther": "Other specialization"
+  },
+  "prescriptions": {
+    "title": "Prescriptions",
+    "new": "New prescription",
+    "edit": "Edit prescription",
+    "deleteConfirm": "Delete this prescription?",
+    "saved": "Prescription saved",
+    "deleted": "Prescription deleted",
+    "errorSave": "Error saving prescription",
+    "errorDelete": "Error deleting prescription",
+    "notes": "General observations",
+    "veterinarian": "Veterinarian",
+    "linkedAppointment": "Linked appointment",
+    "noLinkedAppointment": "No linked appointment",
+    "createFromAppointment": "Create prescription",
+    "noPrescriptions": "No prescriptions recorded",
+    "number": "Prescription",
+    "addMedication": "Add medication",
+    "removeMedication": "Remove",
+    "medicationNumber": "Medication",
+    "medicationName": "Medication",
+    "units": "Units",
+    "activeIngredient": "Active ingredient",
+    "posology": "Posology",
+    "indications": "Indications",
+    "warnings": "Warnings",
+    "atLeastOne": "Add at least one medication"
   },
   "services": {
     "title": "Services",

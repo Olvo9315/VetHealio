@@ -1,4 +1,6 @@
-import type { Pet, Owner, Species, AppointmentStatus, AppointmentType } from "@prisma/client";
+import type { Pet, Owner, Species, AppointmentStatus, AppointmentType, Gender } from "@prisma/client";
+
+export type { Gender };
 
 // Full pet with owner (list view)
 export type PetWithOwner = Pet & {
@@ -39,6 +41,7 @@ export type PetFull = Pet & {
   }>;
   appointments: Array<{
     id: string;
+    number: number;
     title: string;
     startTime: Date;
     endTime: Date;
@@ -49,6 +52,7 @@ export type PetFull = Pet & {
   }>;
   invoices: Array<{
     id: string;
+    number: number;
     status: string;
     totalAmount: number;
     createdAt: Date;
@@ -60,6 +64,25 @@ export type PetFull = Pet & {
       quantity: number;
       unitPrice: number;
       total: number;
+    }>;
+  }>;
+  prescriptions: Array<{
+    id: string;
+    number: number;
+    notes: string | null;
+    createdAt: Date;
+    veterinarianId: string | null;
+    appointmentId: string | null;
+    veterinarian: { name: string } | null;
+    appointment: { id: string; title: string; startTime: Date; number: number } | null;
+    items: Array<{
+      id: string;
+      medicationName: string;
+      units: string | null;
+      activeIngredient: string | null;
+      posology: string;
+      indications: string | null;
+      warnings: string | null;
     }>;
   }>;
 };

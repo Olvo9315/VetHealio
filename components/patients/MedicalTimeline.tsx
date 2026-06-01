@@ -1,5 +1,8 @@
+"use client";
+
 import { format } from "date-fns";
-import { FileText, Thermometer, Heart, Weight } from "lucide-react";
+import { FileText, Thermometer, Heart, Weight, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MedicalRecord {
   id: string;
@@ -24,9 +27,10 @@ interface MedicalRecord {
 
 interface MedicalTimelineProps {
   records: MedicalRecord[];
+  onEdit?: (record: MedicalRecord) => void;
 }
 
-export function MedicalTimeline({ records }: MedicalTimelineProps) {
+export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
   if (records.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -49,7 +53,13 @@ export function MedicalTimeline({ records }: MedicalTimelineProps) {
           </div>
 
           {/* Card */}
-          <div className="flex-1 bg-card border border-border rounded-lg p-4 space-y-3 min-w-0">
+          <div
+            className={cn(
+              "flex-1 bg-card border border-border rounded-lg p-4 space-y-3 min-w-0",
+              onEdit && "cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+            )}
+            onClick={() => onEdit?.(record)}
+          >
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -58,6 +68,11 @@ export function MedicalTimeline({ records }: MedicalTimelineProps) {
                   {format(new Date(record.date), "dd MMM yyyy")} · Dr. {record.veterinarian.name}
                 </p>
               </div>
+              {onEdit && (
+                <span className="text-muted-foreground shrink-0 p-1 rounded">
+                  <Pencil className="w-3.5 h-3.5" />
+                </span>
+              )}
             </div>
 
             {/* Vitals */}

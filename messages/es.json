@@ -66,7 +66,15 @@
     "lastVisit": "Último acceso",
     "newVaccination": "Añadir vacuna",
     "noAppointments": "Sin citas registradas",
-    "noInvoices": "Sin facturas"
+    "noInvoices": "Sin facturas",
+    "phone2": "Teléfono 2",
+    "postalCode": "Código postal",
+    "passportNumber": "Nº pasaporte",
+    "sterilized": "Esterilizado / Castrado",
+    "editOwner": "Editar propietario",
+    "editMedicalRecord": "Editar registro médico",
+    "prescriptions": "Recetas",
+    "noPrescriptions": "Sin recetas"
   },
   "appointments": {
     "title": "Citas",
@@ -207,7 +215,9 @@
     "itemTypeService": "Servicio",
     "itemTypeOther": "Otro",
     "noAppointment": "Servicios prestados",
-    "type": "Tipo"
+    "type": "Tipo",
+    "appointmentSearch": "Buscar cita o paciente...",
+    "createInvoiceFromApt": "Crear factura"
   },
   "inventory": {
     "title": "Inventario",
@@ -416,6 +426,33 @@
     "spec_preventiveMedicine": "Medicina preventiva",
     "spec_gastroenterology": "Gastroenterología",
     "specOther": "Otra especialización"
+  },
+  "prescriptions": {
+    "title": "Recetas",
+    "new": "Nueva receta",
+    "edit": "Editar receta",
+    "deleteConfirm": "¿Eliminar esta receta?",
+    "saved": "Receta guardada",
+    "deleted": "Receta eliminada",
+    "errorSave": "Error al guardar la receta",
+    "errorDelete": "Error al eliminar la receta",
+    "notes": "Observaciones generales",
+    "veterinarian": "Veterinario",
+    "linkedAppointment": "Cita vinculada",
+    "noLinkedAppointment": "Sin cita vinculada",
+    "createFromAppointment": "Crear receta",
+    "noPrescriptions": "Sin recetas registradas",
+    "number": "Receta",
+    "addMedication": "Añadir medicamento",
+    "removeMedication": "Quitar",
+    "medicationNumber": "Medicamento",
+    "medicationName": "Medicamento",
+    "units": "Unidades",
+    "activeIngredient": "Principio activo",
+    "posology": "Posología",
+    "indications": "Indicaciones",
+    "warnings": "Advertencias",
+    "atLeastOne": "Añade al menos un medicamento"
   },
   "services": {
     "title": "Servicios",

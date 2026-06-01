@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { subDays, format, startOfMonth, endOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
+import { Prisma } from "@prisma/client";
 import type {
   InvoiceStatus,
   PaymentMethod,
@@ -17,6 +18,7 @@ import type {
 
 export type InvoiceFull = {
   id: string;
+  number: number;
   status: InvoiceStatus;
   totalAmount: number;
   paymentMethod: PaymentMethod | null;
@@ -67,6 +69,7 @@ export type AppointmentOption = {
   title: string;
   startTime: Date;
   type: AppointmentType | null;
+  service: { id: string; name: string; price: number | null } | null;
   pet: { name: string; owner: { firstName: string; lastName: string } };
 };
 
@@ -237,6 +240,7 @@ export async function searchAppointmentsWithoutInvoice(
       title: true,
       startTime: true,
       type: true,
+      service: { select: { id: true, name: true, price: true } },
       pet: {
         select: {
           name: true,
@@ -275,18 +279,25 @@ export async function createInvoice(data: InvoiceFormData) {
   const items = buildItems(parsed.data.items);
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
 
-  const invoice = await prisma.invoice.create({
-    data: {
-      petId: appointment.petId,
-      appointmentId: parsed.data.appointmentId,
-      totalAmount,
-      items: { create: items },
-    },
-    include: fullInclude,
-  });
+  try {
+    const invoice = await prisma.invoice.create({
+      data: {
+        petId: appointment.petId,
+        appointmentId: parsed.data.appointmentId,
+        totalAmount,
+        items: { create: items },
+      },
+      include: fullInclude,
+    });
 
-  revalidatePath("/finances");
-  return { invoice: invoice as unknown as InvoiceFull };
+    revalidatePath("/finances");
+    return { invoice: invoice as unknown as InvoiceFull };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "Esta cita ya tiene una factura asociada" };
+    }
+    throw e;
+  }
 }
 
 export async function createDirectInvoice(data: DirectInvoiceFormData) {

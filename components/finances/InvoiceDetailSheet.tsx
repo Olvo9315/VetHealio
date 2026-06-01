@@ -36,7 +36,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatInvoiceId } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 
 const statusConfig = {
@@ -120,7 +120,7 @@ export function InvoiceDetailSheet({
               <Receipt className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base leading-tight">Factura</SheetTitle>
+              <SheetTitle className="text-base leading-tight">Factura <span className="font-mono text-sm text-muted-foreground font-normal">{formatInvoiceId(invoice.number, invoice.createdAt)}</span></SheetTitle>
               <div className="flex items-center gap-2 mt-1">
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
                   {stCfg.label}

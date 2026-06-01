@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Plus, Loader2, Receipt, ChevronRight, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatInvoiceId } from "@/lib/utils";
 
 const STATUS_TABS: { value: InvoiceStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "Todas" },
@@ -213,6 +213,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                     onClick={() => openDetail(inv)}
                   >
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      <span className="font-mono text-xs mr-1.5 text-muted-foreground">{formatInvoiceId(inv.number, inv.createdAt)}</span>
                       {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
                     </TableCell>
                     <TableCell>
@@ -279,6 +280,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                       {stCfg.label}
                     </span>
                     <span className="text-xs text-muted-foreground">
+                      <span className="font-mono mr-1">{formatInvoiceId(inv.number, inv.createdAt)}</span>
                       {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
                     </span>
                   </div>

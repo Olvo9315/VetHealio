@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { createService, updateService } from "@/lib/actions/services";
 import type { ServiceNode } from "@/lib/actions/services";
@@ -41,6 +41,14 @@ export function ServiceDialog({
   const [name, setName] = useState(editNode?.name ?? "");
   const [price, setPrice] = useState(editNode?.price != null ? String(editNode.price) : "");
   const [color, setColor] = useState(editNode?.color ?? PRESET_COLORS[0]);
+
+  useEffect(() => {
+    if (open) {
+      setName(editNode?.name ?? "");
+      setPrice(editNode?.price != null ? String(editNode.price) : "");
+      setColor(editNode?.color ?? PRESET_COLORS[0]);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function reset() {
     setName(editNode?.name ?? "");

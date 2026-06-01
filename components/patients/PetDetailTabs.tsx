@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { MedicalTimeline } from "./MedicalTimeline";
 import { VaccinationsList } from "./VaccinationsList";
+import { PrescriptionsList } from "./PrescriptionsList";
+import { PrescriptionDialog } from "./PrescriptionDialog";
 import { MedicalRecordDialog } from "@/components/medical-records/MedicalRecordDialog";
 import { VaccinationDialog } from "./VaccinationDialog";
 import { DirectInvoiceDialog } from "./DirectInvoiceDialog";
@@ -14,12 +16,13 @@ import type { MedicalRecordFull } from "@/lib/actions/medicalRecords";
 import type { VaccinationFull } from "@/lib/actions/vaccinations";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import type { AppointmentFull } from "@/lib/actions/appointments";
+import type { PrescriptionFull } from "@/lib/actions/prescriptions";
 import { getVeterinarians } from "@/lib/actions/appointments";
 import { format } from "date-fns";
-import { Calendar, DollarSign, Clock, Plus, Receipt } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Calendar, DollarSign, Clock, Plus, Receipt, Pill } from "lucide-react";
+import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
 
-type Tab = "medical" | "vaccinations" | "appointments" | "finances";
+type Tab = "medical" | "vaccinations" | "appointments" | "prescriptions" | "finances";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -36,20 +39,27 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
   const ta = useTranslations("appointments");
   const tf = useTranslations("finances");
   const tm = useTranslations("medicalRecords");
+  const tp = useTranslations("prescriptions");
 
   const [activeTab, setActiveTab] = useState<Tab>("medical");
   const [vets, setVets] = useState<Vet[]>([]);
   const [, startVetLoad] = useTransition();
 
   const [medicalOpen, setMedicalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<typeof pet.medicalRecords[0] | null>(null);
   const [vaccinationOpen, setVaccinationOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [prescriptionOpen, setPrescriptionOpen] = useState(false);
+  const [editingPrescription, setEditingPrescription] = useState<PrescriptionFull | null>(null);
 
   const [medicalRecords, setMedicalRecords] = useState(pet.medicalRecords);
   const [vaccinations, setVaccinations] = useState(pet.vaccinations);
   const [appointments, setAppointments] = useState(pet.appointments);
   const [invoices, setInvoices] = useState(pet.invoices);
+  const [prescriptions, setPrescriptions] = useState<PrescriptionFull[]>(
+    (pet.prescriptions ?? []) as PrescriptionFull[]
+  );
 
   const presetPet = {
     id: pet.id,
@@ -86,6 +96,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
       const exists = prev.find((a) => a.id === apt.id);
       const mapped = {
         id: apt.id,
+        number: apt.number,
         title: apt.title,
         startTime: apt.startTime,
         endTime: apt.endTime,
@@ -99,10 +110,19 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
     });
   }
 
+  function handlePrescriptionSaved(p: PrescriptionFull) {
+    setPrescriptions((prev) => {
+      const exists = prev.find((x) => x.id === p.id);
+      if (exists) return prev.map((x) => (x.id === p.id ? p : x));
+      return [p, ...prev];
+    });
+  }
+
   function handleInvoiceSaved(invoice: InvoiceFull) {
     setInvoices((prev) => [
       {
         id: invoice.id,
+        number: invoice.number,
         status: invoice.status,
         totalAmount: invoice.totalAmount,
         createdAt: invoice.createdAt,
@@ -120,6 +140,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
     { id: "medical", label: t("medicalHistory"), count: medicalRecords.length },
     { id: "vaccinations", label: t("vaccinations"), count: vaccinations.length },
     { id: "appointments", label: t("appointments"), count: appointments.length },
+    { id: "prescriptions", label: t("prescriptions"), count: prescriptions.length },
     { id: "finances", label: t("finances"), count: invoices.length },
   ];
 
@@ -200,7 +221,10 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 {tm("new")}
               </Button>
             </div>
-            <MedicalTimeline records={medicalRecords} />
+            <MedicalTimeline
+              records={medicalRecords}
+              onEdit={(record) => setEditingRecord(record as typeof pet.medicalRecords[0])}
+            />
           </div>
         )}
 
@@ -252,7 +276,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{apt.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(apt.startTime), "dd/MM/yyyy HH:mm")} · {apt.veterinarian.name}
+                        {format(new Date(apt.startTime), "dd/MM/yyyy HH:mm")} · {apt.veterinarian.name} · {formatAppointmentId(apt.number)}
                       </p>
                     </div>
                     <span
@@ -267,6 +291,26 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Prescriptions */}
+        {activeTab === "prescriptions" && (
+          <div>
+            <div className="flex justify-end mb-3">
+              <Button
+                size="sm"
+                className="bg-primary text-primary-foreground h-8 text-xs"
+                onClick={() => setPrescriptionOpen(true)}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                {tp("new")}
+              </Button>
+            </div>
+            <PrescriptionsList
+              prescriptions={prescriptions}
+              onEdit={(p) => setEditingPrescription(p)}
+            />
           </div>
         )}
 
@@ -303,7 +347,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                         {inv.appointment?.title ?? tf("noAppointment")}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(inv.createdAt), "dd/MM/yyyy")}
+                        {format(new Date(inv.createdAt), "dd/MM/yyyy")} · {formatInvoiceId(inv.number, inv.createdAt)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -330,6 +374,17 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         onSaved={handleMedicalSaved}
       />
 
+      {editingRecord && (
+        <MedicalRecordDialog
+          open={!!editingRecord}
+          onOpenChange={(v) => { if (!v) setEditingRecord(null); }}
+          presetPetId={pet.id}
+          presetPetName={pet.name}
+          record={editingRecord as unknown as import("@/lib/actions/medicalRecords").MedicalRecordFull}
+          onSaved={(record) => { handleMedicalSaved(record); setEditingRecord(null); }}
+        />
+      )}
+
       <VaccinationDialog
         open={vaccinationOpen}
         onOpenChange={setVaccinationOpen}
@@ -355,6 +410,27 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         presetPetName={pet.name}
         onSaved={handleInvoiceSaved}
       />
+
+      {prescriptionOpen && (
+        <PrescriptionDialog
+          open={prescriptionOpen}
+          onOpenChange={setPrescriptionOpen}
+          petId={pet.id}
+          petName={pet.name}
+          onSaved={(p) => { handlePrescriptionSaved(p); setPrescriptionOpen(false); }}
+        />
+      )}
+
+      {editingPrescription && (
+        <PrescriptionDialog
+          open={!!editingPrescription}
+          onOpenChange={(v) => { if (!v) setEditingPrescription(null); }}
+          petId={pet.id}
+          petName={pet.name}
+          record={editingPrescription}
+          onSaved={(p) => { handlePrescriptionSaved(p); setEditingPrescription(null); }}
+        />
+      )}
     </>
   );
 }

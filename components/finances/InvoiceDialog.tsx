@@ -158,10 +158,11 @@ interface InvoiceDialogProps {
   onOpenChange: (v: boolean) => void;
   invoice?: InvoiceFull;
   services: ServiceFlat[];
+  presetAppointment?: AppointmentOption;
   onSaved: (invoice: InvoiceFull) => void;
 }
 
-export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }: InvoiceDialogProps) {
+export function InvoiceDialog({ open, onOpenChange, invoice, services, presetAppointment, onSaved }: InvoiceDialogProps) {
   const t = useTranslations("finances");
   const tc = useTranslations("common");
   const isEdit = !!invoice;
@@ -185,7 +186,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddRowId, setQuickAddRowId] = useState<string | null>(null);
 
-  // Populate selected appointment on edit
+  // Populate selected appointment on edit or preset
   useEffect(() => {
     if (invoice?.appointment && invoice.appointmentId) {
       setSelectedApt({
@@ -193,11 +194,19 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
         title: invoice.appointment.title,
         startTime: invoice.appointment.startTime,
         type: invoice.appointment.type,
+        service: null,
         pet: invoice.appointment.pet,
       } as AppointmentOption);
       setAppointmentId(invoice.appointmentId);
     }
   }, [invoice]);
+
+  useEffect(() => {
+    if (open && presetAppointment && !invoice) {
+      applyAppointment(presetAppointment);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, presetAppointment]);
 
   // Reset on close (new invoice only)
   useEffect(() => {
@@ -224,6 +233,23 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
       setAptResults(results);
     });
   }, [aptQuery, invoice?.appointmentId]);
+
+  function applyAppointment(apt: AppointmentOption) {
+    setSelectedApt(apt);
+    setAppointmentId(apt.id);
+    setAptQuery("");
+    setAptResults([]);
+    if (apt.service) {
+      setItems([{
+        id: nextId(),
+        description: apt.service.name,
+        quantity: 1,
+        unitPrice: apt.service.price ?? 0,
+        type: "SERVICE",
+        serviceId: apt.service.id,
+      }]);
+    }
+  }
 
   const updateItem = useCallback((id: string, patch: Partial<ItemData>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -274,7 +300,10 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
         onSaved(result.invoice);
       } else {
         const result = await createInvoice(data);
-        if ("error" in result) { toast.error(t("errorSave")); return; }
+        if ("error" in result) {
+          toast.error(typeof result.error === "string" ? result.error : t("errorSave"));
+          return;
+        }
         toast.success(t("saved"));
         onSaved(result.invoice);
       }
@@ -323,7 +352,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder={t("petSearch")}
+                    placeholder={t("appointmentSearch")}
                     className="pl-9"
                     value={aptQuery}
                     onChange={(e) => setAptQuery(e.target.value)}
@@ -339,12 +368,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, onSaved }
                         key={apt.id}
                         type="button"
                         className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-muted/50"
-                        onClick={() => {
-                          setSelectedApt(apt);
-                          setAppointmentId(apt.id);
-                          setAptQuery("");
-                          setAptResults([]);
-                        }}
+                        onClick={() => applyAppointment(apt)}
                       >
                         <CalendarDays className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                         <div>

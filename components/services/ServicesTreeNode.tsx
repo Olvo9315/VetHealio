@@ -25,7 +25,7 @@ export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const hasChildren = node.children.length > 0;
+  const hasChildren = (node.children?.length ?? 0) > 0;
   const canAddChild = depth < 2;
   const indentClass = depth === 0 ? "" : depth === 1 ? "ml-6" : "ml-12";
 
@@ -120,7 +120,7 @@ export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
       {/* Children */}
       {hasChildren && expanded && (
         <div className="mt-0.5 space-y-0.5">
-          {node.children.map((child) => (
+          {(node.children ?? []).map((child) => (
             <ServicesTreeNode key={child.id} node={child} depth={depth + 1} />
           ))}
         </div>
@@ -134,13 +134,15 @@ export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
         parentName={node.name}
         depth={depth + 1}
       />
-      <ServiceDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        editNode={node}
-        parentId={node.parentId}
-        depth={depth}
-      />
+      {editOpen && (
+        <ServiceDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          editNode={node}
+          parentId={node.parentId}
+          depth={depth}
+        />
+      )}
     </div>
   );
 }
