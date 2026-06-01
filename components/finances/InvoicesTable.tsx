@@ -8,6 +8,7 @@ import { getInvoices } from "@/lib/actions/invoices";
 import type { InvoiceStatus } from "@prisma/client";
 import { InvoiceDialog } from "./InvoiceDialog";
 import { InvoiceDetailSheet } from "./InvoiceDetailSheet";
+import type { ServiceFlat } from "@/lib/actions/services";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Plus, Loader2, Receipt, ChevronRight, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatInvoiceId } from "@/lib/utils";
 
 const STATUS_TABS: { value: InvoiceStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "Todas" },
@@ -66,9 +67,10 @@ function exportCSV(invoices: InvoiceFull[]) {
 
 interface InvoicesTableProps {
   initialInvoices: InvoiceFull[];
+  services: ServiceFlat[];
 }
 
-export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
+export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps) {
   const [invoices, setInvoices] = useState<InvoiceFull[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
@@ -211,6 +213,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
                     onClick={() => openDetail(inv)}
                   >
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      <span className="font-mono text-xs mr-1.5 text-muted-foreground">{formatInvoiceId(inv.number, inv.createdAt)}</span>
                       {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
                     </TableCell>
                     <TableCell>
@@ -277,6 +280,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
                       {stCfg.label}
                     </span>
                     <span className="text-xs text-muted-foreground">
+                      <span className="font-mono mr-1">{formatInvoiceId(inv.number, inv.createdAt)}</span>
                       {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
                     </span>
                   </div>
@@ -302,6 +306,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
       <InvoiceDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        services={services}
         onSaved={(inv) => { handleSaved(inv); setDetailOpen(true); }}
       />
 
@@ -311,6 +316,7 @@ export function InvoicesTable({ initialInvoices }: InvoicesTableProps) {
           open={editOpen}
           onOpenChange={setEditOpen}
           invoice={editingInvoice}
+          services={services}
           onSaved={handleSaved}
         />
       )}

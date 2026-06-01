@@ -9,17 +9,20 @@ import { AppointmentStatus, AppointmentType, Species } from "@prisma/client";
 
 export type AppointmentFull = {
   id: string;
+  number: number;
   title: string;
   startTime: Date;
   endTime: Date;
   status: AppointmentStatus;
-  type: AppointmentType;
+  type: AppointmentType | null;
   notes: string | null;
   googleEventId: string | null;
   createdAt: Date;
   updatedAt: Date;
   petId: string;
   veterinarianId: string;
+  serviceId: string | null;
+  service: { id: string; name: string; color: string | null } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
   veterinarian: { id: string; name: string };
 };
@@ -30,7 +33,8 @@ const appointmentSchema = z.object({
   title: z.string().min(1).max(100),
   petId: z.string().min(1),
   veterinarianId: z.string().min(1),
-  type: z.nativeEnum(AppointmentType),
+  serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
   notes: z.string().max(500).optional().or(z.literal("")),
@@ -39,6 +43,10 @@ const appointmentSchema = z.object({
 const updateStatusSchema = z.object({
   status: z.nativeEnum(AppointmentStatus),
 });
+
+const serviceInclude = {
+  select: { id: true, name: true, color: true },
+};
 
 // ---- Queries ----
 
@@ -57,6 +65,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
         },
       },
       veterinarian: { select: { id: true, name: true } },
+      service: serviceInclude,
     },
     orderBy: { startTime: "asc" },
   }) as unknown as AppointmentFull[];
@@ -75,6 +84,7 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
         },
       },
       veterinarian: { select: { id: true, name: true } },
+      service: serviceInclude,
     },
   }) as unknown as AppointmentFull | null;
 }
@@ -129,7 +139,8 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       title: parsed.data.title,
       petId: parsed.data.petId,
       veterinarianId: parsed.data.veterinarianId,
-      type: parsed.data.type,
+      serviceId: parsed.data.serviceId ?? null,
+      type: parsed.data.type ?? null,
       startTime,
       endTime,
       notes: parsed.data.notes || null,
@@ -143,6 +154,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
         },
       },
       veterinarian: { select: { id: true, name: true } },
+      service: serviceInclude,
     },
   });
 
@@ -176,6 +188,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       ...(data.title ? { title: data.title } : {}),
       ...(data.petId ? { petId: data.petId } : {}),
       ...(data.veterinarianId ? { veterinarianId: data.veterinarianId } : {}),
+      ...("serviceId" in data ? { serviceId: data.serviceId ?? null } : {}),
       ...(data.type ? { type: data.type } : {}),
       ...(data.startTime ? { startTime: new Date(data.startTime) } : {}),
       ...(data.endTime ? { endTime: new Date(data.endTime) } : {}),
@@ -189,6 +202,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
         },
       },
       veterinarian: { select: { id: true, name: true } },
+      service: serviceInclude,
     },
   });
 
@@ -216,7 +230,8 @@ const primaryPatientSchema = z.object({
 const appointmentBaseSchema = z.object({
   title: z.string().min(1).max(100),
   veterinarianId: z.string().min(1),
-  type: z.nativeEnum(AppointmentType),
+  serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
   notes: z.string().max(500).optional().or(z.literal("")),
@@ -244,16 +259,13 @@ export async function createAppointmentWithNewPatient(
     let resolvedPetId: string;
 
     if (existingPetId) {
-      // Case A: use existing pet directly
       resolvedPetId = existingPetId;
     } else if (existingOwnerId) {
-      // Case B: add new pet to existing owner
       const pet = await tx.pet.create({
         data: { name: petName, species: petSpecies, ownerId: existingOwnerId },
       });
       resolvedPetId = pet.id;
     } else {
-      // Case C: create new owner + pet
       const owner = await tx.owner.create({
         data: { firstName: ownerFirstName, lastName: ownerLastName, phone: ownerPhone },
       });
@@ -268,7 +280,8 @@ export async function createAppointmentWithNewPatient(
         title: parsedAppt.data.title,
         petId: resolvedPetId,
         veterinarianId: parsedAppt.data.veterinarianId,
-        type: parsedAppt.data.type,
+        serviceId: parsedAppt.data.serviceId ?? null,
+        type: parsedAppt.data.type ?? null,
         startTime,
         endTime,
         notes: parsedAppt.data.notes || null,
@@ -282,6 +295,7 @@ export async function createAppointmentWithNewPatient(
           },
         },
         veterinarian: { select: { id: true, name: true } },
+        service: serviceInclude,
       },
     });
   });

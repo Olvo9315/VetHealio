@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { PetFull } from "@/lib/types";
 import { SpeciesBadge } from "./SpeciesBadge";
 import { EditPetDialog } from "./EditPetDialog";
+import { EditOwnerDialog } from "./EditOwnerDialog";
 import { archivePet } from "@/lib/actions/patients";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   Cpu,
 } from "lucide-react";
 import { format, differenceInYears, differenceInMonths } from "date-fns";
+import { formatPetId } from "@/lib/utils";
 
 function PetAge({ birthDate }: { birthDate: Date | null }) {
   if (!birthDate) return <span className="text-muted-foreground">—</span>;
@@ -40,6 +42,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
   const t = useTranslations("patients");
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [editOwnerOpen, setEditOwnerOpen] = useState(false);
   const [isArchiving, startArchive] = useTransition();
 
   function handleArchive() {
@@ -79,6 +82,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-start gap-2 mb-2">
                 <h2 className="text-2xl font-bold text-foreground">{pet.name}</h2>
+                <span className="text-sm text-muted-foreground font-mono self-center">{formatPetId(pet.number)}</span>
                 <SpeciesBadge species={pet.species} size="md" />
                 {!pet.isActive && (
                   <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
@@ -117,9 +121,20 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                   </div>
                 )}
                 {pet.microchipNumber && (
-                  <div className="flex items-center gap-1.5 text-muted-foreground col-span-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Cpu className="w-3.5 h-3.5" />
                     {pet.microchipNumber}
+                  </div>
+                )}
+                {pet.passportNumber && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="text-xs">🪪</span>
+                    {pet.passportNumber}
+                  </div>
+                )}
+                {pet.sterilized && (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="text-xs font-medium text-primary">{t("sterilized")}</span>
                   </div>
                 )}
               </div>
@@ -140,6 +155,15 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                     <Phone className="w-3.5 h-3.5" />
                     {pet.owner.phone}
                   </a>
+                  {pet.owner.phone2 && (
+                    <a
+                      href={`tel:${pet.owner.phone2}`}
+                      className="flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      {pet.owner.phone2}
+                    </a>
+                  )}
                   {pet.owner.email && (
                     <a
                       href={`mailto:${pet.owner.email}`}
@@ -149,7 +173,14 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                       {pet.owner.email}
                     </a>
                   )}
-                  {pet.owner.address && (
+                  {pet.owner.postalCode && (
+                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {pet.owner.postalCode}
+                      {pet.owner.address ? ` · ${pet.owner.address}` : ""}
+                    </span>
+                  )}
+                  {!pet.owner.postalCode && pet.owner.address && (
                     <span className="flex items-center gap-1 text-sm text-muted-foreground">
                       <MapPin className="w-3.5 h-3.5" />
                       {pet.owner.address}
@@ -170,6 +201,15 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
                 Editar
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => setEditOwnerOpen(true)}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                {t("editOwner")}
+              </Button>
               {pet.isActive && (
                 <Button
                   variant="outline"
@@ -187,7 +227,8 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
         </CardContent>
       </Card>
 
-      <EditPetDialog pet={pet} open={editOpen} onOpenChange={setEditOpen} />
+      {editOpen && <EditPetDialog pet={pet} open={editOpen} onOpenChange={setEditOpen} />}
+      {editOwnerOpen && <EditOwnerDialog owner={pet.owner} open={editOwnerOpen} onOpenChange={setEditOwnerOpen} />}
     </>
   );
 }

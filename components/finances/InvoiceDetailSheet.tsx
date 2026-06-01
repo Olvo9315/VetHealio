@@ -36,7 +36,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatInvoiceId } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 
 const statusConfig = {
@@ -120,7 +120,7 @@ export function InvoiceDetailSheet({
               <Receipt className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base leading-tight">Factura</SheetTitle>
+              <SheetTitle className="text-base leading-tight">Factura <span className="font-mono text-sm text-muted-foreground font-normal">{formatInvoiceId(invoice.number, invoice.createdAt)}</span></SheetTitle>
               <div className="flex items-center gap-2 mt-1">
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
                   {stCfg.label}
@@ -207,7 +207,7 @@ export function InvoiceDetailSheet({
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.description}</p>
                     <p className="text-xs text-muted-foreground">
-                      {itemTypeLabels[item.type]} · {item.quantity} × {fmt(item.unitPrice)}
+                      {item.service?.name ?? (item.type ? itemTypeLabels[item.type] : "Servicio")} · {item.quantity} × {fmt(item.unitPrice)}
                     </p>
                   </div>
                   <span className="text-sm font-semibold shrink-0">{fmt(item.total)}</span>

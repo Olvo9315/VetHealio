@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -25,10 +25,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, ChevronRight, PawPrint, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  ChevronRight,
+  PawPrint,
+  Loader2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+} from "lucide-react";
 import { format } from "date-fns";
 import { NewPatientDialog } from "./NewPatientDialog";
-import { cn } from "@/lib/utils";
+import { cn, formatPetId } from "@/lib/utils";
+
+type SortField = "number" | "name" | "species" | "breed" | "owner" | "birthDate" | "lastVisit";
+type SortDir = "asc" | "desc";
 
 interface PatientsTableProps {
   initialPets: PetWithOwner[];
@@ -43,6 +55,8 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
   const [species, setSpecies] = useState<string>("ALL");
   const [isActive, setIsActive] = useState<string>("true");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("number");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const applyFilters = useCallback(
     (overrides: Partial<{ search: string; species: string; isActive: string }> = {}) => {
@@ -79,6 +93,89 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
   function handleActiveChange(value: string) {
     setIsActive(value);
     applyFilters({ isActive: value });
+  }
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedPets = useMemo(() => {
+    return [...pets].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "number":
+          cmp = (a.number ?? 0) - (b.number ?? 0);
+          break;
+        case "name":
+          cmp = a.name.localeCompare(b.name, "es");
+          break;
+        case "species":
+          cmp = a.species.localeCompare(b.species);
+          break;
+        case "breed": {
+          const ba = a.breed ?? "";
+          const bb = b.breed ?? "";
+          cmp = ba.localeCompare(bb, "es");
+          break;
+        }
+        case "owner": {
+          const oa = `${a.owner.lastName} ${a.owner.firstName}`;
+          const ob = `${b.owner.lastName} ${b.owner.firstName}`;
+          cmp = oa.localeCompare(ob, "es");
+          break;
+        }
+        case "birthDate": {
+          const da = a.birthDate ? new Date(a.birthDate).getTime() : Infinity;
+          const db = b.birthDate ? new Date(b.birthDate).getTime() : Infinity;
+          cmp = da - db;
+          break;
+        }
+        case "lastVisit": {
+          const la = a.appointments?.[0]?.startTime
+            ? new Date(a.appointments[0].startTime).getTime()
+            : -Infinity;
+          const lb = b.appointments?.[0]?.startTime
+            ? new Date(b.appointments[0].startTime).getTime()
+            : -Infinity;
+          cmp = la - lb;
+          break;
+        }
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [pets, sortField, sortDir]);
+
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    if (sortDir === "asc") return <ArrowUp className="w-3 h-3 ml-1 inline" />;
+    return <ArrowDown className="w-3 h-3 ml-1 inline" />;
+  }
+
+  function SortableHead({
+    field,
+    children,
+    className,
+  }: {
+    field: SortField;
+    children: React.ReactNode;
+    className?: string;
+  }) {
+    return (
+      <TableHead
+        className={cn("cursor-pointer select-none hover:bg-muted/80 transition-colors", className)}
+        onClick={() => handleSort(field)}
+      >
+        <span className="flex items-center gap-0.5">
+          {children}
+          <SortIcon field={field} />
+        </span>
+      </TableHead>
+    );
   }
 
   return (
@@ -151,32 +248,38 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
+              <SortableHead field="number" className="w-24 font-mono">#</SortableHead>
               <TableHead className="w-12"></TableHead>
-              <TableHead>{t("name")}</TableHead>
-              <TableHead>{t("species")}</TableHead>
-              <TableHead>{t("breed")}</TableHead>
-              <TableHead>{t("owner")}</TableHead>
-              <TableHead>{t("birthDate")}</TableHead>
-              <TableHead>{t("lastVisit")}</TableHead>
+              <SortableHead field="name">{t("name")}</SortableHead>
+              <SortableHead field="species">{t("species")}</SortableHead>
+              <SortableHead field="breed">{t("breed")}</SortableHead>
+              <SortableHead field="owner">{t("owner")}</SortableHead>
+              <SortableHead field="birthDate">{t("birthDate")}</SortableHead>
+              <SortableHead field="lastVisit">{t("lastVisit")}</SortableHead>
               <TableHead>{t("status")}</TableHead>
               <TableHead className="w-8"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pets.length === 0 ? (
+            {sortedPets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-16 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-16 text-muted-foreground">
                   <PawPrint className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   {t("noPatients")}
                 </TableCell>
               </TableRow>
             ) : (
-              pets.map((pet) => (
+              sortedPets.map((pet) => (
                 <TableRow
                   key={pet.id}
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
                   onClick={() => router.push(`/patients/${pet.id}`)}
                 >
+                  <TableCell>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatPetId(pet.number)}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                       {pet.photoUrl ? (
@@ -228,13 +331,13 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
-        {pets.length === 0 ? (
+        {sortedPets.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <PawPrint className="w-8 h-8 mx-auto mb-2 opacity-30" />
             {t("noPatients")}
           </div>
         ) : (
-          pets.map((pet) => (
+          sortedPets.map((pet) => (
             <Link
               key={pet.id}
               href={`/patients/${pet.id}`}
@@ -252,6 +355,9 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{pet.name}</span>
                   <SpeciesBadge species={pet.species} />
+                  <span className="font-mono text-xs text-muted-foreground ml-auto">
+                    {formatPetId(pet.number)}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
                   {pet.owner.firstName} {pet.owner.lastName} · {pet.owner.phone}
@@ -264,9 +370,9 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
       </div>
 
       {/* Count */}
-      {pets.length > 0 && (
+      {sortedPets.length > 0 && (
         <p className="text-xs text-muted-foreground text-right">
-          {pets.length} paciente{pets.length !== 1 ? "s" : ""}
+          {sortedPets.length} paciente{sortedPets.length !== 1 ? "s" : ""}
         </p>
       )}
 

@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { format, addDays, subDays, isToday, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
-import { typeConfig, statusConfig } from "./AppointmentConfig";
+import { getTypeCfgForAppointment, statusConfig } from "./AppointmentConfig";
+import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { Button } from "@/components/ui/button";
@@ -16,9 +17,10 @@ type Vet = { id: string; name: string; role: string };
 interface MobileAppointmentListProps {
   initialAppointments: AppointmentFull[];
   vets: Vet[];
+  services: ServiceFlat[];
 }
 
-export function MobileAppointmentList({ initialAppointments, vets }: MobileAppointmentListProps) {
+export function MobileAppointmentList({ initialAppointments, vets, services }: MobileAppointmentListProps) {
   const [date, setDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [selectedApt, setSelectedApt] = useState<AppointmentFull | null>(null);
@@ -130,7 +132,7 @@ export function MobileAppointmentList({ initialAppointments, vets }: MobileAppoi
       ) : (
         <div className="space-y-2">
           {dayAppointments.map((apt) => {
-            const typeCfg = typeConfig[apt.type];
+            const typeCfg = getTypeCfgForAppointment(apt);
             const stCfg = statusConfig[apt.status];
             const hasConflict = conflictIds.has(apt.id);
             return (
@@ -193,6 +195,7 @@ export function MobileAppointmentList({ initialAppointments, vets }: MobileAppoi
         open={createOpen}
         onOpenChange={setCreateOpen}
         vets={vets}
+        services={services}
         presetStart={date}
         onSaved={handleSaved}
       />

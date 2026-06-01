@@ -1,4 +1,5 @@
 import type { AppointmentStatus, AppointmentType } from "@prisma/client";
+import type { AppointmentFull } from "@/lib/actions/appointments";
 
 // Color map by type — used in calendar events and badges
 export const typeConfig: Record<AppointmentType, { label: string; color: string; bg: string; border: string }> = {
@@ -21,6 +22,13 @@ export const statusConfig: Record<AppointmentStatus, { label: string; className:
 // Opacity modifier by status for calendar events
 export function getEventStyle(type: AppointmentType, status: AppointmentStatus) {
   const cfg = typeConfig[type];
+  return buildEventStyle(cfg, status);
+}
+
+export function buildEventStyle(
+  cfg: { color: string; bg: string; border: string },
+  status: AppointmentStatus
+) {
   const faded = status === "COMPLETED" || status === "CANCELLED" || status === "NO_SHOW";
   return {
     backgroundColor: cfg.bg,
@@ -34,7 +42,24 @@ export function getEventStyle(type: AppointmentType, status: AppointmentStatus) 
     fontSize: "11px",
     fontWeight: 500,
     overflow: "hidden",
-    // stacked-paper depth effect
     boxShadow: `2px 2px 0 ${cfg.border}, 4px 4px 0 ${cfg.border}80`,
   };
+}
+
+export function getEventStyleForAppointment(apt: AppointmentFull, status: AppointmentStatus) {
+  if (apt.service?.color) {
+    const c = apt.service.color;
+    return buildEventStyle({ color: c, bg: c + "22", border: c + "88" }, status);
+  }
+  if (apt.type) return getEventStyle(apt.type, status);
+  return buildEventStyle(typeConfig.OTHER, status);
+}
+
+export function getTypeCfgForAppointment(apt: AppointmentFull): { label: string; color: string; bg: string; border: string } {
+  if (apt.service?.color) {
+    const c = apt.service.color;
+    return { label: apt.service.name, color: c, bg: c + "22", border: c + "88" };
+  }
+  if (apt.type) return typeConfig[apt.type];
+  return typeConfig.OTHER;
 }

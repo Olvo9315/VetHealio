@@ -107,6 +107,7 @@ model User {
   appointments        Appointment[]   @relation("VeterinarianAppointments")
   medicalRecords      MedicalRecord[]
   vaccinations        Vaccination[]
+  prescriptions       Prescription[]
   accounts            Account[]
   sessions            Session[]
   staffProfile        StaffProfile?
@@ -247,20 +248,23 @@ model VerificationToken {
 }
 
 model Owner {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  phone     String
-  email     String?
-  address   String?
-  notes     String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  phone      String
+  phone2     String?
+  email      String?
+  postalCode String?
+  address    String?
+  notes      String?
+  createdAt  DateTime @default(now())
 
   pets Pet[]
 }
 
 model Pet {
   id              String    @id @default(cuid())
+  number          Int       @default(autoincrement())
   name            String
   species         Species
   breed           String?
@@ -269,6 +273,8 @@ model Pet {
   weight          Float?
   gender          Gender?
   microchipNumber String?
+  passportNumber  String?
+  sterilized      Boolean?
   photoUrl        String?
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
@@ -280,25 +286,30 @@ model Pet {
   appointments   Appointment[]
   vaccinations   Vaccination[]
   invoices       Invoice[]
+  prescriptions  Prescription[]
 }
 
 model Appointment {
-  id            String            @id @default(cuid())
+  id            String             @id @default(cuid())
+  number        Int                @default(autoincrement())
   title         String
   startTime     DateTime
   endTime       DateTime
-  status        AppointmentStatus @default(SCHEDULED)
-  type          AppointmentType   @default(CONSULTATION)
+  status        AppointmentStatus  @default(SCHEDULED)
+  type          AppointmentType?   @default(CONSULTATION)
   notes         String?
   googleEventId String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   petId          String
-  pet            Pet     @relation(fields: [petId], references: [id])
+  pet            Pet      @relation(fields: [petId], references: [id])
   veterinarianId String
-  veterinarian   User    @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  veterinarian   User     @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  serviceId      String?
+  service        Service? @relation(fields: [serviceId], references: [id])
   invoice        Invoice?
+  prescriptions  Prescription[]
 }
 
 model MedicalRecord {
@@ -323,15 +334,40 @@ model MedicalRecord {
 }
 
 model Prescription {
-  id             String @id @default(cuid())
-  medicationName String
-  dosage         String
-  frequency      String
-  duration       String
-  notes          String?
+  id        String   @id @default(cuid())
+  number    Int      @default(autoincrement())
+  notes     String?
+  createdAt DateTime @default(now())
 
-  medicalRecordId String
-  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  // Legacy fields (for prescriptions created via MedicalRecord)
+  medicationName String?
+  dosage         String?
+  frequency      String?
+  duration       String?
+
+  petId           String?
+  pet             Pet?           @relation(fields: [petId], references: [id])
+  veterinarianId  String?
+  veterinarian    User?          @relation(fields: [veterinarianId], references: [id])
+  appointmentId   String?
+  appointment     Appointment?   @relation(fields: [appointmentId], references: [id])
+  medicalRecordId String?
+  medicalRecord   MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+
+  items PrescriptionItem[]
+}
+
+model PrescriptionItem {
+  id               String  @id @default(cuid())
+  medicationName   String
+  units            String?
+  activeIngredient String?
+  posology         String
+  indications      String?
+  warnings         String?
+
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 }
 
 model Vaccination {
@@ -362,6 +398,7 @@ model Attachment {
 
 model Invoice {
   id            String         @id @default(cuid())
+  number        Int            @default(autoincrement())
   status        InvoiceStatus  @default(PENDING)
   totalAmount   Float
   paymentMethod PaymentMethod?
@@ -376,15 +413,34 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String          @id @default(cuid())
+  id          String           @id @default(cuid())
   description String
   quantity    Int
   unitPrice   Float
   total       Float
-  type        InvoiceItemType @default(SERVICE)
+  type        InvoiceItemType? @default(SERVICE)
+  serviceId   String?
+  service     Service?         @relation(fields: [serviceId], references: [id])
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Service {
+  id        String    @id @default(cuid())
+  name      String
+  price     Float?
+  color     String?
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  parentId  String?
+  parent    Service?  @relation("ServiceTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Service[] @relation("ServiceTree")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  appointments Appointment[]
+  invoiceItems InvoiceItem[]
 }
 
 model InventoryItem {

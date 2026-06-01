@@ -6,6 +6,7 @@ import {
   getInvoiceStats,
   getRevenueChartData,
 } from "@/lib/actions/invoices";
+import { getServicesFlat } from "@/lib/actions/services";
 import { FinancesStats } from "@/components/finances/FinancesStats";
 import { RevenueChart } from "@/components/finances/RevenueChart";
 import { InvoicesTable } from "@/components/finances/InvoicesTable";
@@ -14,10 +15,11 @@ export default async function FinancesPage() {
   const session = await auth();
   const t = await getTranslations("finances");
 
-  const [invoices, stats, chartData] = await Promise.all([
+  const [invoices, stats, chartData, services] = await Promise.all([
     getInvoices(),
     getInvoiceStats(),
     getRevenueChartData(30),
+    getServicesFlat(),
   ]);
 
   return (
@@ -26,7 +28,7 @@ export default async function FinancesPage() {
       <div className="flex-1 p-4 md:p-6 space-y-5">
         <FinancesStats stats={stats} />
         <RevenueChart data={chartData} />
-        <InvoicesTable initialInvoices={invoices} />
+        <InvoicesTable initialInvoices={invoices} services={services} />
       </div>
     </div>
   );

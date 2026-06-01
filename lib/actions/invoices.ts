@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { subDays, format, startOfMonth, endOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
+import { Prisma } from "@prisma/client";
 import type {
   InvoiceStatus,
   PaymentMethod,
@@ -17,6 +18,7 @@ import type {
 
 export type InvoiceFull = {
   id: string;
+  number: number;
   status: InvoiceStatus;
   totalAmount: number;
   paymentMethod: PaymentMethod | null;
@@ -33,7 +35,7 @@ export type InvoiceFull = {
     id: string;
     title: string;
     startTime: Date;
-    type: AppointmentType;
+    type: AppointmentType | null;
     pet: {
       name: string;
       species: Species;
@@ -47,7 +49,9 @@ export type InvoiceFull = {
     quantity: number;
     unitPrice: number;
     total: number;
-    type: InvoiceItemType;
+    type: InvoiceItemType | null;
+    serviceId: string | null;
+    service: { name: string } | null;
   }[];
 };
 
@@ -64,7 +68,8 @@ export type AppointmentOption = {
   id: string;
   title: string;
   startTime: Date;
-  type: AppointmentType;
+  type: AppointmentType | null;
+  service: { id: string; name: string; price: number | null } | null;
   pet: { name: string; owner: { firstName: string; lastName: string } };
 };
 
@@ -74,7 +79,8 @@ const invoiceItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.coerce.number().int().positive(),
   unitPrice: z.coerce.number().positive(),
-  type: z.nativeEnum({ CONSULTATION: "CONSULTATION", MEDICATION: "MEDICATION", SERVICE: "SERVICE", OTHER: "OTHER" } as Record<InvoiceItemType, InvoiceItemType>),
+  type: z.nativeEnum({ CONSULTATION: "CONSULTATION", MEDICATION: "MEDICATION", SERVICE: "SERVICE", OTHER: "OTHER" } as Record<InvoiceItemType, InvoiceItemType>).optional(),
+  serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
 });
 
 const invoiceSchema = z.object({
@@ -116,7 +122,18 @@ const fullInclude = {
       veterinarian: { select: { name: true } },
     },
   },
-  items: true,
+  items: {
+    select: {
+      id: true,
+      description: true,
+      quantity: true,
+      unitPrice: true,
+      total: true,
+      type: true,
+      serviceId: true,
+      service: { select: { name: true } },
+    },
+  },
 } as const;
 
 // ---- Queries ----
@@ -223,6 +240,7 @@ export async function searchAppointmentsWithoutInvoice(
       title: true,
       startTime: true,
       type: true,
+      service: { select: { id: true, name: true, price: true } },
       pet: {
         select: {
           name: true,
@@ -237,6 +255,17 @@ export async function searchAppointmentsWithoutInvoice(
 
 // ---- Mutations ----
 
+function buildItems(items: z.infer<typeof invoiceItemSchema>[]) {
+  return items.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    total: item.quantity * item.unitPrice,
+    type: item.type as InvoiceItemType | undefined,
+    serviceId: item.serviceId ?? null,
+  }));
+}
+
 export async function createInvoice(data: InvoiceFormData) {
   const parsed = invoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -247,42 +276,35 @@ export async function createInvoice(data: InvoiceFormData) {
   });
   if (!appointment) return { error: "Cita no encontrada" };
 
-  const items = parsed.data.items.map((item) => ({
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.quantity * item.unitPrice,
-    type: item.type as InvoiceItemType,
-  }));
-
+  const items = buildItems(parsed.data.items);
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
 
-  const invoice = await prisma.invoice.create({
-    data: {
-      petId: appointment.petId,
-      appointmentId: parsed.data.appointmentId,
-      totalAmount,
-      items: { create: items },
-    },
-    include: fullInclude,
-  });
+  try {
+    const invoice = await prisma.invoice.create({
+      data: {
+        petId: appointment.petId,
+        appointmentId: parsed.data.appointmentId,
+        totalAmount,
+        items: { create: items },
+      },
+      include: fullInclude,
+    });
 
-  revalidatePath("/finances");
-  return { invoice: invoice as unknown as InvoiceFull };
+    revalidatePath("/finances");
+    return { invoice: invoice as unknown as InvoiceFull };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "Esta cita ya tiene una factura asociada" };
+    }
+    throw e;
+  }
 }
 
 export async function createDirectInvoice(data: DirectInvoiceFormData) {
   const parsed = directInvoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
-  const items = parsed.data.items.map((item) => ({
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.quantity * item.unitPrice,
-    type: item.type as InvoiceItemType,
-  }));
-
+  const items = buildItems(parsed.data.items);
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
 
   const invoice = await prisma.invoice.create({
@@ -311,14 +333,7 @@ export async function updateInvoice(id: string, data: InvoiceFormData) {
 
   await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
 
-  const items = parsed.data.items.map((item) => ({
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.quantity * item.unitPrice,
-    type: item.type as InvoiceItemType,
-  }));
-
+  const items = buildItems(parsed.data.items);
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
 
   const invoice = await prisma.invoice.update({

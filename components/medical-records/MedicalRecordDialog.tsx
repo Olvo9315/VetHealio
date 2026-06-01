@@ -139,9 +139,30 @@ export function MedicalRecordDialog({
   const watchVetId = form.watch("veterinarianId");
   const watchDate = form.watch("date");
 
-  // Re-initialize on open with fresh date
+  // Re-initialize on open
   useEffect(() => {
-    if (open && !isEdit) {
+    if (!open) return;
+    if (isEdit && record) {
+      form.reset({
+        petId: record.petId,
+        veterinarianId: record.veterinarianId,
+        date: format(new Date(record.date), "yyyy-MM-dd'T'HH:mm"),
+        chiefComplaint: record.chiefComplaint,
+        diagnosis: record.diagnosis ?? "",
+        treatment: record.treatment ?? "",
+        weight: record.weight ?? "",
+        temperature: record.temperature ?? "",
+        heartRate: record.heartRate ?? "",
+        notes: record.notes ?? "",
+        prescriptions: record.prescriptions.map((p) => ({
+          medicationName: p.medicationName,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          duration: p.duration,
+          notes: p.notes ?? "",
+        })),
+      });
+    } else {
       form.reset({
         petId: presetPetId ?? "",
         veterinarianId: vets[0]?.id ?? "",
@@ -171,9 +192,9 @@ export function MedicalRecordDialog({
     if (record) {
       setSelectedPet({
         id: record.petId,
-        name: record.pet.name,
-        species: record.pet.species,
-        owner: record.pet.owner,
+        name: record.pet?.name ?? presetPetName ?? "",
+        species: record.pet?.species ?? "",
+        owner: record.pet?.owner ?? { firstName: "", lastName: "", phone: "" },
       });
     } else if (presetPetId && presetPetName) {
       setSelectedPet({ id: presetPetId, name: presetPetName, species: "", owner: { firstName: "", lastName: "", phone: "" } });

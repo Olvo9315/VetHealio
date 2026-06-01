@@ -30,7 +30,7 @@ export function BottomNav({ showStaff }: BottomNavProps) {
   const t = useTranslations("nav");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const isMoreActive = ["/medical-records", "/inventory", "/settings", ...(showStaff ? ["/staff"] : [])].some((p) =>
+  const isMoreActive = ["/medical-records", "/inventory", "/services", "/settings", ...(showStaff ? ["/staff"] : [])].some((p) =>
     pathname.startsWith(p)
   );
 
