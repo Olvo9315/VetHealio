@@ -26,6 +26,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
   const [selectedApt, setSelectedApt] = useState<AppointmentFull | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingApt, setEditingApt] = useState<AppointmentFull | null>(null);
 
   const dayAppointments = appointments
     .filter((a) => isSameDay(new Date(a.startTime), date))
@@ -186,17 +187,18 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
           appointment={selectedApt}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
-          onEdit={() => { setDetailOpen(false); setCreateOpen(true); }}
+          onEdit={() => { setEditingApt(selectedApt); setDetailOpen(false); setCreateOpen(true); }}
         />
       )}
 
-      {/* Create Dialog */}
+      {/* Create / Edit Dialog */}
       <AppointmentDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(v) => { setCreateOpen(v); if (!v) setEditingApt(null); }}
         vets={vets}
         services={services}
-        presetStart={date}
+        appointment={editingApt ?? undefined}
+        presetStart={editingApt ? undefined : date}
         onSaved={handleSaved}
       />
     </div>

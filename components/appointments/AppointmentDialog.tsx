@@ -172,7 +172,25 @@ export function AppointmentDialog({
 
   // Re-initialize on open
   useEffect(() => {
-    if (open && !isEdit) {
+    if (!open) return;
+    if (isEdit && appointment) {
+      form.reset({
+        title: appointment.title,
+        petId: appointment.petId,
+        veterinarianId: appointment.veterinarianId,
+        startTime: format(new Date(appointment.startTime), "yyyy-MM-dd'T'HH:mm"),
+        endTime: format(new Date(appointment.endTime), "yyyy-MM-dd'T'HH:mm"),
+        notes: appointment.notes ?? "",
+      });
+      setSelectedPet({
+        id: appointment.petId,
+        name: appointment.pet.name,
+        species: appointment.pet.species,
+        owner: appointment.pet.owner,
+      });
+      setSelectedService(appointment.service ? { id: appointment.service.id, name: appointment.service.name, price: null } : null);
+      setServiceError(undefined);
+    } else if (!isEdit) {
       const now = new Date();
       form.reset({
         title: "",
@@ -195,7 +213,7 @@ export function AppointmentDialog({
       resetPrimaryFields();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, appointment]);
 
   function resetPrimaryFields() {
     setPrimaryPetName("");
