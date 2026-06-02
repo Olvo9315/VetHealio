@@ -333,6 +333,15 @@ export function AppointmentDialog({
       return;
     }
     setServiceError(undefined);
+
+    // Convert datetime-local strings (no timezone) to UTC ISO strings so the
+    // server action produces the same Date regardless of the server's timezone.
+    const utcData = {
+      ...data,
+      startTime: new Date(data.startTime).toISOString(),
+      endTime: new Date(data.endTime).toISOString(),
+    };
+
     if (mode === "existing") {
       if (!selectedPet) {
         form.setError("petId", { message: "Selecciona un paciente" });
@@ -340,12 +349,12 @@ export function AppointmentDialog({
       }
       startSave(async () => {
         if (isEdit) {
-          const result = await updateAppointment(appointment.id, { ...data, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
+          const result = await updateAppointment(appointment.id, { ...utcData, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
           if ("error" in result) { toast.error("Error al actualizar"); return; }
           toast.success("Cita actualizada");
           onSaved(result.appointment as AppointmentFull);
         } else {
-          const result = await createAppointment({ ...data, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
+          const result = await createAppointment({ ...utcData, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
           if ("error" in result) { toast.error("Error al crear cita"); return; }
           toast.success("Cita creada");
           onSaved(result.appointment as AppointmentFull);
@@ -356,7 +365,7 @@ export function AppointmentDialog({
       if (!validatePrimary()) return;
       startSave(async () => {
         const result = await createAppointmentWithNewPatient(
-          { ...data, serviceId: selectedService?.id ?? null },
+          { ...utcData, serviceId: selectedService?.id ?? null },
           {
             petName: primaryPetName.trim(),
             petSpecies: primarySpecies as Species,
