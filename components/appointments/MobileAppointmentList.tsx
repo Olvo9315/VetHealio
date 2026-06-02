@@ -192,15 +192,17 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
       )}
 
       {/* Create / Edit Dialog */}
-      <AppointmentDialog
-        open={createOpen}
-        onOpenChange={(v) => { setCreateOpen(v); if (!v) setEditingApt(null); }}
-        vets={vets}
-        services={services}
-        appointment={editingApt ?? undefined}
-        presetStart={editingApt ? undefined : date}
-        onSaved={handleSaved}
-      />
+      {createOpen && (
+        <AppointmentDialog
+          open={createOpen}
+          onOpenChange={(v) => { if (!v) { setCreateOpen(false); setEditingApt(null); } }}
+          vets={vets}
+          services={services}
+          appointment={editingApt ?? undefined}
+          presetStart={editingApt ? undefined : date}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   );
 }
