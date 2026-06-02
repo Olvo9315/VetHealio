@@ -155,6 +155,8 @@ model StaffShift {
   endTime   DateTime
   note      String?
   createdAt DateTime @default(now())
+
+  @@index([userId, startTime])
 }
 
 model LeaveRequest {
@@ -172,6 +174,8 @@ model LeaveRequest {
   reviewNote     String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+
+  @@index([staffProfileId, status])
 }
 
 model StaffCertification {
@@ -287,6 +291,9 @@ model Pet {
   vaccinations   Vaccination[]
   invoices       Invoice[]
   prescriptions  Prescription[]
+
+  @@index([ownerId])
+  @@index([isActive, updatedAt])
 }
 
 model Appointment {
@@ -310,6 +317,10 @@ model Appointment {
   service        Service? @relation(fields: [serviceId], references: [id])
   invoice        Invoice?
   prescriptions  Prescription[]
+
+  @@index([startTime, endTime])
+  @@index([petId])
+  @@index([veterinarianId])
 }
 
 model MedicalRecord {
@@ -331,6 +342,8 @@ model MedicalRecord {
   veterinarian   User           @relation(fields: [veterinarianId], references: [id])
   prescriptions  Prescription[]
   attachments    Attachment[]
+
+  @@index([petId, date])
 }
 
 model Prescription {
@@ -355,6 +368,9 @@ model Prescription {
   medicalRecord   MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
 
   items PrescriptionItem[]
+
+  @@index([petId, createdAt])
+  @@index([appointmentId])
 }
 
 model PrescriptionItem {
@@ -383,6 +399,8 @@ model Vaccination {
   pet            Pet    @relation(fields: [petId], references: [id])
   veterinarianId String
   veterinarian   User   @relation(fields: [veterinarianId], references: [id])
+
+  @@index([petId])
 }
 
 model Attachment {
@@ -410,6 +428,9 @@ model Invoice {
   appointmentId String?        @unique
   appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
   items         InvoiceItem[]
+
+  @@index([petId])
+  @@index([status, createdAt])
 }
 
 model InvoiceItem {
