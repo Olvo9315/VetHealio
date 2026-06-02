@@ -95,6 +95,8 @@ export function AppointmentDialog({
   const isEdit = !!appointment;
   const [isSaving, startSave] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const appointmentRef = useRef(appointment);
+  appointmentRef.current = appointment;
 
   // ── Service selection ──
   const [selectedService, setSelectedService] = useState<SelectedService | null>(
@@ -158,39 +160,28 @@ export function AppointmentDialog({
         },
   });
 
-  // Populate selected pet on edit
-  useEffect(() => {
-    if (appointment) {
-      setSelectedPet({
-        id: appointment.petId,
-        name: appointment.pet.name,
-        species: appointment.pet.species,
-        owner: appointment.pet.owner,
-      });
-    }
-  }, [appointment]);
-
   // Re-initialize on open
   useEffect(() => {
     if (!open) return;
-    if (isEdit && appointment) {
+    const apt = appointmentRef.current;
+    if (apt) {
       form.reset({
-        title: appointment.title,
-        petId: appointment.petId,
-        veterinarianId: appointment.veterinarianId,
-        startTime: format(new Date(appointment.startTime), "yyyy-MM-dd'T'HH:mm"),
-        endTime: format(new Date(appointment.endTime), "yyyy-MM-dd'T'HH:mm"),
-        notes: appointment.notes ?? "",
+        title: apt.title,
+        petId: apt.petId,
+        veterinarianId: apt.veterinarianId,
+        startTime: format(new Date(apt.startTime), "yyyy-MM-dd'T'HH:mm"),
+        endTime: format(new Date(apt.endTime), "yyyy-MM-dd'T'HH:mm"),
+        notes: apt.notes ?? "",
       });
       setSelectedPet({
-        id: appointment.petId,
-        name: appointment.pet.name,
-        species: appointment.pet.species,
-        owner: appointment.pet.owner,
+        id: apt.petId,
+        name: apt.pet.name,
+        species: apt.pet.species,
+        owner: apt.pet.owner,
       });
-      setSelectedService(appointment.service ? { id: appointment.service.id, name: appointment.service.name, price: null } : null);
+      setSelectedService(apt.service ? { id: apt.service.id, name: apt.service.name, price: null } : null);
       setServiceError(undefined);
-    } else if (!isEdit) {
+    } else {
       const now = new Date();
       form.reset({
         title: "",
@@ -213,7 +204,7 @@ export function AppointmentDialog({
       resetPrimaryFields();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, appointment]);
+  }, [open]);
 
   function resetPrimaryFields() {
     setPrimaryPetName("");
