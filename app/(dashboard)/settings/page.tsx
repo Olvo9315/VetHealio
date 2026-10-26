@@ -41,6 +41,10 @@ export default async function SettingsPage() {
 
           {/* Clinic identity — admin only */}
           {clinic && <ClinicCard clinic={clinic} />}
+
+          <p className="text-center text-xs text-muted-foreground pt-2">
+            VetHealio {process.env.NEXT_PUBLIC_APP_VERSION}
+          </p>
         </div>
       </div>
     </div>

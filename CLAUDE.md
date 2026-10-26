@@ -3,7 +3,7 @@
 ## Stack
 - Next.js 14 App Router + TypeScript
 - Tailwind CSS + shadcn/ui
-- Prisma ORM + PostgreSQL (Supabase)
+- Prisma ORM + PostgreSQL (Neon), миграции в prisma/migrations
 - NextAuth.js v5
 - next-intl (ES основной, RU, EN)
 
@@ -24,3 +24,9 @@
 - Mobile-first всегда
 - Не трогать файлы в components/ui/ — они генерируются shadcn
 - Коммиты делать после каждого завершённого модуля
+
+## Releases & clinics
+- Каждая клиника — отдельный проект Vercel (clinics.json), прод + тест (Preview со STAGING_DATABASE_URL)
+- Процесс выпуска и выкатки — RELEASES.md; выкатка только через `npm run clinic -- deploy`
+- Изменения схемы БД — только через `npm run db:migrate -- --name ...`, не `db push`
+- Тексты UI — только через next-intl во всех трёх языках (messages/es|ru|en.json)

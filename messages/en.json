@@ -824,5 +824,8 @@
     "allDay": "All day",
     "noEvents": "No events in this range",
     "showMore": "+{count} more"
+  },
+  "release": {
+    "stagingBanner": "Test version {version} — data is not real"
   }
 }

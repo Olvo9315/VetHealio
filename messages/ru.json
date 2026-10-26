@@ -824,5 +824,8 @@
     "allDay": "Весь день",
     "noEvents": "Нет событий в этом периоде",
     "showMore": "+{count} ещё"
+  },
+  "release": {
+    "stagingBanner": "Тестовая версия {version} — данные не настоящие"
   }
 }

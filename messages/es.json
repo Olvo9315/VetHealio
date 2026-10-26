@@ -824,5 +824,8 @@
     "allDay": "Todo el día",
     "noEvents": "No hay eventos en este período",
     "showMore": "+{count} más"
+  },
+  "release": {
+    "stagingBanner": "Versión de prueba {version} — los datos no son reales"
   }
 }

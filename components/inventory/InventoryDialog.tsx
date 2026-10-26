@@ -162,7 +162,7 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
             <Label htmlFor="name">{t("name")} *</Label>
             <Input id="name" placeholder={t("namePlaceholder")} {...form.register("name")} />
             {form.formState.errors.name && (
-              <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.name.message)}</p>
             )}
           </div>
 
@@ -216,7 +216,7 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
                 <Label htmlFor="quantity">{t("currentQuantity")} *</Label>
                 <Input id="quantity" type="number" min="0" step="0.1" {...form.register("quantity")} />
                 {form.formState.errors.quantity && (
-                  <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
+                  <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.quantity.message)}</p>
                 )}
               </div>
               <div className="space-y-1.5">
