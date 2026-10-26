@@ -1,5 +1,6 @@
 import { format, isBefore, addDays } from "date-fns";
 import { Syringe, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Vaccination {
   id: string;
@@ -11,6 +12,7 @@ interface Vaccination {
 }
 
 function VaccinationStatus({ nextDueDate }: { nextDueDate: Date | null }) {
+  const t = useTranslations("vaccinations");
   if (!nextDueDate) return null;
 
   const now = new Date();
@@ -20,7 +22,7 @@ function VaccinationStatus({ nextDueDate }: { nextDueDate: Date | null }) {
     return (
       <span className="flex items-center gap-1 text-xs text-destructive font-medium">
         <AlertTriangle className="w-3.5 h-3.5" />
-        Vencida
+        {t("overdue")}
       </span>
     );
   }
@@ -28,7 +30,7 @@ function VaccinationStatus({ nextDueDate }: { nextDueDate: Date | null }) {
     return (
       <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
         <Clock className="w-3.5 h-3.5" />
-        Pronto — {format(new Date(nextDueDate), "dd/MM/yyyy")}
+        {t("soon", { date: format(new Date(nextDueDate), "dd/MM/yyyy") })}
       </span>
     );
   }
@@ -45,11 +47,12 @@ interface VaccinationsListProps {
 }
 
 export function VaccinationsList({ vaccinations }: VaccinationsListProps) {
+  const t = useTranslations("vaccinations");
   if (vaccinations.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Syringe className="w-8 h-8 mx-auto mb-2 opacity-30" />
-        <p className="text-sm">Sin vacunaciones registradas</p>
+        <p className="text-sm">{t("none")}</p>
       </div>
     );
   }
@@ -68,20 +71,20 @@ export function VaccinationsList({ vaccinations }: VaccinationsListProps) {
             <div>
               <p className="font-medium text-sm">{v.vaccineName}</p>
               <p className="text-xs text-muted-foreground">
-                Aplicada: {format(new Date(v.dateAdministered), "dd/MM/yyyy")}
-                {v.batchNumber ? ` · Lote: ${v.batchNumber}` : ""}
+                {t("applied", { date: format(new Date(v.dateAdministered), "dd/MM/yyyy") })}
+                {v.batchNumber ? ` · ${t("batch", { batch: v.batchNumber })}` : ""}
               </p>
-              <p className="text-xs text-muted-foreground">Dr. {v.veterinarian.name}</p>
+              <p className="text-xs text-muted-foreground">{t("doctor", { name: v.veterinarian.name })}</p>
             </div>
           </div>
           <div className="text-right shrink-0">
             {v.nextDueDate ? (
               <>
-                <p className="text-xs text-muted-foreground mb-0.5">Próxima dosis</p>
+                <p className="text-xs text-muted-foreground mb-0.5">{t("nextDueDate")}</p>
                 <VaccinationStatus nextDueDate={v.nextDueDate} />
               </>
             ) : (
-              <span className="text-xs text-muted-foreground">Dosis única</span>
+              <span className="text-xs text-muted-foreground">{t("singleDose")}</span>
             )}
           </div>
         </div>

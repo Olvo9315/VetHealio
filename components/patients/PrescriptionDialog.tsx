@@ -184,11 +184,11 @@ export function PrescriptionDialog({
                 <div className="grid grid-cols-2 gap-2">
                   {/* Medicamento */}
                   <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Medicamento *</Label>
+                    <Label className="text-xs">{t("medicationName")} *</Label>
                     <Input
                       value={item.medicationName}
                       onChange={(e) => updateItem(item._key, "medicationName", e.target.value)}
-                      placeholder="Amoxicilina 250mg..."
+                      placeholder={t("medicationPlaceholder")}
                       autoFocus={idx === 0}
                       required
                     />
@@ -196,52 +196,52 @@ export function PrescriptionDialog({
 
                   {/* Principio activo */}
                   <div className="space-y-1">
-                    <Label className="text-xs">Principio activo</Label>
+                    <Label className="text-xs">{t("activeIngredient")}</Label>
                     <Input
                       value={item.activeIngredient ?? ""}
                       onChange={(e) => updateItem(item._key, "activeIngredient", e.target.value)}
-                      placeholder="Amoxicilina..."
+                      placeholder={t("activeIngredientPlaceholder")}
                     />
                   </div>
 
                   {/* Unidades */}
                   <div className="space-y-1">
-                    <Label className="text-xs">Unidades</Label>
+                    <Label className="text-xs">{t("units")}</Label>
                     <Input
                       value={item.units ?? ""}
                       onChange={(e) => updateItem(item._key, "units", e.target.value)}
-                      placeholder="10 comprimidos..."
+                      placeholder={t("unitsPlaceholder")}
                     />
                   </div>
 
                   {/* Posología */}
                   <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Posología *</Label>
+                    <Label className="text-xs">{t("posology")} *</Label>
                     <Input
                       value={item.posology}
                       onChange={(e) => updateItem(item._key, "posology", e.target.value)}
-                      placeholder="1 comprimido cada 12h durante 7 días..."
+                      placeholder={t("posologyPlaceholder")}
                       required
                     />
                   </div>
 
                   {/* Indicaciones */}
                   <div className="space-y-1">
-                    <Label className="text-xs">Indicaciones</Label>
+                    <Label className="text-xs">{t("indications")}</Label>
                     <Input
                       value={item.indications ?? ""}
                       onChange={(e) => updateItem(item._key, "indications", e.target.value)}
-                      placeholder="Infección bacteriana..."
+                      placeholder={t("indicationsPlaceholder")}
                     />
                   </div>
 
                   {/* Advertencias */}
                   <div className="space-y-1">
-                    <Label className="text-xs">Advertencias</Label>
+                    <Label className="text-xs">{t("warnings")}</Label>
                     <Input
                       value={item.warnings ?? ""}
                       onChange={(e) => updateItem(item._key, "warnings", e.target.value)}
-                      placeholder="No administrar en caso de..."
+                      placeholder={t("warningsPlaceholder")}
                     />
                   </div>
                 </div>
@@ -270,7 +270,7 @@ export function PrescriptionDialog({
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Observaciones generales de la receta..."
+              placeholder={t("notesPlaceholder")}
             />
           </div>
 

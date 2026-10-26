@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChartPoint } from "@/lib/actions/invoices";
+import { useTranslations } from "next-intl";
 import {
   LineChart,
   Line,
@@ -24,17 +25,18 @@ function fmt(v: number) {
 }
 
 export function RevenueChart({ data }: RevenueChartProps) {
+  const t = useTranslations("finances");
   const hasData = data.some((d) => d.amount > 0);
 
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="mb-4">
-        <p className="text-sm font-semibold">Ingresos — últimos 30 días</p>
-        <p className="text-xs text-muted-foreground">Solo facturas pagadas</p>
+        <p className="text-sm font-semibold">{t("revenueLast30")}</p>
+        <p className="text-xs text-muted-foreground">{t("paidOnly")}</p>
       </div>
       {!hasData ? (
         <div className="h-[180px] flex items-center justify-center text-sm text-muted-foreground">
-          Sin datos de ingresos
+          {t("noRevenue")}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>

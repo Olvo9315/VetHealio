@@ -54,7 +54,8 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
       const result = await createStaffMember(form);
       if (result?.error) {
         if ("fieldErrors" in result.error) setErrors(result.error.fieldErrors as Record<string, string[]>);
-        toast.error(t("errorSave"));
+        const formErrors = (result.error as { formErrors?: string[] }).formErrors ?? [];
+        toast.error(formErrors.includes("emailInUse") ? t("emailInUse") : t("errorSave"));
         return;
       }
       toast.success(t("saved"));

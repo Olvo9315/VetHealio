@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { translateMessage } from "@/lib/i18n-messages";
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,18 +37,18 @@ import { Search, PawPrint, Plus, Trash2, Loader2, Pill } from "lucide-react";
 
 // ---- Schema ----
 const prescriptionSchema = z.object({
-  medicationName: z.string().min(1, "Requerido"),
-  dosage: z.string().min(1, "Requerido"),
-  frequency: z.string().min(1, "Requerido"),
-  duration: z.string().min(1, "Requerido"),
+  medicationName: z.string().min(1, "required"),
+  dosage: z.string().min(1, "required"),
+  frequency: z.string().min(1, "required"),
+  duration: z.string().min(1, "required"),
   notes: z.string().max(200).optional().or(z.literal("")),
 });
 
 const schema = z.object({
-  petId: z.string().min(1, "Selecciona un paciente"),
-  veterinarianId: z.string().min(1, "Selecciona un veterinario"),
-  date: z.string().min(1, "Requerido"),
-  chiefComplaint: z.string().min(1, "Requerido").max(500),
+  petId: z.string().min(1, "selectPatient"),
+  veterinarianId: z.string().min(1, "selectVet"),
+  date: z.string().min(1, "required"),
+  chiefComplaint: z.string().min(1, "required").max(500),
   diagnosis: z.string().max(500).optional().or(z.literal("")),
   treatment: z.string().max(500).optional().or(z.literal("")),
   weight: z.coerce.number().positive().optional().or(z.literal("")),
@@ -78,6 +80,9 @@ export function MedicalRecordDialog({
   onSaved,
 }: MedicalRecordDialogProps) {
   const isEdit = !!record;
+  const t = useTranslations("medicalRecords");
+  const tc = useTranslations("common");
+  const tv = useTranslations("validation");
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
@@ -227,13 +232,13 @@ export function MedicalRecordDialog({
     startSave(async () => {
       if (isEdit) {
         const result = await updateMedicalRecord(record.id, data as MedicalRecordFormData);
-        if ("error" in result) { toast.error("Error al actualizar"); return; }
-        toast.success("Registro actualizado");
+        if ("error" in result) { toast.error(t("errorUpdate")); return; }
+        toast.success(t("updated"));
         onSaved(result.record);
       } else {
         const result = await createMedicalRecord(data as MedicalRecordFormData);
-        if ("error" in result) { toast.error("Error al crear registro"); return; }
-        toast.success("Registro creado");
+        if ("error" in result) { toast.error(t("errorCreate")); return; }
+        toast.success(t("created"));
         onSaved(result.record);
       }
       onOpenChange(false);
@@ -244,7 +249,7 @@ export function MedicalRecordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar registro médico" : "Nuevo registro médico"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("editRecord") : t("newRecord")}</DialogTitle>
         </DialogHeader>
 
         <form
@@ -268,7 +273,7 @@ export function MedicalRecordDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Patient search */}
             <div className="space-y-1.5">
-              <Label>Paciente *</Label>
+              <Label>{t("patient")} *</Label>
               {selectedPet ? (
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                   <div className="flex items-center gap-2">
@@ -288,7 +293,7 @@ export function MedicalRecordDialog({
                       className="text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
                     >
-                      Cambiar
+                      {tc("change")}
                     </button>
                   )}
                 </div>
@@ -297,7 +302,7 @@ export function MedicalRecordDialog({
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar paciente..."
+                      placeholder={t("petSearch")}
                       className="pl-9"
                       value={petQuery}
                       onChange={(e) => setPetQuery(e.target.value)}
@@ -328,7 +333,7 @@ export function MedicalRecordDialog({
                     </div>
                   )}
                   {form.formState.errors.petId && (
-                    <p className="text-xs text-destructive">{form.formState.errors.petId.message}</p>
+                    <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.petId.message)}</p>
                   )}
                 </div>
               )}
@@ -337,7 +342,7 @@ export function MedicalRecordDialog({
             {/* Date + Vet stacked */}
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="date">Fecha *</Label>
+                <Label htmlFor="date">{t("date")} *</Label>
                 <Input
                   id="date"
                   type="datetime-local"
@@ -345,18 +350,18 @@ export function MedicalRecordDialog({
                   onChange={(e) => form.setValue("date", e.target.value, { shouldValidate: true })}
                 />
                 {form.formState.errors.date && (
-                  <p className="text-xs text-destructive">{form.formState.errors.date.message}</p>
+                  <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.date.message)}</p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label>Veterinario *</Label>
+                <Label>{t("veterinarian")} *</Label>
                 <Select
                   value={watchVetId}
                   onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar">
-                      {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                    <SelectValue placeholder={tc("select")}>
+                      {vets.find((v) => v.id === watchVetId)?.name ?? tc("select")}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -375,39 +380,39 @@ export function MedicalRecordDialog({
 
           {/* Chief complaint */}
           <div className="space-y-1.5">
-            <Label htmlFor="chiefComplaint">Motivo de consulta *</Label>
-            <Textarea id="chiefComplaint" rows={2} placeholder="Describe el motivo de la visita..." {...form.register("chiefComplaint")} />
+            <Label htmlFor="chiefComplaint">{t("chiefComplaint")} *</Label>
+            <Textarea id="chiefComplaint" rows={2} placeholder={t("chiefComplaintPlaceholder")} {...form.register("chiefComplaint")} />
             {form.formState.errors.chiefComplaint && (
-              <p className="text-xs text-destructive">{form.formState.errors.chiefComplaint.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.chiefComplaint.message)}</p>
             )}
           </div>
 
           {/* Diagnosis + Treatment */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="diagnosis">Diagnóstico</Label>
-              <Textarea id="diagnosis" rows={2} placeholder="Diagnóstico..." {...form.register("diagnosis")} />
+              <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
+              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...form.register("diagnosis")} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="treatment">Tratamiento</Label>
-              <Textarea id="treatment" rows={2} placeholder="Tratamiento indicado..." {...form.register("treatment")} />
+              <Label htmlFor="treatment">{t("treatment")}</Label>
+              <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...form.register("treatment")} />
             </div>
           </div>
 
           {/* Vitals */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Constantes vitales</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("vitals")}</p>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="weight">Peso (kg)</Label>
+                <Label htmlFor="weight">{t("weight")}</Label>
                 <Input id="weight" type="number" step="0.1" placeholder="0.0" {...form.register("weight")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="temperature">Temp. (°C)</Label>
+                <Label htmlFor="temperature">{t("temperatureShort")}</Label>
                 <Input id="temperature" type="number" step="0.1" placeholder="38.5" {...form.register("temperature")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="heartRate">FC (lpm)</Label>
+                <Label htmlFor="heartRate">{t("heartRate")}</Label>
                 <Input id="heartRate" type="number" placeholder="80" {...form.register("heartRate")} />
               </div>
             </div>
@@ -415,8 +420,8 @@ export function MedicalRecordDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notas adicionales</Label>
-            <Textarea id="notes" rows={2} placeholder="Observaciones..." {...form.register("notes")} />
+            <Label htmlFor="notes">{t("additionalNotes")}</Label>
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
           </div>
 
           <Separator />
@@ -424,7 +429,7 @@ export function MedicalRecordDialog({
           {/* Prescriptions */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recetas</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("prescriptions")}</p>
               <Button
                 type="button"
                 variant="outline"
@@ -433,13 +438,13 @@ export function MedicalRecordDialog({
                 onClick={() => append({ medicationName: "", dosage: "", frequency: "", duration: "", notes: "" })}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Añadir medicamento
+                {t("addMedication")}
               </Button>
             </div>
 
             {fields.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
-                Sin recetas
+                {t("noPrescriptions")}
               </p>
             )}
 
@@ -448,7 +453,7 @@ export function MedicalRecordDialog({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Pill className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">Medicamento {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
                   </div>
                   <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -456,15 +461,15 @@ export function MedicalRecordDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
-                    <Input placeholder="Nombre del medicamento *" {...form.register(`prescriptions.${idx}.medicationName`)} />
+                    <Input placeholder={t("medicationNamePlaceholder")} {...form.register(`prescriptions.${idx}.medicationName`)} />
                     {form.formState.errors.prescriptions?.[idx]?.medicationName && (
-                      <p className="text-xs text-destructive mt-0.5">{form.formState.errors.prescriptions[idx]?.medicationName?.message}</p>
+                      <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
                     )}
                   </div>
-                  <Input placeholder="Dosis (ej. 5mg) *" {...form.register(`prescriptions.${idx}.dosage`)} />
-                  <Input placeholder="Frecuencia (ej. c/8h) *" {...form.register(`prescriptions.${idx}.frequency`)} />
-                  <Input placeholder="Duración (ej. 7 días) *" {...form.register(`prescriptions.${idx}.duration`)} />
-                  <Input placeholder="Notas opcionales" {...form.register(`prescriptions.${idx}.notes`)} />
+                  <Input placeholder={t("dosagePlaceholder")} {...form.register(`prescriptions.${idx}.dosage`)} />
+                  <Input placeholder={t("frequencyPlaceholder")} {...form.register(`prescriptions.${idx}.frequency`)} />
+                  <Input placeholder={t("durationPlaceholder")} {...form.register(`prescriptions.${idx}.duration`)} />
+                  <Input placeholder={t("optionalNotes")} {...form.register(`prescriptions.${idx}.notes`)} />
                 </div>
               </div>
             ))}
@@ -472,11 +477,11 @@ export function MedicalRecordDialog({
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {tc("cancel")}
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? "Guardar cambios" : "Crear registro"}
+              {isEdit ? tc("saveChanges") : t("create")}
             </Button>
           </div>
         </form>

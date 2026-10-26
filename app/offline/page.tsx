@@ -1,8 +1,10 @@
 "use client";
 
 import { WifiOff, RotateCcw, Heart } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function OfflinePage() {
+  const t = useTranslations("offline");
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
       {/* Logo */}
@@ -15,9 +17,9 @@ export default function OfflinePage() {
         <WifiOff className="w-10 h-10 text-muted-foreground" />
       </div>
 
-      <h1 className="text-xl font-bold mb-2">Sin conexión</h1>
+      <h1 className="text-xl font-bold mb-2">{t("title")}</h1>
       <p className="text-sm text-muted-foreground mb-8 max-w-xs leading-relaxed">
-        Comprueba tu conexión a internet y vuelve a intentarlo.
+        {t("message")}
       </p>
 
       <button
@@ -25,7 +27,7 @@ export default function OfflinePage() {
         className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm active:scale-95 transition-transform"
       >
         <RotateCcw className="w-4 h-4" />
-        Reintentar
+        {t("retry")}
       </button>
 
       <p className="mt-12 text-xs text-muted-foreground">VetHealio</p>

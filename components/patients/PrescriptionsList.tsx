@@ -122,17 +122,17 @@ export function PrescriptionsList({ prescriptions, onEdit }: PrescriptionsListPr
                     <p className="font-medium text-sm">{item.medicationName}</p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       {item.activeIngredient && (
-                        <span><span className="font-medium text-foreground">Principio activo:</span> {item.activeIngredient}</span>
+                        <span><span className="font-medium text-foreground">{t("activeIngredient")}:</span> {item.activeIngredient}</span>
                       )}
                       {item.units && (
-                        <span><span className="font-medium text-foreground">Unidades:</span> {item.units}</span>
+                        <span><span className="font-medium text-foreground">{t("units")}:</span> {item.units}</span>
                       )}
                       <span className="col-span-2">
-                        <span className="font-medium text-foreground">Posología:</span> {item.posology}
+                        <span className="font-medium text-foreground">{t("posology")}:</span> {item.posology}
                       </span>
                       {item.indications && (
                         <span className="col-span-2">
-                          <span className="font-medium text-foreground">Indicaciones:</span> {item.indications}
+                          <span className="font-medium text-foreground">{t("indications")}:</span> {item.indications}
                         </span>
                       )}
                       {item.warnings && (

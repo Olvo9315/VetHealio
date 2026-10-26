@@ -95,7 +95,7 @@ export async function createStaffMember(data: z.infer<typeof createStaffSchema>)
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) return { error: { formErrors: ["Email already in use"], fieldErrors: {} } };
+  if (existing) return { error: { formErrors: ["emailInUse"], fieldErrors: {} } };
 
   const hashed = await bcrypt.hash(parsed.data.password, 12);
 

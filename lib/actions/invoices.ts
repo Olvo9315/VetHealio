@@ -274,7 +274,7 @@ export async function createInvoice(data: InvoiceFormData) {
     where: { id: parsed.data.appointmentId },
     select: { petId: true },
   });
-  if (!appointment) return { error: "Cita no encontrada" };
+  if (!appointment) return { error: "appointmentNotFound" };
 
   const items = buildItems(parsed.data.items);
   const totalAmount = items.reduce((s, i) => s + i.total, 0);
@@ -294,7 +294,7 @@ export async function createInvoice(data: InvoiceFormData) {
     return { invoice: invoice as unknown as InvoiceFull };
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "Esta cita ya tiene una factura asociada" };
+      return { error: "invoiceExists" };
     }
     throw e;
   }
@@ -329,7 +329,7 @@ export async function updateInvoice(id: string, data: InvoiceFormData) {
     where: { id: parsed.data.appointmentId },
     select: { petId: true },
   });
-  if (!appointment) return { error: "Cita no encontrada" };
+  if (!appointment) return { error: "appointmentNotFound" };
 
   await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
 

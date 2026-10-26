@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import { getInvoices } from "@/lib/actions/invoices";
 import type { InvoiceStatus } from "@prisma/client";
@@ -24,32 +25,35 @@ import { Search, Plus, Loader2, Receipt, ChevronRight, Download } from "lucide-r
 import { cn, formatInvoiceId } from "@/lib/utils";
 
 const STATUS_TABS: { value: InvoiceStatus | "ALL"; label: string }[] = [
-  { value: "ALL", label: "Todas" },
-  { value: "PENDING", label: "Pendiente" },
-  { value: "PAID", label: "Pagado" },
-  { value: "CANCELLED", label: "Cancelado" },
+  { value: "ALL", label: "all" },
+  { value: "PENDING", label: "pending" },
+  { value: "PAID", label: "paid" },
+  { value: "CANCELLED", label: "cancelled" },
 ];
 
 const statusConfig: Record<InvoiceStatus, { label: string; className: string }> = {
-  PENDING:   { label: "Pendiente", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-  PAID:      { label: "Pagado",    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
-  CANCELLED: { label: "Cancelado", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  PENDING:   { label: "pending", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  PAID:      { label: "paid",      className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  CANCELLED: { label: "cancelled", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
 function fmt(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
 }
 
-function exportCSV(invoices: InvoiceFull[]) {
+type FinanceT = (key: string, values?: Record<string, string | number>) => string;
+
+function exportCSV(invoices: InvoiceFull[], t: FinanceT) {
+  const methodLabel: Record<string, string> = { CASH: t("cash"), CARD: t("card"), TRANSFER: t("transfer") };
   const rows = [
-    ["Fecha", "Paciente", "Propietario", "Cita", "Estado", "Método de pago", "Total"],
+    [t("date"), t("patient"), t("owner"), t("appointment"), t("status"), t("paymentMethod"), t("total")],
     ...invoices.map((inv) => [
       format(new Date(inv.createdAt), "dd/MM/yyyy"),
       inv.pet.name,
       `${inv.pet.owner.firstName} ${inv.pet.owner.lastName}`,
-      inv.appointment?.title ?? "Servicios prestados",
-      statusConfig[inv.status].label,
-      inv.paymentMethod ?? "",
+      inv.appointment?.title ?? t("noAppointment"),
+      t(statusConfig[inv.status].label),
+      inv.paymentMethod ? methodLabel[inv.paymentMethod] : "",
       inv.totalAmount.toFixed(2),
     ]),
   ];
@@ -58,7 +62,7 @@ function exportCSV(invoices: InvoiceFull[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `facturas_${format(new Date(), "yyyy-MM-dd")}.csv`;
+  a.download = `${t("csvFile")}_${format(new Date(), "yyyy-MM-dd")}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -71,6 +75,8 @@ interface InvoicesTableProps {
 }
 
 export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("finances");
   const [invoices, setInvoices] = useState<InvoiceFull[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
@@ -137,7 +143,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por paciente, propietario..."
+            placeholder={t("searchPlaceholder")}
             className="pl-9"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -151,14 +157,14 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
             variant="outline"
             size="sm"
             className="h-9 text-sm"
-            onClick={() => exportCSV(invoices)}
+            onClick={() => exportCSV(invoices, t as FinanceT)}
           >
             <Download className="w-4 h-4 mr-1.5" />
             CSV
           </Button>
           <Button className="bg-primary text-primary-foreground" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Nueva factura
+            {t("newInvoice")}
           </Button>
         </div>
       </div>
@@ -176,7 +182,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                 : "bg-background text-muted-foreground hover:bg-muted"
             )}
           >
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </div>
@@ -186,13 +192,13 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Paciente</TableHead>
-              <TableHead>Propietario</TableHead>
-              <TableHead>Cita</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Método</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead>{t("date")}</TableHead>
+              <TableHead>{t("patient")}</TableHead>
+              <TableHead>{t("owner")}</TableHead>
+              <TableHead>{t("appointment")}</TableHead>
+              <TableHead>{t("status")}</TableHead>
+              <TableHead>{t("method")}</TableHead>
+              <TableHead className="text-right">{t("total")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -200,7 +206,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   <Receipt className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No se encontraron facturas</p>
+                  <p className="text-sm">{t("noInvoices")}</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -214,7 +220,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                   >
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       <span className="font-mono text-xs mr-1.5 text-muted-foreground">{formatInvoiceId(inv.number, inv.createdAt)}</span>
-                      {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
+                      {format(new Date(inv.createdAt), "d MMM yyyy", { locale: dateLocale })}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -230,13 +236,13 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                     </TableCell>
                     <TableCell>
                       <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
-                        {stCfg.label}
+                        {t(stCfg.label)}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {inv.paymentMethod === "CASH" && "Efectivo"}
-                      {inv.paymentMethod === "CARD" && "Tarjeta"}
-                      {inv.paymentMethod === "TRANSFER" && "Transferencia"}
+                      {inv.paymentMethod === "CASH" && t("cash")}
+                      {inv.paymentMethod === "CARD" && t("card")}
+                      {inv.paymentMethod === "TRANSFER" && t("transfer")}
                       {!inv.paymentMethod && "—"}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-sm">
@@ -255,7 +261,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
         {invoices.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Receipt className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No se encontraron facturas</p>
+            <p className="text-sm">{t("noInvoices")}</p>
           </div>
         ) : (
           invoices.map((inv) => {
@@ -277,11 +283,11 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? "Servicios prestados"}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
-                      {stCfg.label}
+                      {t(stCfg.label)}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       <span className="font-mono mr-1">{formatInvoiceId(inv.number, inv.createdAt)}</span>
-                      {format(new Date(inv.createdAt), "d MMM yyyy", { locale: es })}
+                      {format(new Date(inv.createdAt), "d MMM yyyy", { locale: dateLocale })}
                     </span>
                   </div>
                 </div>
@@ -297,8 +303,8 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
 
       {invoices.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {invoices.length} factura{invoices.length !== 1 ? "s" : ""}
-          {" · "}Total: {fmt(invoices.reduce((s, i) => s + i.totalAmount, 0))}
+          {t("invoicesCount", { count: invoices.length })}
+          {" · "}{t("totalIs", { amount: fmt(invoices.reduce((s, i) => s + i.totalAmount, 0)) })}
         </p>
       )}
 

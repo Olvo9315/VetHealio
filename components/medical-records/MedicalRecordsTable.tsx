@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
 import type { MedicalRecordFull } from "@/lib/actions/medicalRecords";
 import { getMedicalRecords } from "@/lib/actions/medicalRecords";
 import { MedicalRecordDialog } from "./MedicalRecordDialog";
@@ -26,6 +27,8 @@ interface MedicalRecordsTableProps {
 }
 
 export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("medicalRecords");
   const [records, setRecords] = useState<MedicalRecordFull[]>(initialRecords);
   const [search, setSearch] = useState("");
   const [isSearching, startSearch] = useTransition();
@@ -77,7 +80,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por paciente, diagnóstico..."
+            placeholder={t("searchPlaceholder")}
             className="pl-9"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -91,7 +94,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Nuevo registro
+          {t("newShort")}
         </Button>
       </div>
 
@@ -100,12 +103,12 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Paciente</TableHead>
-              <TableHead>Propietario</TableHead>
-              <TableHead>Motivo</TableHead>
-              <TableHead>Diagnóstico</TableHead>
-              <TableHead>Veterinario</TableHead>
+              <TableHead>{t("date")}</TableHead>
+              <TableHead>{t("patient")}</TableHead>
+              <TableHead>{t("owner")}</TableHead>
+              <TableHead>{t("reason")}</TableHead>
+              <TableHead>{t("diagnosis")}</TableHead>
+              <TableHead>{t("veterinarian")}</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
           </TableHeader>
@@ -114,7 +117,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   <Stethoscope className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No se encontraron registros</p>
+                  <p className="text-sm">{t("noneFound")}</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -125,7 +128,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
                   onClick={() => openDetail(record)}
                 >
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                    {format(new Date(record.date), "d MMM yyyy", { locale: es })}
+                    {format(new Date(record.date), "d MMM yyyy", { locale: dateLocale })}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -167,7 +170,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
         {records.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Stethoscope className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No se encontraron registros</p>
+            <p className="text-sm">{t("noneFound")}</p>
           </div>
         ) : (
           records.map((record) => (
@@ -190,7 +193,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
                 )}
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-muted-foreground">
-                    {format(new Date(record.date), "d MMM yyyy", { locale: es })}
+                    {format(new Date(record.date), "d MMM yyyy", { locale: dateLocale })}
                   </span>
                   {record.prescriptions.length > 0 && (
                     <span className={cn("flex items-center gap-0.5 text-xs text-muted-foreground")}>
@@ -209,7 +212,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
       {/* Record count */}
       {records.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {records.length} registro{records.length !== 1 ? "s" : ""}
+          {t("count", { count: records.length })}
         </p>
       )}
 

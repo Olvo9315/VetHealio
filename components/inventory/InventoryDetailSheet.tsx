@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
+import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 import type { InventoryItem } from "@/lib/actions/inventory";
 import { adjustStock, deleteInventoryItem, getStockStatus, getExpiryStatus } from "@/lib/actions/inventory";
 import { toast } from "sonner";
@@ -42,7 +44,7 @@ const stockColors = {
   LOW: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   OUT: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 };
-const stockLabels = { OK: "En stock", LOW: "Stock bajo", OUT: "Agotado" };
+const stockLabels = { OK: "stockInStock", LOW: "stockLow", OUT: "stockOut" };
 
 const expiryColors = {
   OK:             "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
@@ -50,7 +52,7 @@ const expiryColors = {
   EXPIRED:        "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   NONE:           "",
 };
-const expiryLabels = { OK: "Vigente", EXPIRING_SOON: "Próximo a vencer", EXPIRED: "Vencido", NONE: "" };
+const expiryLabels = { OK: "expiryOk", EXPIRING_SOON: "expiringSoon", EXPIRED: "expired", NONE: "" };
 
 interface InventoryDetailSheetProps {
   open: boolean;
@@ -69,6 +71,9 @@ export function InventoryDetailSheet({
   onDeleted,
   onEdit,
 }: InventoryDetailSheetProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("inventory");
+  const tc = useTranslations("common");
   const [isAdjusting, startAdjust] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [adjustInput, setAdjustInput] = useState("");
@@ -79,8 +84,8 @@ export function InventoryDetailSheet({
   function handleQuickAdjust(delta: number) {
     startAdjust(async () => {
       const result = await adjustStock(item.id, delta);
-      if ("error" in result) { toast.error("Error al ajustar stock"); return; }
-      toast.success(`Stock ${delta > 0 ? "aumentado" : "reducido"}`);
+      if ("error" in result) { toast.error(t("errorAdjust")); return; }
+      toast.success(delta > 0 ? t("stockIncreased") : t("stockDecreased"));
       onUpdated(result.item);
     });
   }
@@ -90,18 +95,18 @@ export function InventoryDetailSheet({
     if (isNaN(val) || val === 0) return;
     startAdjust(async () => {
       const result = await adjustStock(item.id, val);
-      if ("error" in result) { toast.error("Error al ajustar stock"); return; }
-      toast.success("Stock actualizado");
+      if ("error" in result) { toast.error(t("errorAdjust")); return; }
+      toast.success(t("adjusted"));
       setAdjustInput("");
       onUpdated(result.item);
     });
   }
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar "${item.name}" del inventario?`)) return;
+    if (!confirm(t("deleteItemConfirm", { name: item.name }))) return;
     startDelete(async () => {
       await deleteInventoryItem(item.id);
-      toast.success("Artículo eliminado");
+      toast.success(t("deleted"));
       onDeleted(item.id);
     });
   }
@@ -118,11 +123,11 @@ export function InventoryDetailSheet({
               <SheetTitle className="text-base leading-tight">{item.name}</SheetTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stockColors[stockStatus])}>
-                  {stockLabels[stockStatus]}
+                  {t(stockLabels[stockStatus])}
                 </span>
                 {expiryStatus !== "NONE" && (
                   <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", expiryColors[expiryStatus])}>
-                    {expiryLabels[expiryStatus]}
+                    {expiryLabels[expiryStatus] && t(expiryLabels[expiryStatus])}
                   </span>
                 )}
               </div>
@@ -134,15 +139,15 @@ export function InventoryDetailSheet({
           {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Categoría</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("category")}</p>
               <div className="flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-sm">{item.category}</span>
+                <span className="text-sm">{categoryLabel(t, item.category)}</span>
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unidad</p>
-              <span className="text-sm">{item.unit}</span>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("unit")}</p>
+              <span className="text-sm">{unitLabel(t, item.unit)}</span>
             </div>
           </div>
 
@@ -150,20 +155,20 @@ export function InventoryDetailSheet({
 
           {/* Stock info */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Stock actual</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("currentStock")}</p>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold">{item.quantity}</span>
-              <span className="text-sm text-muted-foreground">{item.unit}</span>
+              <span className="text-sm text-muted-foreground">{unitLabel(t, item.unit)}</span>
               {item.minStock > 0 && (
                 <span className="text-xs text-muted-foreground ml-2">
-                  (mín. {item.minStock} {item.unit})
+                  ({t("minShort", { n: item.minStock })} {unitLabel(t, item.unit)})
                 </span>
               )}
             </div>
 
             {/* Quick adjust */}
             <div className="space-y-2 mt-1">
-              <p className="text-xs text-muted-foreground">Ajuste rápido:</p>
+              <p className="text-xs text-muted-foreground">{t("quickAdjust")}</p>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -209,7 +214,7 @@ export function InventoryDetailSheet({
                 <Input
                   type="number"
                   step="0.1"
-                  placeholder="Ej. +10 o -3"
+                  placeholder={t("adjustPlaceholder")}
                   className="h-8 text-sm"
                   value={adjustInput}
                   onChange={(e) => setAdjustInput(e.target.value)}
@@ -222,7 +227,7 @@ export function InventoryDetailSheet({
                   onClick={handleCustomAdjust}
                   disabled={isAdjusting || !adjustInput}
                 >
-                  Aplicar
+                  {t("apply")}
                 </Button>
               </div>
             </div>
@@ -236,7 +241,7 @@ export function InventoryDetailSheet({
               <div className="flex items-center gap-2">
                 <Euro className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Costo unitario · Valor total</p>
+                  <p className="text-xs text-muted-foreground">{t("unitCostTotal")}</p>
                   <p className="text-sm font-medium">
                     {fmtCurrency(item.unitCost)} · {fmtCurrency(item.unitCost * item.quantity)}
                   </p>
@@ -248,10 +253,10 @@ export function InventoryDetailSheet({
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Fecha de vencimiento</p>
+                  <p className="text-xs text-muted-foreground">{t("expiryDate")}</p>
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-medium capitalize">
-                      {format(new Date(item.expiryDate), "d MMMM yyyy", { locale: es })}
+                      {format(new Date(item.expiryDate), "d MMMM yyyy", { locale: dateLocale })}
                     </p>
                     {expiryStatus === "EXPIRED" && <XCircle className="w-3.5 h-3.5 text-red-500" />}
                     {expiryStatus === "EXPIRING_SOON" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
@@ -265,7 +270,7 @@ export function InventoryDetailSheet({
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Proveedor</p>
+                  <p className="text-xs text-muted-foreground">{t("supplier")}</p>
                   <p className="text-sm font-medium">{item.supplier}</p>
                 </div>
               </div>
@@ -275,7 +280,7 @@ export function InventoryDetailSheet({
               <div className="flex items-start gap-2">
                 <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Notas</p>
+                  <p className="text-xs text-muted-foreground">{t("notes")}</p>
                   <p className="text-sm">{item.notes}</p>
                 </div>
               </div>
@@ -283,7 +288,7 @@ export function InventoryDetailSheet({
           </div>
 
           <div className="text-xs text-muted-foreground pt-2">
-            Actualizado: {format(new Date(item.updatedAt), "d MMM yyyy · HH:mm", { locale: es })}
+            {t("updatedAt", { date: format(new Date(item.updatedAt), "d MMM yyyy · HH:mm", { locale: dateLocale }) })}
           </div>
         </div>
 
@@ -291,7 +296,7 @@ export function InventoryDetailSheet({
         <div className="pt-4 border-t border-border space-y-2">
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
-            Editar artículo
+            {t("edit")}
           </Button>
           <Button
             variant="outline"
@@ -300,7 +305,7 @@ export function InventoryDetailSheet({
             disabled={isDeleting}
           >
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-            Eliminar
+            {tc("delete")}
           </Button>
         </div>
       </SheetContent>

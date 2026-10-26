@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { FileText, Thermometer, Heart, Weight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface MedicalRecord {
   id: string;
@@ -31,11 +32,12 @@ interface MedicalTimelineProps {
 }
 
 export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
+  const t = useTranslations("medicalRecords");
   if (records.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
-        <p className="text-sm">Sin registros médicos</p>
+        <p className="text-sm">{t("noneForPet")}</p>
       </div>
     );
   }
@@ -93,7 +95,7 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
                 {record.heartRate && (
                   <span className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-full">
                     <Heart className="w-3 h-3" />
-                    {record.heartRate} lpm
+                    {t("bpm", { n: record.heartRate })}
                   </span>
                 )}
               </div>
@@ -103,7 +105,7 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
             {record.diagnosis && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Diagnóstico
+                  {t("diagnosis")}
                 </p>
                 <p className="text-sm">{record.diagnosis}</p>
               </div>
@@ -111,7 +113,7 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
             {record.treatment && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Tratamiento
+                  {t("treatment")}
                 </p>
                 <p className="text-sm">{record.treatment}</p>
               </div>
@@ -121,7 +123,7 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
             {record.prescriptions.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                  Recetas
+                  {t("prescriptions")}
                 </p>
                 <div className="space-y-1">
                   {record.prescriptions.map((p) => (

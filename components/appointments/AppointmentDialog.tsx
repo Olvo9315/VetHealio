@@ -37,14 +37,16 @@ import {
 } from "@/components/ui/select";
 import { Search, PawPrint, Loader2, AlertCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
+import { translateMessage } from "@/lib/i18n-messages";
 
 // ---- Schema ----
 const schema = z.object({
-  title: z.string().min(1, "Requerido"),
+  title: z.string().min(1, "required"),
   petId: z.string().optional(),
-  veterinarianId: z.string().min(1, "Selecciona un veterinario"),
-  startTime: z.string().min(1, "Requerido"),
-  endTime: z.string().min(1, "Requerido"),
+  veterinarianId: z.string().min(1, "selectVet"),
+  startTime: z.string().min(1, "required"),
+  endTime: z.string().min(1, "required"),
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 type FormData = z.infer<typeof schema>;
@@ -69,15 +71,6 @@ interface AppointmentDialogProps {
   onSaved: (appointment: AppointmentFull) => void;
 }
 
-const SPECIES_LABELS: Record<string, string> = {
-  DOG: "🐕 Perro",
-  CAT: "🐈 Gato",
-  BIRD: "🦜 Pájaro",
-  RABBIT: "🐇 Conejo",
-  REPTILE: "🦎 Reptil",
-  OTHER: "🐾 Otro",
-};
-
 const SPECIES_EMOJI: Record<string, string> = {
   DOG: "🐕", CAT: "🐈", BIRD: "🦜", RABBIT: "🐇", REPTILE: "🦎", OTHER: "🐾",
 };
@@ -93,6 +86,13 @@ export function AppointmentDialog({
   onSaved,
 }: AppointmentDialogProps) {
   const isEdit = !!appointment;
+  const t = useTranslations("appointments");
+  const tp = useTranslations("patients");
+  const tc = useTranslations("common");
+  const tv = useTranslations("validation");
+  const SPECIES_LABELS: Record<string, string> = Object.fromEntries(
+    Object.entries(SPECIES_EMOJI).map(([k, emoji]) => [k, `${emoji} ${tp(k.toLowerCase())}`])
+  );
   const [isSaving, startSave] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const appointmentRef = useRef(appointment);
@@ -318,18 +318,18 @@ export function AppointmentDialog({
 
   function validatePrimary() {
     const errors: Record<string, string> = {};
-    if (!primaryPetName.trim()) errors.petName = "Requerido";
-    if (!primarySpecies) errors.petSpecies = "Requerido";
-    if (!primaryOwnerFirst.trim()) errors.ownerFirst = "Requerido";
-    if (!primaryOwnerLast.trim()) errors.ownerLast = "Requerido";
-    if (primaryPhone.trim().length < 7) errors.phone = "Teléfono inválido";
+    if (!primaryPetName.trim()) errors.petName = tv("required");
+    if (!primarySpecies) errors.petSpecies = tv("required");
+    if (!primaryOwnerFirst.trim()) errors.ownerFirst = tv("required");
+    if (!primaryOwnerLast.trim()) errors.ownerLast = tv("required");
+    if (primaryPhone.trim().length < 7) errors.phone = tv("invalidPhone");
     setPrimaryErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
   async function handleSubmit(data: FormData) {
     if (!selectedService && localServices.length > 0) {
-      setServiceError("Selecciona un servicio");
+      setServiceError(tv("selectService"));
       return;
     }
     setServiceError(undefined);
@@ -344,19 +344,19 @@ export function AppointmentDialog({
 
     if (mode === "existing") {
       if (!selectedPet) {
-        form.setError("petId", { message: "Selecciona un paciente" });
+        form.setError("petId", { message: "selectPatient" });
         return;
       }
       startSave(async () => {
         if (isEdit) {
           const result = await updateAppointment(appointment.id, { ...utcData, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
-          if ("error" in result) { toast.error("Error al actualizar"); return; }
-          toast.success("Cita actualizada");
+          if ("error" in result) { toast.error(t("errorUpdate")); return; }
+          toast.success(t("updated"));
           onSaved(result.appointment as AppointmentFull);
         } else {
           const result = await createAppointment({ ...utcData, petId: selectedPet.id, serviceId: selectedService?.id ?? null });
-          if ("error" in result) { toast.error("Error al crear cita"); return; }
-          toast.success("Cita creada");
+          if ("error" in result) { toast.error(t("errorCreate")); return; }
+          toast.success(t("created"));
           onSaved(result.appointment as AppointmentFull);
         }
         onOpenChange(false);
@@ -376,8 +376,8 @@ export function AppointmentDialog({
             existingPetId: matchChoice?.type === "existing-pet" ? matchChoice.petId : undefined,
           }
         );
-        if ("error" in result) { toast.error("Error al crear cita"); return; }
-        toast.success("Cita creada");
+        if ("error" in result) { toast.error(t("errorCreate")); return; }
+        toast.success(t("created"));
         onSaved(result.appointment as AppointmentFull);
         onOpenChange(false);
       });
@@ -398,7 +398,7 @@ export function AppointmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar cita" : "Nueva cita"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("edit") : t("new")}</DialogTitle>
         </DialogHeader>
 
         <form
@@ -433,7 +433,7 @@ export function AppointmentDialog({
                       : "bg-background text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  {m === "existing" ? "Paciente" : "Primario"}
+                  {m === "existing" ? t("existingPatient") : t("primaryVisit")}
                 </button>
               ))}
             </div>
@@ -442,7 +442,7 @@ export function AppointmentDialog({
           {/* ── Existing patient search ── */}
           {mode === "existing" && (
             <div className="space-y-1.5">
-              <Label>Paciente *</Label>
+              <Label>{t("patient")} *</Label>
               {selectedPet ? (
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                   <div className="flex items-center gap-2">
@@ -460,7 +460,7 @@ export function AppointmentDialog({
                       className="text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => { setSelectedPet(null); form.setValue("petId", ""); }}
                     >
-                      Cambiar
+                      {tc("change")}
                     </button>
                   )}
                 </div>
@@ -469,7 +469,7 @@ export function AppointmentDialog({
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar paciente..."
+                      placeholder={t("petSearch")}
                       className="pl-9"
                       value={petQuery}
                       onChange={(e) => setPetQuery(e.target.value)}
@@ -502,7 +502,7 @@ export function AppointmentDialog({
                     </div>
                   )}
                   {form.formState.errors.petId && (
-                    <p className="text-xs text-destructive">{form.formState.errors.petId.message}</p>
+                    <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.petId.message)}</p>
                   )}
                 </div>
               )}
@@ -515,23 +515,23 @@ export function AppointmentDialog({
               {/* Pet name + species */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Nombre del paciente *</Label>
+                  <Label>{t("petName")} *</Label>
                   <Input
-                    placeholder="Ej: Max"
+                    placeholder={t("exPetName")}
                     value={primaryPetName}
                     onChange={(e) => handlePetNameChange(e.target.value)}
                   />
                   {primaryErrors.petName && <p className="text-xs text-destructive">{primaryErrors.petName}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Especie *</Label>
+                  <Label>{t("petSpecies")} *</Label>
                   <Select
                     value={primarySpecies}
                     onValueChange={(v) => handleSpeciesChange(v as Species)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar">
-                        {primarySpecies ? SPECIES_LABELS[primarySpecies] : "Seleccionar"}
+                      <SelectValue placeholder={tc("select")}>
+                        {primarySpecies ? SPECIES_LABELS[primarySpecies] : tc("select")}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -547,18 +547,18 @@ export function AppointmentDialog({
               {/* Owner name */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Propietario (nombre) *</Label>
+                  <Label>{t("ownerFirstNameLabel")} *</Label>
                   <Input
-                    placeholder="Ej: Alex"
+                    placeholder={t("exOwnerFirst")}
                     value={primaryOwnerFirst}
                     onChange={(e) => handleOwnerFirstChange(e.target.value)}
                   />
                   {primaryErrors.ownerFirst && <p className="text-xs text-destructive">{primaryErrors.ownerFirst}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Apellido *</Label>
+                  <Label>{t("ownerLastName")} *</Label>
                   <Input
-                    placeholder="Ej: García"
+                    placeholder={t("exOwnerLast")}
                     value={primaryOwnerLast}
                     onChange={(e) => handleOwnerLastChange(e.target.value)}
                   />
@@ -568,7 +568,7 @@ export function AppointmentDialog({
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <Label>Teléfono *</Label>
+                <Label>{t("ownerPhone")} *</Label>
                 <div className="relative">
                   <Input
                     type="tel"
@@ -592,8 +592,8 @@ export function AppointmentDialog({
                       <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
                         {ownerMatches.length === 1
-                          ? "Propietario encontrado"
-                          : `${ownerMatches.length} propietarios encontrados`}
+                          ? t("matchFound")
+                          : t("ownersFound", { count: ownerMatches.length })}
                       </span>
                     </div>
                     <button
@@ -601,7 +601,7 @@ export function AppointmentDialog({
                       className="text-xs text-amber-600 hover:text-amber-900 dark:text-amber-400 transition-colors"
                       onClick={() => { setOwnerMatches([]); setExpandedOwnerId(null); }}
                     >
-                      Ignorar
+                      {t("ignoreMatch")}
                     </button>
                   </div>
 
@@ -628,7 +628,7 @@ export function AppointmentDialog({
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[10px] text-muted-foreground italic">sin mascotas</span>
+                              <span className="text-[10px] text-muted-foreground italic">{t("noPets")}</span>
                             )}
                           </div>
                         </div>
@@ -644,7 +644,7 @@ export function AppointmentDialog({
                               setExpandedOwnerId(null);
                             }}
                           >
-                            + Mascota nueva
+                            {t("addNewPet")}
                           </button>
                           {owner.pets && owner.pets.length > 0 && (
                             <button
@@ -652,7 +652,7 @@ export function AppointmentDialog({
                               className="text-[11px] px-2 py-0.5 rounded bg-muted text-foreground hover:bg-muted/70 transition-colors"
                               onClick={() => setExpandedOwnerId((prev) => (prev === owner.id ? null : owner.id))}
                             >
-                              {expandedOwnerId === owner.id ? "Ocultar" : "Seleccionar mascota"}
+                              {expandedOwnerId === owner.id ? tc("hide") : t("selectPet")}
                             </button>
                           )}
                         </div>
@@ -693,15 +693,15 @@ export function AppointmentDialog({
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                   <p className="text-sm text-emerald-800 dark:text-emerald-300 flex-1">
                     {matchChoice.type === "new-pet"
-                      ? `Nueva mascota para ${matchChoice.ownerName}`
-                      : `Paciente: ${matchChoice.pet.name}`}
+                      ? t("newPetFor", { name: matchChoice.ownerName })
+                      : t("patientIs", { name: matchChoice.pet.name })}
                   </p>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => { setMatchChoice(null); }}
                   >
-                    Cambiar
+                    {tc("change")}
                   </button>
                 </div>
               )}
@@ -710,7 +710,7 @@ export function AppointmentDialog({
 
           {/* ── Service ── */}
           <div className="space-y-1.5">
-            <Label>Servicio *</Label>
+            <Label>{t("service")} *</Label>
             <ServicePicker
               services={localServices}
               value={selectedService?.id ?? null}
@@ -722,14 +722,14 @@ export function AppointmentDialog({
 
           {/* ── Veterinarian ── */}
           <div className="space-y-1.5">
-            <Label>Veterinario *</Label>
+            <Label>{t("veterinarian")} *</Label>
             <Select
               value={watchVetId}
               onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar">
-                  {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                <SelectValue placeholder={tc("select")}>
+                  {vets.find((v) => v.id === watchVetId)?.name ?? tc("select")}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -741,23 +741,23 @@ export function AppointmentDialog({
               </SelectContent>
             </Select>
             {form.formState.errors.veterinarianId && (
-              <p className="text-xs text-destructive">{form.formState.errors.veterinarianId.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.veterinarianId.message)}</p>
             )}
           </div>
 
           {/* ── Title ── */}
           <div className="space-y-1.5">
-            <Label htmlFor="title">Título</Label>
-            <Input id="title" {...form.register("title")} placeholder="Se genera automáticamente" />
+            <Label htmlFor="title">{t("titleLabel")}</Label>
+            <Input id="title" {...form.register("title")} placeholder={t("titleAuto")} />
             {form.formState.errors.title && (
-              <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.title.message)}</p>
             )}
           </div>
 
           {/* ── Date/time ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="startTime">Inicio *</Label>
+              <Label htmlFor="startTime">{t("startTime")} *</Label>
               <Input
                 id="startTime"
                 type="datetime-local"
@@ -765,11 +765,11 @@ export function AppointmentDialog({
                 onChange={(e) => form.setValue("startTime", e.target.value, { shouldValidate: true })}
               />
               {form.formState.errors.startTime && (
-                <p className="text-xs text-destructive">{form.formState.errors.startTime.message}</p>
+                <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.startTime.message)}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="endTime">Fin *</Label>
+              <Label htmlFor="endTime">{t("endTime")} *</Label>
               <Input
                 id="endTime"
                 type="datetime-local"
@@ -777,29 +777,29 @@ export function AppointmentDialog({
                 onChange={(e) => form.setValue("endTime", e.target.value, { shouldValidate: true })}
               />
               {form.formState.errors.endTime && (
-                <p className="text-xs text-destructive">{form.formState.errors.endTime.message}</p>
+                <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.endTime.message)}</p>
               )}
             </div>
           </div>
 
           {/* ── Notes ── */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notas</Label>
+            <Label htmlFor="notes">{t("notes")}</Label>
             <Textarea
               id="notes"
               rows={2}
-              placeholder="Observaciones adicionales..."
+              placeholder={t("notesPlaceholder")}
               {...form.register("notes")}
             />
           </div>
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {tc("cancel")}
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? "Guardar" : "Crear cita"}
+              {isEdit ? tc("save") : t("create")}
             </Button>
           </div>
         </form>

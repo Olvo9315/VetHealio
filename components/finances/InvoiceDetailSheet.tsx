@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import { updateInvoiceStatus, deleteInvoice } from "@/lib/actions/invoices";
 import type { PaymentMethod } from "@prisma/client";
@@ -40,22 +41,22 @@ import { cn, formatInvoiceId } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 
 const statusConfig = {
-  PENDING:   { label: "Pendiente",  className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",  Icon: Clock },
-  PAID:      { label: "Pagado",     className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", Icon: CheckCircle },
-  CANCELLED: { label: "Cancelado",  className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", Icon: XCircle },
+  PENDING:   { label: "pending",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",  Icon: Clock },
+  PAID:      { label: "paid",       className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", Icon: CheckCircle },
+  CANCELLED: { label: "cancelled",  className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300", Icon: XCircle },
 };
 
 const paymentLabels: Record<PaymentMethod, string> = {
-  CASH: "Efectivo",
-  CARD: "Tarjeta",
-  TRANSFER: "Transferencia",
+  CASH: "cash",
+  CARD: "card",
+  TRANSFER: "transfer",
 };
 
 const itemTypeLabels: Record<string, string> = {
-  CONSULTATION: "Consulta",
-  MEDICATION: "Medicamento",
-  SERVICE: "Servicio",
-  OTHER: "Otro",
+  CONSULTATION: "itemTypeConsultation",
+  MEDICATION: "itemTypeMedication",
+  SERVICE: "itemTypeService",
+  OTHER: "itemTypeOther",
 };
 
 function fmt(v: number) {
@@ -79,6 +80,9 @@ export function InvoiceDetailSheet({
   onDeleted,
   onEdit,
 }: InvoiceDetailSheetProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("finances");
+  const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
@@ -88,25 +92,25 @@ export function InvoiceDetailSheet({
   function handleMarkPaid() {
     startUpdate(async () => {
       const updated = await updateInvoiceStatus(invoice.id, "PAID", paymentMethod);
-      toast.success("Factura marcada como pagada");
+      toast.success(t("markPaidToast"));
       onUpdated(updated);
     });
   }
 
   function handleCancel() {
-    if (!confirm("¿Cancelar esta factura?")) return;
+    if (!confirm(t("cancelConfirm"))) return;
     startUpdate(async () => {
       const updated = await updateInvoiceStatus(invoice.id, "CANCELLED");
-      toast.success("Factura cancelada");
+      toast.success(t("cancelledToast"));
       onUpdated(updated);
     });
   }
 
   function handleDelete() {
-    if (!confirm("¿Eliminar esta factura permanentemente?")) return;
+    if (!confirm(t("deletePermanentConfirm"))) return;
     startDelete(async () => {
       await deleteInvoice(invoice.id);
-      toast.success("Factura eliminada");
+      toast.success(t("deleted"));
       onDeleted(invoice.id);
     });
   }
@@ -120,13 +124,13 @@ export function InvoiceDetailSheet({
               <Receipt className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base leading-tight">Factura <span className="font-mono text-sm text-muted-foreground font-normal">{formatInvoiceId(invoice.number, invoice.createdAt)}</span></SheetTitle>
+              <SheetTitle className="text-base leading-tight">{t("invoice")} <span className="font-mono text-sm text-muted-foreground font-normal">{formatInvoiceId(invoice.number, invoice.createdAt)}</span></SheetTitle>
               <div className="flex items-center gap-2 mt-1">
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
-                  {stCfg.label}
+                  {t(stCfg.label)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {format(new Date(invoice.createdAt), "d MMM yyyy", { locale: es })}
+                  {format(new Date(invoice.createdAt), "d MMM yyyy", { locale: dateLocale })}
                 </span>
               </div>
             </div>
@@ -136,7 +140,7 @@ export function InvoiceDetailSheet({
         <div className="flex-1 overflow-y-auto space-y-5">
           {/* Patient */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paciente</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("patient")}</p>
             <div className="flex items-center gap-2">
               <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="font-medium text-sm">{invoice.pet.name}</span>
@@ -163,7 +167,7 @@ export function InvoiceDetailSheet({
 
               {/* Appointment */}
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cita</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("appointment")}</p>
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-sm font-medium">{invoice.appointment.title}</span>
@@ -173,7 +177,7 @@ export function InvoiceDetailSheet({
                   <span className="text-sm">{invoice.appointment.veterinarian.name}</span>
                 </div>
                 <p className="text-xs text-muted-foreground ml-6 capitalize">
-                  {format(new Date(invoice.appointment.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
+                  {format(new Date(invoice.appointment.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: dateLocale })}
                 </p>
               </div>
             </>
@@ -183,11 +187,11 @@ export function InvoiceDetailSheet({
             <>
               <Separator />
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pago</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("payment")}</p>
                 <p className="text-sm">
-                  {invoice.paymentMethod ? paymentLabels[invoice.paymentMethod] : "—"}
+                  {invoice.paymentMethod ? t(paymentLabels[invoice.paymentMethod]) : "—"}
                   <span className="text-muted-foreground ml-2 text-xs">
-                    · {format(new Date(invoice.paidAt), "d MMM yyyy · HH:mm", { locale: es })}
+                    · {format(new Date(invoice.paidAt), "d MMM yyyy · HH:mm", { locale: dateLocale })}
                   </span>
                 </p>
               </div>
@@ -199,7 +203,7 @@ export function InvoiceDetailSheet({
           {/* Items */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Artículos ({invoice.items.length})
+              {t("itemsCount", { count: invoice.items.length })}
             </p>
             <div className="space-y-1">
               {invoice.items.map((item) => (
@@ -207,7 +211,7 @@ export function InvoiceDetailSheet({
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{item.description}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.service?.name ?? (item.type ? itemTypeLabels[item.type] : "Servicio")} · {item.quantity} × {fmt(item.unitPrice)}
+                      {item.service?.name ?? t(item.type ? itemTypeLabels[item.type] : "itemTypeService")} · {item.quantity} × {fmt(item.unitPrice)}
                     </p>
                   </div>
                   <span className="text-sm font-semibold shrink-0">{fmt(item.total)}</span>
@@ -215,7 +219,7 @@ export function InvoiceDetailSheet({
               ))}
             </div>
             <div className="flex items-center justify-between pt-1">
-              <span className="text-sm font-semibold">Total</span>
+              <span className="text-sm font-semibold">{t("total")}</span>
               <span className="text-xl font-bold text-primary">{fmt(invoice.totalAmount)}</span>
             </div>
           </div>
@@ -226,7 +230,7 @@ export function InvoiceDetailSheet({
               <Separator />
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Registrar pago
+                  {t("registerPayment")}
                 </p>
                 <Select
                   value={paymentMethod}
@@ -234,13 +238,13 @@ export function InvoiceDetailSheet({
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue>
-                      {paymentMethod === "CASH" ? "Efectivo" : paymentMethod === "CARD" ? "Tarjeta" : "Transferencia"}
+                      {t(paymentLabels[paymentMethod])}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Efectivo</SelectItem>
-                    <SelectItem value="CARD">Tarjeta</SelectItem>
-                    <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                    <SelectItem value="CASH">{t("cash")}</SelectItem>
+                    <SelectItem value="CARD">{t("card")}</SelectItem>
+                    <SelectItem value="TRANSFER">{t("transfer")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button
@@ -249,7 +253,7 @@ export function InvoiceDetailSheet({
                   disabled={isUpdating}
                 >
                   {isUpdating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                  Marcar como pagado
+                  {t("markAsPaid")}
                 </Button>
               </div>
             </>
@@ -261,7 +265,7 @@ export function InvoiceDetailSheet({
           {invoice.status === "PENDING" && (
             <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
-              Editar factura
+              {t("editInvoice")}
             </Button>
           )}
           {invoice.status === "PENDING" && (
@@ -272,7 +276,7 @@ export function InvoiceDetailSheet({
               disabled={isUpdating}
             >
               <XCircle className="w-4 h-4 mr-2" />
-              Cancelar factura
+              {t("cancelInvoice")}
             </Button>
           )}
           <Button
@@ -282,7 +286,7 @@ export function InvoiceDetailSheet({
             disabled={isDeleting}
           >
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-            Eliminar
+            {tc("delete")}
           </Button>
         </div>
       </SheetContent>

@@ -99,7 +99,7 @@ export function BottomNav({ showStaff, clinic }: BottomNavProps) {
                   isMoreActive ? "text-primary" : "text-muted-foreground"
                 )}
               >
-                Más
+                {t("more")}
               </span>
             </button>
           </li>
