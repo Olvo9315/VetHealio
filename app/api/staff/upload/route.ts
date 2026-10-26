@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { uploadStaffDocument } from "@/lib/storage";
+import { uploadStaffDocument, MAX_UPLOAD_SIZE } from "@/lib/storage";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 
 export async function POST(req: NextRequest) {
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (!file || !staffId) {
     return NextResponse.json({ error: "Missing file or staffId" }, { status: 400 });
   }
-  if (file.size > MAX_SIZE) {
+  if (file.size > MAX_UPLOAD_SIZE) {
     return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
   }
   if (!ALLOWED_TYPES.includes(file.type)) {

@@ -16,6 +16,8 @@ interface RevenueChartProps {
   data: { date: string; revenue: number }[];
 }
 
+const currency = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
 export function RevenueChart({ data }: RevenueChartProps) {
   const t = useTranslations("dashboard");
 
@@ -36,10 +38,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
             <YAxis
               tick={{ fontSize: 11 }}
               className="text-muted-foreground"
-              tickFormatter={(v) => `$${v}`}
+              tickFormatter={(v) => currency.format(v)}
             />
             <Tooltip
-              formatter={(value) => [`$${value}`, "Ingresos"]}
+              formatter={(value) => [currency.format(Number(value)), t("revenue")]}
               contentStyle={{
                 borderRadius: "8px",
                 border: "1px solid var(--border)",

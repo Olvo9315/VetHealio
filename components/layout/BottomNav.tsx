@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { MobileDrawer } from "@/components/layout/MobileDrawer";
+import type { ClinicBrand } from "@/components/layout/ClinicMark";
 
 const primaryNav = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
@@ -23,9 +24,10 @@ const primaryNav = [
 
 interface BottomNavProps {
   showStaff?: boolean;
+  clinic: ClinicBrand;
 }
 
-export function BottomNav({ showStaff }: BottomNavProps) {
+export function BottomNav({ showStaff, clinic }: BottomNavProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -104,7 +106,7 @@ export function BottomNav({ showStaff }: BottomNavProps) {
         </ul>
       </nav>
 
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} showStaff={showStaff} />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} showStaff={showStaff} clinic={clinic} />
     </>
   );
 }

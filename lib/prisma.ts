@@ -13,7 +13,8 @@ function createPrismaClient() {
   }
   const pool = new pg.Pool({
     connectionString,
-    max: process.env.NODE_ENV === "production" ? 2 : 10,
+    // DATABASE_POOL_MAX=1 for `prisma dev`, which only handles one connection at a time
+    max: Number(process.env.DATABASE_POOL_MAX) || (process.env.NODE_ENV === "production" ? 2 : 10),
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({

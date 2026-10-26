@@ -6,19 +6,23 @@ import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { cookies } from "next/headers";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { getClinic } from "@/lib/clinic";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
-export const metadata: Metadata = {
-  title: "VetHealio — CRM Veterinario",
-  description: "Sistema de gestión para clínicas veterinarias",
-  manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "VetHealio" },
-  icons: {
-    icon: "/favicon.svg",
-    apple: "/icons/icon-maskable.svg",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { name } = await getClinic();
+  return {
+    title: `${name} — VetHealio`,
+    description: "Sistema de gestión para clínicas veterinarias",
+    manifest: "/manifest.json",
+    appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: name },
+    icons: {
+      icon: "/favicon.svg",
+      apple: "/icons/icon-maskable.svg",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

@@ -16,12 +16,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Heart,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { ClinicMark, type ClinicBrand } from "@/components/layout/ClinicMark";
 import {
   Tooltip,
   TooltipContent,
@@ -42,9 +42,10 @@ const baseNavItems = [
 
 interface SidebarProps {
   showStaff?: boolean;
+  clinic: ClinicBrand;
 }
 
-export function Sidebar({ showStaff }: SidebarProps) {
+export function Sidebar({ showStaff, clinic }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useTranslations("nav");
@@ -64,12 +65,10 @@ export function Sidebar({ showStaff }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center h-16 px-4 border-b border-sidebar-border shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-              <Heart className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <ClinicMark logoUrl={clinic.logoUrl} name={clinic.name} className="w-8 h-8" iconClassName="w-4 h-4" />
             {!collapsed && (
-              <span className="font-bold text-lg text-sidebar-foreground truncate">
-                VetHealio
+              <span className="font-bold text-lg text-sidebar-foreground truncate" title={clinic.name}>
+                {clinic.name}
               </span>
             )}
           </div>
