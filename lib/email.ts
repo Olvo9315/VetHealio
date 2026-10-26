@@ -1,7 +1,20 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "VetHealio <no-reply@vethealio.com>";
+
+// Instances without RESEND_API_KEY (e.g. test clinics) skip emails instead of failing
+let client: Resend | null = null;
+function getResend() {
+  if (!process.env.RESEND_API_KEY) return null;
+  client ??= new Resend(process.env.RESEND_API_KEY);
+  return client;
+}
+
+async function send(params: { to: string; subject: string; html: string }) {
+  const resend = getResend();
+  if (!resend) return;
+  await resend.emails.send({ from: FROM, ...params });
+}
 
 export async function sendLeaveRequestEmail(params: {
   adminEmail: string;
@@ -11,8 +24,7 @@ export async function sendLeaveRequestEmail(params: {
   endDate: string;
   reason?: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
+  await send({
     to: params.adminEmail,
     subject: `Nueva solicitud de baja — ${params.staffName}`,
     html: `
@@ -35,8 +47,7 @@ export async function sendLeaveReviewEmail(params: {
   reviewNote?: string;
 }) {
   const approved = params.status === "APPROVED";
-  await resend.emails.send({
-    from: FROM,
+  await send({
     to: params.staffEmail,
     subject: `Tu solicitud de baja ha sido ${approved ? "aprobada" : "rechazada"}`,
     html: `
@@ -54,8 +65,7 @@ export async function sendCertExpiryEmail(params: {
   certName: string;
   expiryDate: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
+  await send({
     to: params.adminEmail,
     subject: `Certificado próximo a vencer — ${params.staffName}`,
     html: `
