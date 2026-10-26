@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { InvoiceStats } from "@/lib/actions/invoices";
 import { TrendingUp, Clock, Receipt, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,32 +14,33 @@ interface FinancesStatsProps {
 }
 
 export function FinancesStats({ stats }: FinancesStatsProps) {
+  const t = useTranslations("finances");
   const cards = [
     {
-      label: "Ingresos del mes",
+      label: t("revenueThisMonth"),
       value: fmt(stats.revenueThisMonth),
-      sub: `${stats.paidThisMonth} facturas pagadas`,
+      sub: t("paidInvoicesCount", { count: stats.paidThisMonth }),
       icon: TrendingUp,
       color: "emerald",
     },
     {
-      label: "Pendiente de cobro",
+      label: t("revenuePending"),
       value: fmt(stats.revenuePending),
-      sub: "Facturas sin pagar",
+      sub: t("unpaidInvoices"),
       icon: Clock,
       color: "amber",
     },
     {
-      label: "Facturas este mes",
+      label: t("invoicesThisMonth"),
       value: stats.invoicesThisMonth.toString(),
-      sub: "Total emitidas",
+      sub: t("totalIssued"),
       icon: Receipt,
       color: "blue",
     },
     {
-      label: "Cobradas este mes",
+      label: t("paidThisMonth"),
       value: stats.paidThisMonth.toString(),
-      sub: "Pagos confirmados",
+      sub: t("confirmedPayments"),
       icon: CheckCircle,
       color: "primary",
     },

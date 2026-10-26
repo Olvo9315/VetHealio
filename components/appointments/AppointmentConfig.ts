@@ -2,21 +2,22 @@ import type { AppointmentStatus, AppointmentType } from "@prisma/client";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 
 // Color map by type — used in calendar events and badges
+// Labels are keys in the "appointments" namespace; render them with cfgLabel()
 export const typeConfig: Record<AppointmentType, { label: string; color: string; bg: string; border: string }> = {
-  CONSULTATION: { label: "Consulta",    color: "#1D4ED8", bg: "#DBEAFE", border: "#93C5FD" },
-  SURGERY:      { label: "Cirugía",     color: "#B91C1C", bg: "#FEE2E2", border: "#FCA5A5" },
-  VACCINATION:  { label: "Vacunación",  color: "#15803D", bg: "#DCFCE7", border: "#86EFAC" },
-  GROOMING:     { label: "Estética",    color: "#7C3AED", bg: "#EDE9FE", border: "#C4B5FD" },
-  CHECKUP:      { label: "Revisión",    color: "#0F766E", bg: "#CCFBF1", border: "#5EEAD4" },
-  OTHER:        { label: "Otro",        color: "#6B7280", bg: "#F3F4F6", border: "#D1D5DB" },
+  CONSULTATION: { label: "consultation", color: "#1D4ED8", bg: "#DBEAFE", border: "#93C5FD" },
+  SURGERY:      { label: "surgery",     color: "#B91C1C", bg: "#FEE2E2", border: "#FCA5A5" },
+  VACCINATION:  { label: "vaccination", color: "#15803D", bg: "#DCFCE7", border: "#86EFAC" },
+  GROOMING:     { label: "grooming",    color: "#7C3AED", bg: "#EDE9FE", border: "#C4B5FD" },
+  CHECKUP:      { label: "checkup",     color: "#0F766E", bg: "#CCFBF1", border: "#5EEAD4" },
+  OTHER:        { label: "other",       color: "#6B7280", bg: "#F3F4F6", border: "#D1D5DB" },
 };
 
 export const statusConfig: Record<AppointmentStatus, { label: string; className: string }> = {
-  SCHEDULED:   { label: "Programada",  className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-  IN_PROGRESS: { label: "En curso",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-  COMPLETED:   { label: "Completada",  className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
-  CANCELLED:   { label: "Cancelada",   className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
-  NO_SHOW:     { label: "No se presentó", className: "bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400" },
+  SCHEDULED:   { label: "scheduled",   className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+  IN_PROGRESS: { label: "inProgress",  className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  COMPLETED:   { label: "completed",   className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  CANCELLED:   { label: "cancelled",   className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  NO_SHOW:     { label: "noShow", className: "bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400" },
 };
 
 // Opacity modifier by status for calendar events
@@ -55,11 +56,16 @@ export function getEventStyleForAppointment(apt: AppointmentFull, status: Appoin
   return buildEventStyle(typeConfig.OTHER, status);
 }
 
-export function getTypeCfgForAppointment(apt: AppointmentFull): { label: string; color: string; bg: string; border: string } {
+export function getTypeCfgForAppointment(apt: AppointmentFull): { label: string; color: string; bg: string; border: string; custom?: boolean } {
   if (apt.service?.color) {
     const c = apt.service.color;
-    return { label: apt.service.name, color: c, bg: c + "22", border: c + "88" };
+    return { label: apt.service.name, color: c, bg: c + "22", border: c + "88", custom: true };
   }
   if (apt.type) return typeConfig[apt.type];
   return typeConfig.OTHER;
+}
+
+// Translated label for a type/status config; service-based configs carry the service name as-is
+export function cfgLabel(t: (key: string) => string, cfg: { label: string; custom?: boolean }) {
+  return cfg.custom ? cfg.label : t(cfg.label);
 }

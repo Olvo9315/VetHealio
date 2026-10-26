@@ -27,6 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { translateMessage } from "@/lib/i18n-messages";
+import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 
 export const CATEGORIES = [
   "Medicamentos",
@@ -54,10 +57,10 @@ export const UNITS = [
 ] as const;
 
 const schema = z.object({
-  name: z.string().min(1, "Requerido").max(100),
-  category: z.string().min(1, "Requerido"),
-  quantity: z.coerce.number().min(0, "Debe ser ≥ 0"),
-  unit: z.string().min(1, "Requerido"),
+  name: z.string().min(1, "required").max(100),
+  category: z.string().min(1, "required"),
+  quantity: z.coerce.number().min(0, "nonNegative"),
+  unit: z.string().min(1, "required"),
   minStock: z.coerce.number().min(0).default(0),
   unitCost: z.coerce.number().positive().optional().or(z.literal("")),
   expiryDate: z.string().optional().or(z.literal("")),
@@ -76,6 +79,9 @@ interface InventoryDialogProps {
 
 export function InventoryDialog({ open, onOpenChange, item, onSaved }: InventoryDialogProps) {
   const isEdit = !!item;
+  const t = useTranslations("inventory");
+  const tc = useTranslations("common");
+  const tv = useTranslations("validation");
   const [isSaving, startSave] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -114,13 +120,13 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
     startSave(async () => {
       if (isEdit) {
         const result = await updateInventoryItem(item.id, data);
-        if ("error" in result) { toast.error("Error al actualizar"); return; }
-        toast.success("Artículo actualizado");
+        if ("error" in result) { toast.error(t("errorUpdate")); return; }
+        toast.success(t("updated"));
         onSaved(result.item);
       } else {
         const result = await createInventoryItem(data);
-        if ("error" in result) { toast.error("Error al crear artículo"); return; }
-        toast.success("Artículo creado");
+        if ("error" in result) { toast.error(t("errorCreate")); return; }
+        toast.success(t("created"));
         onSaved(result.item);
       }
       onOpenChange(false);
@@ -131,7 +137,7 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar artículo" : "Nuevo artículo"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("edit") : t("new")}</DialogTitle>
         </DialogHeader>
 
         <form
@@ -153,47 +159,47 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
         >
           {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="name">Nombre *</Label>
-            <Input id="name" placeholder="Ej. Amoxicilina 250mg" {...form.register("name")} />
+            <Label htmlFor="name">{t("name")} *</Label>
+            <Input id="name" placeholder={t("namePlaceholder")} {...form.register("name")} />
             {form.formState.errors.name && (
-              <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.name.message)}</p>
             )}
           </div>
 
           {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Categoría *</Label>
+              <Label>{t("category")} *</Label>
               <Select
                 value={watchCategory}
                 onValueChange={(v) => form.setValue("category", v ?? "")}
               >
                 <SelectTrigger>
                   <SelectValue>
-                    {watchCategory || "Medicamentos"}
+                    {categoryLabel(t, watchCategory || "Medicamentos")}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c}>{categoryLabel(t, c)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Unidad *</Label>
+              <Label>{t("unit")} *</Label>
               <Select
                 value={watchUnit}
                 onValueChange={(v) => form.setValue("unit", v ?? "")}
               >
                 <SelectTrigger>
                   <SelectValue>
-                    {watchUnit || "unidades"}
+                    {unitLabel(t, watchUnit || "unidades")}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                    <SelectItem key={u} value={u}>{unitLabel(t, u)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -204,17 +210,17 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
 
           {/* Stock */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Stock</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("stock")}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="quantity">Cantidad actual *</Label>
+                <Label htmlFor="quantity">{t("currentQuantity")} *</Label>
                 <Input id="quantity" type="number" min="0" step="0.1" {...form.register("quantity")} />
                 {form.formState.errors.quantity && (
-                  <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
+                  <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.quantity.message)}</p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="minStock">Stock mínimo</Label>
+                <Label htmlFor="minStock">{t("minStock")}</Label>
                 <Input id="minStock" type="number" min="0" step="0.1" {...form.register("minStock")} />
               </div>
             </div>
@@ -225,37 +231,37 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
           {/* Cost + Expiry */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="unitCost">Costo unitario (€)</Label>
+              <Label htmlFor="unitCost">{t("unitCostEur")}</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                 <Input id="unitCost" type="number" min="0" step="0.01" placeholder="0.00" className="pl-6" {...form.register("unitCost")} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="expiryDate">Fecha de vencimiento</Label>
+              <Label htmlFor="expiryDate">{t("expiryDate")}</Label>
               <Input id="expiryDate" type="date" {...form.register("expiryDate")} />
             </div>
           </div>
 
           {/* Supplier */}
           <div className="space-y-1.5">
-            <Label htmlFor="supplier">Proveedor</Label>
-            <Input id="supplier" placeholder="Nombre del proveedor" {...form.register("supplier")} />
+            <Label htmlFor="supplier">{t("supplier")}</Label>
+            <Input id="supplier" placeholder={t("supplierPlaceholder")} {...form.register("supplier")} />
           </div>
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notas</Label>
-            <Textarea id="notes" rows={2} placeholder="Observaciones..." {...form.register("notes")} />
+            <Label htmlFor="notes">{t("notes")}</Label>
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
           </div>
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {tc("cancel")}
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? "Guardar cambios" : "Crear artículo"}
+              {isEdit ? tc("saveChanges") : t("create")}
             </Button>
           </div>
         </form>

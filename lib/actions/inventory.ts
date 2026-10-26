@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addDays } from "date-fns";
 import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
+import { assertModule } from "@/lib/license";
 export type { StockStatus, ExpiryStatus } from "@/lib/utils/inventoryHelpers";
 export { getStockStatus, getExpiryStatus };
 
@@ -56,6 +57,7 @@ export async function getInventoryItems(filters?: {
   category?: string;
   stockStatus?: "ALL" | "LOW" | "OUT" | "OK";
 }): Promise<InventoryItem[]> {
+  await assertModule("inventory");
   const { search, category, stockStatus } = filters ?? {};
 
   const items = await prisma.inventoryItem.findMany({
@@ -80,6 +82,7 @@ export async function getInventoryItems(filters?: {
 }
 
 export async function getInventoryStats(): Promise<InventoryStats> {
+  await assertModule("inventory");
   const items = await prisma.inventoryItem.findMany({
     select: { quantity: true, minStock: true, unitCost: true, expiryDate: true },
   }) as unknown as InventoryItem[];
@@ -101,6 +104,7 @@ export async function getInventoryStats(): Promise<InventoryStats> {
 }
 
 export async function getDistinctCategories(): Promise<string[]> {
+  await assertModule("inventory");
   const rows = await prisma.inventoryItem.findMany({
     select: { category: true },
     distinct: ["category"],
@@ -112,6 +116,7 @@ export async function getDistinctCategories(): Promise<string[]> {
 // ---- Mutations ----
 
 export async function createInventoryItem(data: InventoryFormData) {
+  await assertModule("inventory");
   const parsed = inventorySchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -134,6 +139,7 @@ export async function createInventoryItem(data: InventoryFormData) {
 }
 
 export async function updateInventoryItem(id: string, data: InventoryFormData) {
+  await assertModule("inventory");
   const parsed = inventorySchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -157,6 +163,7 @@ export async function updateInventoryItem(id: string, data: InventoryFormData) {
 }
 
 export async function adjustStock(id: string, delta: number) {
+  await assertModule("inventory");
   const current = await prisma.inventoryItem.findUnique({
     where: { id },
     select: { quantity: true },
@@ -174,6 +181,7 @@ export async function adjustStock(id: string, delta: number) {
 }
 
 export async function deleteInventoryItem(id: string) {
+  await assertModule("inventory");
   await prisma.inventoryItem.delete({ where: { id } });
   revalidatePath("/inventory");
   return { success: true };

@@ -101,17 +101,17 @@ export function ServiceQuickAddDialog({
           </div>
           {parentOptions.length > 0 && (
             <div className="space-y-1">
-              <Label>Categoría padre</Label>
+              <Label>{t("parentCategory")}</Label>
               <Select value={parentId} onValueChange={(v) => setParentId(v ?? "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="(Raíz)">
+                  <SelectValue placeholder={t("root")}>
                     {parentId
                       ? parentOptions.find((o) => o.id === parentId)?.label
-                      : <span className="text-muted-foreground">(Raíz)</span>}
+                      : <span className="text-muted-foreground">{t("root")}</span>}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">(Raíz)</SelectItem>
+                  <SelectItem value="">{t("root")}</SelectItem>
                   {parentOptions.map((o) => (
                     <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
                   ))}

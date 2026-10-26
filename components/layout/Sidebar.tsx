@@ -42,17 +42,19 @@ const baseNavItems = [
 
 interface SidebarProps {
   showStaff?: boolean;
+  hiddenRoutes?: string[];
   clinic: ClinicBrand;
 }
 
-export function Sidebar({ showStaff, clinic }: SidebarProps) {
+export function Sidebar({ showStaff, hiddenRoutes = [], clinic }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useTranslations("nav");
 
-  const navItems = showStaff
+  const navItems = (showStaff
     ? [...baseNavItems, { href: "/staff", icon: Users, key: "staff" } as const]
-    : baseNavItems;
+    : baseNavItems
+  ).filter((item) => !hiddenRoutes.includes(item.href));
 
   return (
     <TooltipProvider delay={0}>
@@ -155,7 +157,7 @@ export function Sidebar({ showStaff, clinic }: SidebarProps) {
                 className="w-full justify-end text-sidebar-foreground hover:bg-sidebar-accent"
                 onClick={() => setCollapsed(true)}
               >
-                <span className="text-sm mr-1">Colapsar</span>
+                <span className="text-sm mr-1">{t("collapse")}</span>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
             </>

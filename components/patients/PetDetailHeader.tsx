@@ -27,11 +27,13 @@ import { format, differenceInYears, differenceInMonths } from "date-fns";
 import { formatPetId } from "@/lib/utils";
 
 function PetAge({ birthDate }: { birthDate: Date | null }) {
+  const t = useTranslations("patients");
   if (!birthDate) return <span className="text-muted-foreground">—</span>;
   const years = differenceInYears(new Date(), new Date(birthDate));
   const months = differenceInMonths(new Date(), new Date(birthDate)) % 12;
-  if (years === 0) return <span>{months} mes{months !== 1 ? "es" : ""}</span>;
-  return <span>{years} año{years !== 1 ? "s" : ""}{months > 0 ? `, ${months}m` : ""}</span>;
+  if (years === 0) return <span>{t("ageMonths", { count: months })}</span>;
+  const yearsLabel = t("ageYears", { count: years });
+  return <span>{months > 0 ? t("ageYearsMonths", { years: yearsLabel, months }) : yearsLabel}</span>;
 }
 
 interface PetDetailHeaderProps {
@@ -46,10 +48,10 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
   const [isArchiving, startArchive] = useTransition();
 
   function handleArchive() {
-    if (!confirm(`¿Archivar a ${pet.name}?`)) return;
+    if (!confirm(t("archiveConfirm", { name: pet.name }))) return;
     startArchive(async () => {
       await archivePet(pet.id);
-      toast.success(`${pet.name} archivado`);
+      toast.success(t("archivedToast", { name: pet.name }));
       router.push("/patients");
     });
   }
@@ -86,7 +88,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                 <SpeciesBadge species={pet.species} size="md" />
                 {!pet.isActive && (
                   <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                    Archivado
+                    {t("archived")}
                   </span>
                 )}
               </div>
@@ -102,7 +104,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                 )}
                 {pet.gender && (
                   <div className="text-muted-foreground">
-                    {pet.gender === "MALE" ? "♂ Macho" : "♀ Hembra"}
+                    {pet.gender === "MALE" ? `♂ ${t("male")}` : `♀ ${t("female")}`}
                   </div>
                 )}
                 <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -142,7 +144,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
               {/* Owner info */}
               <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Propietario
+                  {t("owner")}
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <span className="font-medium text-sm">
@@ -199,7 +201,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                 onClick={() => setEditOpen(true)}
               >
                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                Editar
+                {t("editPatient")}
               </Button>
               <Button
                 variant="outline"
@@ -219,7 +221,7 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                   disabled={isArchiving}
                 >
                   <Archive className="w-3.5 h-3.5 mr-1.5" />
-                  Archivar
+                  {t("archive")}
                 </Button>
               )}
             </div>

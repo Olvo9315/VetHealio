@@ -7,6 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 import { fileUrl } from "@/lib/storage";
+import { assertModule } from "@/lib/license";
 
 // ---- RBAC helpers ----
 
@@ -61,6 +62,7 @@ const updateProfileSchema = z.object({
 // ---- Actions ----
 
 export async function getStaffList() {
+  await assertModule("staff");
   await requireAdminOrManager();
   return prisma.staffProfile.findMany({
     include: { user: { select: { id: true, name: true, email: true, role: true, avatar: true, phone: true } } },
@@ -69,6 +71,7 @@ export async function getStaffList() {
 }
 
 export async function getStaffById(id: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   return prisma.staffProfile.findUnique({
     where: { id },
@@ -90,12 +93,13 @@ export async function getStaffById(id: string) {
 }
 
 export async function createStaffMember(data: z.infer<typeof createStaffSchema>) {
+  await assertModule("staff");
   const admin = await requireAdmin();
   const parsed = createStaffSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) return { error: { formErrors: ["Email already in use"], fieldErrors: {} } };
+  if (existing) return { error: { formErrors: ["emailInUse"], fieldErrors: {} } };
 
   const hashed = await bcrypt.hash(parsed.data.password, 12);
 
@@ -128,6 +132,7 @@ export async function createStaffMember(data: z.infer<typeof createStaffSchema>)
 }
 
 export async function updateStaffProfile(id: string, data: z.infer<typeof updateProfileSchema>) {
+  await assertModule("staff");
   const actor = await requireAdminOrManager();
   const parsed = updateProfileSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -179,6 +184,7 @@ export async function updateStaffProfile(id: string, data: z.infer<typeof update
 }
 
 export async function deactivateStaff(id: string) {
+  await assertModule("staff");
   const actor = await requireAdmin();
   await prisma.$transaction(async (tx) => {
     await tx.staffProfile.update({ where: { id }, data: { isActive: false } });
@@ -190,6 +196,7 @@ export async function deactivateStaff(id: string) {
 }
 
 export async function reactivateStaff(id: string) {
+  await assertModule("staff");
   const actor = await requireAdmin();
   await prisma.$transaction(async (tx) => {
     await tx.staffProfile.update({ where: { id }, data: { isActive: true } });
@@ -201,11 +208,13 @@ export async function reactivateStaff(id: string) {
 }
 
 export async function getSignedDocumentUrl(path: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   return fileUrl(path);
 }
 
 export async function getLeaveBalance(staffProfileId: string, year: number) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const profile = await prisma.staffProfile.findUnique({
     where: { id: staffProfileId },

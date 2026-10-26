@@ -11,10 +11,12 @@ import {
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { format, parse, startOfWeek, getDay, addMonths, addWeeks } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import { updateAppointmentTime } from "@/lib/actions/appointments";
-import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig } from "./AppointmentConfig";
+import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig, cfgLabel } from "./AppointmentConfig";
+import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
 import type { AppointmentOption } from "@/lib/actions/invoices";
 import { AppointmentDialog } from "./AppointmentDialog";
@@ -26,7 +28,7 @@ import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle } fr
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const locales = { es };
+const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -53,11 +55,6 @@ interface AppointmentsCalendarProps {
   services: ServiceFlat[];
 }
 
-const VIEW_LABELS: Record<string, string> = {
-  month: "Mes",
-  week: "Semana",
-  day: "Día",
-};
 
 function AppointmentCard({
   apt,
@@ -72,6 +69,7 @@ function AppointmentCard({
   highlight?: boolean;
   conflict?: boolean;
 }) {
+  const t = useTranslations("appointments");
   const typeCfg = getTypeCfgForAppointment(apt);
   const statusCfg = statusConfig[apt.status];
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
@@ -100,7 +98,7 @@ function AppointmentCard({
           className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
           style={{ backgroundColor: typeCfg.bg, color: typeCfg.color, border: `1px solid ${typeCfg.border}` }}
         >
-          {typeCfg.label}
+          {cfgLabel(t, typeCfg)}
         </span>
       </div>
 
@@ -131,7 +129,7 @@ function AppointmentCard({
 
       {/* Status */}
       <span className={cn("inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full", statusCfg.className)}>
-        {statusCfg.label}
+        {t(statusCfg.label)}
       </span>
 
       {/* Notes */}
@@ -145,6 +143,11 @@ function AppointmentCard({
 }
 
 export function AppointmentsCalendar({ initialAppointments, vets, services }: AppointmentsCalendarProps) {
+  const dateLocale = useDateLocale();
+  const calendarI18n = useCalendarI18n();
+  const t = useTranslations("appointments");
+  const tRef = useRef(t);
+  tRef.current = t;
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
@@ -214,13 +217,13 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
   }
 
   function navLabel() {
-    if (view === Views.MONTH) return format(date, "MMMM yyyy", { locale: es });
+    if (view === Views.MONTH) return format(date, "MMMM yyyy", { locale: dateLocale });
     if (view === Views.WEEK) {
       const start = startOfWeek(date, { weekStartsOn: 1 });
       const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
-      return `${format(start, "d MMM", { locale: es })} — ${format(end, "d MMM yyyy", { locale: es })}`;
+      return `${format(start, "d MMM", { locale: dateLocale })} — ${format(end, "d MMM yyyy", { locale: dateLocale })}`;
     }
-    return format(date, "EEEE, d MMMM yyyy", { locale: es });
+    return format(date, "EEEE, d MMMM yyyy", { locale: dateLocale });
   }
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
@@ -245,7 +248,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
       startTransition(async () => {
         try {
           await updateAppointmentTime(event.id, startDate, endDate);
-          toast.success("Cita reprogramada");
+          toast.success(tRef.current("dragDropSuccess"));
         } catch {
           setAppointments((prev) =>
             prev.map((a) =>
@@ -254,7 +257,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                 : a
             )
           );
-          toast.error("Error al reprogramar");
+          toast.error(tRef.current("rescheduleError"));
         }
       });
     },
@@ -401,7 +404,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                   <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                      Conflicto: {apt.veterinarian.name} tiene otra cita a esta hora
+                      {tRef.current("conflict", { vet: apt.veterinarian.name })}
                     </p>
                   </div>
                 )}
@@ -410,14 +413,14 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                 {others.length > 0 && !hasConflict && (
                   <div className="px-3 pt-2.5 pb-1.5 border-b border-border">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      {overlapping.length} citas simultáneas
+                      {tRef.current("simultaneous", { count: overlapping.length })}
                     </p>
                   </div>
                 )}
                 {others.length > 0 && hasConflict && (
                   <div className="px-3 pt-2 pb-1.5 border-b border-border">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      {overlapping.length} citas simultáneas
+                      {tRef.current("simultaneous", { count: overlapping.length })}
                     </p>
                   </div>
                 )}
@@ -460,7 +463,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("today")}>
-              Hoy
+              {calendarI18n.messages.today}
             </Button>
             <Button variant="outline" size="icon" onClick={() => navigate("next")}>
               <ChevronRight className="w-4 h-4" />
@@ -470,7 +473,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
 
           <div className="flex items-center gap-2">
             {/* Zoom control */}
-            <div className="flex rounded-lg border border-border overflow-hidden" title="Zoom">
+            <div className="flex rounded-lg border border-border overflow-hidden" title={t("zoom")}>
               {(["compact", "normal", "large"] as const).map((z) => (
                 <button
                   key={z}
@@ -498,7 +501,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                       : "bg-background text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  {VIEW_LABELS[v]}
+                  {calendarI18n.messages[v as "month" | "week" | "day"]}
                 </button>
               ))}
             </div>
@@ -506,7 +509,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
               className="bg-primary text-primary-foreground"
               onClick={() => { setPresetStart(undefined); setCreateDialogOpen(true); }}
             >
-              + Nueva cita
+              + {t("new")}
             </Button>
           </div>
         </div>
@@ -525,7 +528,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             : Object.entries(typeConfig).map(([key, cfg]) => (
                 <span key={key} className="flex items-center gap-1.5 text-xs">
                   <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cfg.border }} />
-                  {cfg.label}
+                  {t(cfg.label)}
                 </span>
               ))}
         </div>
@@ -574,12 +577,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
             components={{ event: EventComponent as (props: { event: object }) => JSX.Element }}
-            culture="es"
-            messages={{
-              noEventsInRange: "No hay citas en este período",
-              showMore: (total: number) => `+${total} más`,
-              allDay: "Todo el día",
-            }}
+            culture={calendarI18n.culture}
+            messages={calendarI18n.messages}
             step={15}
             timeslots={2}
             min={new Date(0, 0, 0, 7, 0)}

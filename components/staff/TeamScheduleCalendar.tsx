@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState, useCallback, useMemo, useTransition } from "react";
 import {
   Calendar,
@@ -9,7 +10,8 @@ import {
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import { format, parse, startOfWeek, getDay, addWeeks, subWeeks } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
 import { updateShift } from "@/lib/actions/shifts";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +27,7 @@ import { cn } from "@/lib/utils";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
-const locales = { es };
+const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -68,6 +70,9 @@ interface TeamScheduleCalendarProps {
 }
 
 export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamScheduleCalendarProps) {
+  const dateLocale = useDateLocale();
+  const calendarI18n = useCalendarI18n();
+  const t = useTranslations("staff");
   const [shifts, setShifts] = useState<StaffShift[]>(initialShifts);
   const [view, setView] = useState<View>(Views.WEEK);
   const [date, setDate] = useState(new Date());
@@ -95,14 +100,14 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
     () =>
       filteredShifts.map((s) => ({
         id: s.id,
-        title: s.note ?? "Turno",
+        title: s.note ?? t("shift"),
         start: new Date(s.startTime),
         end: new Date(s.endTime),
         shift: s,
         resourceId: s.userId,
         color: colorMap[s.userId] ?? PALETTE[0],
       })),
-    [filteredShifts, colorMap]
+    [filteredShifts, colorMap, t]
   );
 
   const eventStyleGetter = useCallback(
@@ -124,9 +129,9 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
         prev.map((s) => s.id === event.id ? { ...s, startTime: start, endTime: end } : s)
       );
       await updateShift(event.id, { startTime: start.toISOString(), endTime: end.toISOString() });
-      toast.success("Turno actualizado");
+      toast.success(t("shiftUpdated"));
     });
-  }, []);
+  }, [t]);
 
   return (
     <div className="space-y-4">
@@ -135,18 +140,18 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
         <Button variant="outline" size="icon" onClick={() => setDate((d) => subWeeks(d, 1))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>Hoy</Button>
+        <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>{calendarI18n.messages.today}</Button>
         <Button variant="outline" size="icon" onClick={() => setDate((d) => addWeeks(d, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-medium">{format(date, "MMMM yyyy", { locale: es })}</span>
+        <span className="text-sm font-medium">{format(date, "MMMM yyyy", { locale: dateLocale })}</span>
         <div className="ml-auto flex items-center gap-2">
           <Select value={filterUserId} onValueChange={(v) => setFilterUserId(v ?? "ALL")}>
             <SelectTrigger className="w-44 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Todos</SelectItem>
+              <SelectItem value="ALL">{t("all")}</SelectItem>
               {staffMembers.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   <span className="flex items-center gap-2">
@@ -159,7 +164,7 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
           </Select>
           {(["week", "day"] as View[]).map((v) => (
             <Button key={v} variant={view === v ? "default" : "outline"} size="sm" onClick={() => setView(v)}>
-              {v === "week" ? "Semana" : "Día"}
+              {v === "week" ? calendarI18n.messages.week : calendarI18n.messages.day}
             </Button>
           ))}
         </div>
@@ -186,7 +191,8 @@ export function TeamScheduleCalendar({ initialShifts, staffMembers }: TeamSchedu
           onNavigate={setDate}
           eventPropGetter={eventStyleGetter as never}
           onEventDrop={handleEventDrop as never}
-          culture="es"
+          culture={calendarI18n.culture}
+          messages={calendarI18n.messages}
           resources={resources}
           resourceIdAccessor={(r: object) => (r as StaffResource).id}
           resourceTitleAccessor={(r: object) => (r as StaffResource).name}

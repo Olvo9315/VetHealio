@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
 import type { MedicalRecordFull } from "@/lib/actions/medicalRecords";
 import { deleteMedicalRecord } from "@/lib/actions/medicalRecords";
 import { toast } from "sonner";
@@ -47,13 +48,16 @@ export function MedicalRecordDetailSheet({
   onDeleted,
   onEdit,
 }: MedicalRecordDetailSheetProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("medicalRecords");
+  const tc = useTranslations("common");
   const [isDeleting, startDelete] = useTransition();
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar este registro médico?`)) return;
+    if (!confirm(t("deleteConfirm"))) return;
     startDelete(async () => {
       await deleteMedicalRecord(record.id);
-      toast.success("Registro eliminado");
+      toast.success(t("deleted"));
       onDeleted(record.id);
     });
   }
@@ -69,11 +73,11 @@ export function MedicalRecordDetailSheet({
               <Stethoscope className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base leading-tight">Registro médico</SheetTitle>
+              <SheetTitle className="text-base leading-tight">{t("recordTitle")}</SheetTitle>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground capitalize">
-                  {format(new Date(record.date), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
+                  {format(new Date(record.date), "EEEE, d MMMM yyyy · HH:mm", { locale: dateLocale })}
                 </p>
               </div>
             </div>
@@ -83,7 +87,7 @@ export function MedicalRecordDetailSheet({
         <div className="flex-1 overflow-y-auto space-y-5">
           {/* Patient */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paciente</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("patient")}</p>
             <div className="flex items-center gap-2">
               <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="font-medium text-sm">{record.pet.name}</span>
@@ -106,7 +110,7 @@ export function MedicalRecordDetailSheet({
 
           {/* Veterinarian */}
           <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Veterinario</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("veterinarian")}</p>
             <p className="text-sm font-medium">{record.veterinarian.name}</p>
           </div>
 
@@ -114,7 +118,7 @@ export function MedicalRecordDetailSheet({
 
           {/* Chief Complaint */}
           <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Motivo de consulta</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("chiefComplaint")}</p>
             <p className="text-sm">{record.chiefComplaint}</p>
           </div>
 
@@ -123,7 +127,7 @@ export function MedicalRecordDetailSheet({
             <>
               <Separator />
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Diagnóstico</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("diagnosis")}</p>
                 <p className="text-sm">{record.diagnosis}</p>
               </div>
             </>
@@ -134,7 +138,7 @@ export function MedicalRecordDetailSheet({
             <>
               <Separator />
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tratamiento</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("treatment")}</p>
                 <p className="text-sm">{record.treatment}</p>
               </div>
             </>
@@ -145,16 +149,16 @@ export function MedicalRecordDetailSheet({
             <>
               <Separator />
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Constantes vitales</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("vitals")}</p>
                 <div className="flex flex-wrap gap-2">
                   {record.weight !== null && (
-                    <VitalBadge icon={<Weight className="w-3.5 h-3.5" />} label="Peso" value={`${record.weight} kg`} color="blue" />
+                    <VitalBadge icon={<Weight className="w-3.5 h-3.5" />} label={t("weightShort")} value={`${record.weight} kg`} color="blue" />
                   )}
                   {record.temperature !== null && (
-                    <VitalBadge icon={<Thermometer className="w-3.5 h-3.5" />} label="Temp." value={`${record.temperature} °C`} color="amber" />
+                    <VitalBadge icon={<Thermometer className="w-3.5 h-3.5" />} label={t("tempShort")} value={`${record.temperature} °C`} color="amber" />
                   )}
                   {record.heartRate !== null && (
-                    <VitalBadge icon={<Heart className="w-3.5 h-3.5" />} label="FC" value={`${record.heartRate} lpm`} color="red" />
+                    <VitalBadge icon={<Heart className="w-3.5 h-3.5" />} label={t("hrShort")} value={t("bpm", { n: record.heartRate })} color="red" />
                   )}
                 </div>
               </div>
@@ -166,7 +170,7 @@ export function MedicalRecordDetailSheet({
             <>
               <Separator />
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notas</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("notes")}</p>
                 <div className="flex items-start gap-2">
                   <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                   <p className="text-sm">{record.notes}</p>
@@ -191,9 +195,9 @@ export function MedicalRecordDetailSheet({
                         <span className="text-sm font-medium">{p.medicationName}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1 text-xs text-muted-foreground">
-                        <span><span className="font-medium text-foreground">Dosis:</span> {p.dosage}</span>
-                        <span><span className="font-medium text-foreground">Frec.:</span> {p.frequency}</span>
-                        <span><span className="font-medium text-foreground">Dur.:</span> {p.duration}</span>
+                        <span><span className="font-medium text-foreground">{t("dosageShort")}</span> {p.dosage}</span>
+                        <span><span className="font-medium text-foreground">{t("frequencyShort")}</span> {p.frequency}</span>
+                        <span><span className="font-medium text-foreground">{t("durationShort")}</span> {p.duration}</span>
                       </div>
                       {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
                     </div>
@@ -208,7 +212,7 @@ export function MedicalRecordDetailSheet({
         <div className="pt-4 border-t border-border space-y-2">
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
-            Editar registro
+            {t("edit")}
           </Button>
           <Button
             variant="outline"
@@ -217,7 +221,7 @@ export function MedicalRecordDetailSheet({
             disabled={isDeleting}
           >
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-            Eliminar
+            {tc("delete")}
           </Button>
         </div>
       </SheetContent>

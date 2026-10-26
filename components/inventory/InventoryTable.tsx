@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { useTranslations } from "next-intl";
+import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 import type { InventoryItem, StockStatus } from "@/lib/actions/inventory";
 import { getInventoryItems, getStockStatus, getExpiryStatus } from "@/lib/actions/inventory";
 import { InventoryDialog } from "./InventoryDialog";
@@ -41,14 +43,14 @@ function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
 }
 
-function exportCSV(items: InventoryItem[]) {
+function exportCSV(items: InventoryItem[], t: (key: string) => string) {
   const rows = [
-    ["Nombre", "Categoría", "Cantidad", "Unidad", "Stock mín.", "Costo unit.", "Valor total", "Vencimiento", "Proveedor"],
+    [t("name"), t("category"), t("quantity"), t("unit"), t("csvMinStock"), t("unitCostShort"), t("csvTotalValue"), t("expiry"), t("supplier")],
     ...items.map((item) => [
       item.name,
-      item.category,
+      categoryLabel(t, item.category),
       item.quantity.toString(),
-      item.unit,
+      unitLabel(t, item.unit),
       item.minStock.toString(),
       item.unitCost?.toFixed(2) ?? "",
       item.unitCost ? (item.unitCost * item.quantity).toFixed(2) : "",
@@ -69,23 +71,23 @@ function exportCSV(items: InventoryItem[]) {
 }
 
 const STOCK_STATUS_OPTIONS: { value: StockStatus | "ALL"; label: string }[] = [
-  { value: "ALL", label: "Todo el stock" },
-  { value: "LOW", label: "Stock bajo" },
-  { value: "OUT", label: "Agotado" },
-  { value: "OK", label: "En stock" },
+  { value: "ALL", label: "allStock" },
+  { value: "LOW", label: "stockLow" },
+  { value: "OUT", label: "stockOut" },
+  { value: "OK", label: "stockInStock" },
 ];
 
 const stockConfig: Record<StockStatus, { label: string; className: string }> = {
-  OK:  { label: "OK",       className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
-  LOW: { label: "Bajo",     className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-  OUT: { label: "Agotado",  className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  OK:  { label: "stockOk",  className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  LOW: { label: "stockLowShort", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  OUT: { label: "stockOut", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
 const expiryConfig = {
   OK:            { label: "",           className: "" },
   NONE:          { label: "",           className: "" },
-  EXPIRING_SOON: { label: "Vence pronto", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-  EXPIRED:       { label: "Vencido",    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  EXPIRING_SOON: { label: "expiresSoon", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  EXPIRED:       { label: "expired",    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
 interface InventoryTableProps {
@@ -94,6 +96,8 @@ interface InventoryTableProps {
 }
 
 export function InventoryTable({ initialItems, categories }: InventoryTableProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("inventory");
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -168,7 +172,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
     e.stopPropagation();
     startAdjust(async () => {
       const result = await adjustStock(item.id, delta);
-      if ("error" in result) { toast.error("Error al ajustar stock"); return; }
+      if ("error" in result) { toast.error(t("errorAdjust")); return; }
       handleUpdated(result.item);
     });
   }
@@ -182,7 +186,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar artículo..."
+              placeholder={t("search")}
               className="pl-9"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
@@ -196,13 +200,13 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           <Select value={categoryFilter} onValueChange={(v) => handleCategory(v ?? "ALL")}>
             <SelectTrigger className="h-9 w-44">
               <SelectValue>
-                {categoryFilter === "ALL" ? "Todas las categorías" : categoryFilter}
+                {categoryFilter === "ALL" ? t("allCategories") : categoryLabel(t, categoryFilter)}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Todas las categorías</SelectItem>
+              <SelectItem value="ALL">{t("allCategories")}</SelectItem>
               {categories.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>{categoryLabel(t, c)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -211,25 +215,25 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           <Select value={stockFilter} onValueChange={(v) => handleStockFilter(v as StockStatus | "ALL")}>
             <SelectTrigger className="h-9 w-40">
               <SelectValue>
-                {STOCK_STATUS_OPTIONS.find((o) => o.value === stockFilter)?.label ?? stockFilter}
+                {t(STOCK_STATUS_OPTIONS.find((o) => o.value === stockFilter)?.label ?? "allStock")}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {STOCK_STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <SelectItem key={o.value} value={o.value}>{t(o.label)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex gap-2 shrink-0">
-          <Button variant="outline" size="sm" className="h-9" onClick={() => exportCSV(items)}>
+          <Button variant="outline" size="sm" className="h-9" onClick={() => exportCSV(items, t)}>
             <Download className="w-4 h-4 mr-1.5" />
             CSV
           </Button>
           <Button className="bg-primary text-primary-foreground" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Nuevo artículo
+            {t("new")}
           </Button>
         </div>
       </div>
@@ -239,13 +243,13 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Costo unit.</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead>Proveedor</TableHead>
-              <TableHead className="w-24 text-center">Ajuste</TableHead>
+              <TableHead>{t("name")}</TableHead>
+              <TableHead>{t("category")}</TableHead>
+              <TableHead>{t("stock")}</TableHead>
+              <TableHead>{t("unitCostShort")}</TableHead>
+              <TableHead>{t("expiry")}</TableHead>
+              <TableHead>{t("supplier")}</TableHead>
+              <TableHead className="w-24 text-center">{t("adjustColumn")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -253,7 +257,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No se encontraron artículos</p>
+                  <p className="text-sm">{t("noItems")}</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -270,18 +274,18 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
                     <TableCell className="font-medium text-sm">{item.name}</TableCell>
                     <TableCell>
                       <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                        {item.category}
+                        {categoryLabel(t, item.category)}
                       </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{item.quantity} {item.unit}</span>
+                        <span className="text-sm font-medium">{item.quantity} {unitLabel(t, item.unit)}</span>
                         <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
-                          {stCfg.label}
+                          {t(stCfg.label)}
                         </span>
                       </div>
                       {item.minStock > 0 && (
-                        <p className="text-xs text-muted-foreground">mín. {item.minStock}</p>
+                        <p className="text-xs text-muted-foreground">{t("minShort", { n: item.minStock })}</p>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
@@ -290,10 +294,10 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
                     <TableCell>
                       {item.expiryDate ? (
                         <div>
-                          <p className="text-xs">{format(new Date(item.expiryDate), "d MMM yyyy", { locale: es })}</p>
+                          <p className="text-xs">{format(new Date(item.expiryDate), "d MMM yyyy", { locale: dateLocale })}</p>
                           {expCfg.label && (
                             <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", expCfg.className)}>
-                              {expCfg.label}
+                              {t(expCfg.label)}
                             </span>
                           )}
                         </div>
@@ -335,7 +339,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
         {items.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Package className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No se encontraron artículos</p>
+            <p className="text-sm">{t("noItems")}</p>
           </div>
         ) : (
           items.map((item) => {
@@ -353,15 +357,15 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.category}</p>
+                  <p className="text-xs text-muted-foreground">{categoryLabel(t, item.category)}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-xs font-medium">{item.quantity} {item.unit}</span>
+                    <span className="text-xs font-medium">{item.quantity} {unitLabel(t, item.unit)}</span>
                     <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
-                      {stCfg.label}
+                      {t(stCfg.label)}
                     </span>
                     {expCfg.label && (
                       <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", expCfg.className)}>
-                        {expCfg.label}
+                        {t(expCfg.label)}
                       </span>
                     )}
                   </div>
@@ -380,9 +384,9 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
 
       {items.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {items.length} artículo{items.length !== 1 ? "s" : ""}
-          {" · "}Valor total:{" "}
-          {fmtCurrency(items.reduce((s, i) => s + (i.unitCost ?? 0) * i.quantity, 0))}
+          {t("itemsCount", { count: items.length })}
+          {" · "}
+          {t("totalValueIs", { amount: fmtCurrency(items.reduce((s, i) => s + (i.unitCost ?? 0) * i.quantity, 0)) })}
         </p>
       )}
 

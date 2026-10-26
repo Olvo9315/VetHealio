@@ -498,6 +498,8 @@ model ClinicSettings {
   iban               String?
   defaultTaxRate     Float    @default(21)
   invoiceFooter      String?
+  // Signed module license (see lib/license.ts)
+  licenseKey         String?
   updatedAt          DateTime @updatedAt
 }
 

@@ -313,7 +313,7 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
                 <table className="w-full text-xs">
                   <thead className="bg-muted/50">
                     <tr>
-                      {[t("field"), t("oldValue"), t("newValue"), t("changedBy"), "Fecha"].map((h) => (
+                      {[t("field"), t("oldValue"), t("newValue"), t("changedBy"), t("date")].map((h) => (
                         <th key={h} className="text-left px-3 py-2 font-medium text-muted-foreground">{h}</th>
                       ))}
                     </tr>

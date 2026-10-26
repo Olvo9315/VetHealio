@@ -6,8 +6,10 @@ import { getStaffList } from "@/lib/actions/staff";
 import { StaffList } from "@/components/staff/StaffList";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { requireModule } from "@/lib/license";
 
 export default async function StaffPage() {
+  await requireModule("staff");
   const session = await auth();
   const user = session?.user as { id: string; role: Role } | undefined;
 

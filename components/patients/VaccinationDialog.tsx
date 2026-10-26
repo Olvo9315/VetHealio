@@ -27,12 +27,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { translateMessage } from "@/lib/i18n-messages";
 
 const schema = z.object({
   petId: z.string().min(1),
-  veterinarianId: z.string().min(1, "Selecciona un veterinario"),
-  vaccineName: z.string().min(1, "Requerido").max(100),
-  dateAdministered: z.string().min(1, "Requerido"),
+  veterinarianId: z.string().min(1, "selectVet"),
+  vaccineName: z.string().min(1, "required").max(100),
+  dateAdministered: z.string().min(1, "required"),
   nextDueDate: z.string().optional().or(z.literal("")),
   batchNumber: z.string().max(50).optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
@@ -59,6 +61,9 @@ export function VaccinationDialog({
   onSaved,
 }: VaccinationDialogProps) {
   const isEdit = !!vaccination;
+  const t = useTranslations("vaccinations");
+  const tc = useTranslations("common");
+  const tv = useTranslations("validation");
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
@@ -120,13 +125,13 @@ export function VaccinationDialog({
     startSave(async () => {
       if (isEdit) {
         const result = await updateVaccination(vaccination.id, data);
-        if ("error" in result) { toast.error("Error al actualizar"); return; }
-        toast.success("Vacunación actualizada");
+        if ("error" in result) { toast.error(t("errorUpdate")); return; }
+        toast.success(t("updated"));
         onSaved(result.vaccination);
       } else {
         const result = await createVaccination(data);
-        if ("error" in result) { toast.error("Error al registrar vacunación"); return; }
-        toast.success("Vacunación registrada");
+        if ("error" in result) { toast.error(t("errorCreate")); return; }
+        toast.success(t("created"));
         onSaved(result.vaccination);
       }
       onOpenChange(false);
@@ -137,7 +142,7 @@ export function VaccinationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar vacunación" : "Registrar vacunación"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("edit") : t("new")}</DialogTitle>
         </DialogHeader>
 
         <form
@@ -159,26 +164,26 @@ export function VaccinationDialog({
         >
           {/* Paciente (read-only) */}
           <div className="space-y-1.5">
-            <Label>Paciente</Label>
+            <Label>{t("patient")}</Label>
             <div className="px-3 py-2 rounded-lg bg-muted text-sm font-medium">{presetPetName}</div>
           </div>
 
           {/* Vacuna */}
           <div className="space-y-1.5">
-            <Label htmlFor="vaccineName">Nombre de la vacuna *</Label>
-            <Input id="vaccineName" placeholder="Ej. Rabia, Parvovirus..." {...form.register("vaccineName")} />
+            <Label htmlFor="vaccineName">{t("vaccineName")} *</Label>
+            <Input id="vaccineName" placeholder={t("vaccineNamePlaceholder")} {...form.register("vaccineName")} />
             {form.formState.errors.vaccineName && (
-              <p className="text-xs text-destructive">{form.formState.errors.vaccineName.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.vaccineName.message)}</p>
             )}
           </div>
 
           {/* Veterinario */}
           <div className="space-y-1.5">
-            <Label>Veterinario *</Label>
+            <Label>{t("veterinarian")} *</Label>
             <Select value={watchVetId} onValueChange={(v) => form.setValue("veterinarianId", v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar">
-                  {vets.find((v) => v.id === watchVetId)?.name ?? "Seleccionar"}
+                <SelectValue placeholder={tc("select")}>
+                  {vets.find((v) => v.id === watchVetId)?.name ?? tc("select")}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -188,44 +193,44 @@ export function VaccinationDialog({
               </SelectContent>
             </Select>
             {form.formState.errors.veterinarianId && (
-              <p className="text-xs text-destructive">{form.formState.errors.veterinarianId.message}</p>
+              <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.veterinarianId.message)}</p>
             )}
           </div>
 
           {/* Fechas */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="dateAdministered">Fecha administrada *</Label>
+              <Label htmlFor="dateAdministered">{t("dateAdministered")} *</Label>
               <Input id="dateAdministered" type="date" {...form.register("dateAdministered")} />
               {form.formState.errors.dateAdministered && (
-                <p className="text-xs text-destructive">{form.formState.errors.dateAdministered.message}</p>
+                <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.dateAdministered.message)}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nextDueDate">Próxima dosis</Label>
+              <Label htmlFor="nextDueDate">{t("nextDueDate")}</Label>
               <Input id="nextDueDate" type="date" {...form.register("nextDueDate")} />
             </div>
           </div>
 
           {/* Lote */}
           <div className="space-y-1.5">
-            <Label htmlFor="batchNumber">Número de lote</Label>
-            <Input id="batchNumber" placeholder="Ej. L12345" {...form.register("batchNumber")} />
+            <Label htmlFor="batchNumber">{t("batchNumber")}</Label>
+            <Input id="batchNumber" placeholder={t("batchPlaceholder")} {...form.register("batchNumber")} />
           </div>
 
           {/* Notas */}
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notas</Label>
-            <Textarea id="notes" rows={2} placeholder="Observaciones..." {...form.register("notes")} />
+            <Label htmlFor="notes">{t("notes")}</Label>
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
           </div>
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {tc("cancel")}
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? "Guardar cambios" : "Registrar"}
+              {isEdit ? tc("saveChanges") : t("register")}
             </Button>
           </div>
         </form>

@@ -1,16 +1,14 @@
 import { Species } from "@prisma/client";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
-const speciesConfig: Record<
-  Species,
-  { label: string; emoji: string; className: string }
-> = {
-  DOG: { label: "Perro", emoji: "🐕", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
-  CAT: { label: "Gato", emoji: "🐈", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
-  BIRD: { label: "Pájaro", emoji: "🦜", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
-  RABBIT: { label: "Conejo", emoji: "🐇", className: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300" },
-  REPTILE: { label: "Reptil", emoji: "🦎", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
-  OTHER: { label: "Otro", emoji: "🐾", className: "bg-muted text-muted-foreground" },
+const speciesConfig: Record<Species, { emoji: string; className: string }> = {
+  DOG: { emoji: "🐕", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  CAT: { emoji: "🐈", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300" },
+  BIRD: { emoji: "🦜", className: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300" },
+  RABBIT: { emoji: "🐇", className: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300" },
+  REPTILE: { emoji: "🦎", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  OTHER: { emoji: "🐾", className: "bg-muted text-muted-foreground" },
 };
 
 interface SpeciesBadgeProps {
@@ -19,6 +17,7 @@ interface SpeciesBadgeProps {
 }
 
 export function SpeciesBadge({ species, size = "sm" }: SpeciesBadgeProps) {
+  const t = useTranslations("patients");
   const config = speciesConfig[species];
   return (
     <span
@@ -29,7 +28,7 @@ export function SpeciesBadge({ species, size = "sm" }: SpeciesBadgeProps) {
       )}
     >
       <span>{config.emoji}</span>
-      {config.label}
+      {t(species.toLowerCase())}
     </span>
   );
 }

@@ -8,8 +8,10 @@ import {
 } from "@/lib/actions/inventory";
 import { InventoryStatsCards } from "@/components/inventory/InventoryStats";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
+import { requireModule } from "@/lib/license";
 
 export default async function InventoryPage() {
+  await requireModule("inventory");
   const session = await auth();
   const t = await getTranslations("inventory");
 

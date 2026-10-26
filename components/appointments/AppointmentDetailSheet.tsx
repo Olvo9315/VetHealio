@@ -2,13 +2,14 @@
 
 import { useTransition } from "react";
 import { format, differenceInMinutes } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import {
   updateAppointmentStatus,
   deleteAppointment,
 } from "@/lib/actions/appointments";
-import { statusConfig, getTypeCfgForAppointment } from "./AppointmentConfig";
+import { statusConfig, getTypeCfgForAppointment, cfgLabel } from "./AppointmentConfig";
+import { useTranslations } from "next-intl";
 import { AppointmentStatus } from "@prisma/client";
 import { toast } from "sonner";
 import {
@@ -61,6 +62,9 @@ export function AppointmentDetailSheet({
   onCreateInvoice,
   onCreatePrescription,
 }: AppointmentDetailSheetProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("appointments");
+  const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
 
@@ -75,16 +79,16 @@ export function AppointmentDetailSheet({
     if (!status) return;
     startUpdate(async () => {
       await updateAppointmentStatus(appointment.id, status as AppointmentStatus);
-      toast.success("Estado actualizado");
+      toast.success(t("statusUpdated"));
       onUpdated({ ...appointment, status: status as AppointmentStatus });
     });
   }
 
   function handleDelete() {
-    if (!confirm(`¿Eliminar cita "${appointment.title}"?`)) return;
+    if (!confirm(t("deleteNamedConfirm", { title: appointment.title }))) return;
     startDelete(async () => {
       await deleteAppointment(appointment.id);
-      toast.success("Cita eliminada");
+      toast.success(t("deleted"));
       onDeleted(appointment.id);
     });
   }
@@ -103,7 +107,7 @@ export function AppointmentDetailSheet({
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-base leading-tight">{appointment.title}</SheetTitle>
               <p className="text-sm text-muted-foreground capitalize mt-0.5">
-                {typeCfg.label}
+                {cfgLabel(t, typeCfg)}
                 <span className="ml-1.5 font-mono text-xs">{formatAppointmentId(appointment.number)}</span>
               </p>
             </div>
@@ -114,10 +118,10 @@ export function AppointmentDetailSheet({
           {/* Date & time */}
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Fecha y hora
+              {t("dateTime")}
             </p>
             <p className="font-medium text-sm capitalize">
-              {format(new Date(appointment.startTime), "EEEE, d MMMM yyyy", { locale: es })}
+              {format(new Date(appointment.startTime), "EEEE, d MMMM yyyy", { locale: dateLocale })}
             </p>
             <p className="text-sm text-muted-foreground">
               {format(new Date(appointment.startTime), "HH:mm")} —{" "}
@@ -131,11 +135,11 @@ export function AppointmentDetailSheet({
           {/* Status */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Estado
+              {t("status")}
             </p>
             <div className="flex items-center gap-2">
               <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full", stCfg.className)}>
-                {stCfg.label}
+                {t(stCfg.label)}
               </span>
             </div>
             <Select
@@ -144,13 +148,13 @@ export function AppointmentDetailSheet({
             >
               <SelectTrigger className="h-9">
                 <SelectValue>
-                  {statusConfig[appointment.status]?.label ?? appointment.status}
+                  {statusConfig[appointment.status] ? t(statusConfig[appointment.status].label) : appointment.status}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(statusConfig).map(([key, cfg]) => (
                   <SelectItem key={key} value={key}>
-                    {cfg.label}
+                    {t(cfg.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -158,7 +162,7 @@ export function AppointmentDetailSheet({
             {isUpdating && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Guardando...
+                {t("saving")}
               </div>
             )}
           </div>
@@ -168,7 +172,7 @@ export function AppointmentDetailSheet({
           {/* Patient */}
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Paciente
+              {t("patient")}
             </p>
             <div className="flex items-center gap-2">
               <PawPrint className="w-4 h-4 text-muted-foreground" />
@@ -194,7 +198,7 @@ export function AppointmentDetailSheet({
           {/* Veterinarian */}
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Veterinario
+              {t("veterinarian")}
             </p>
             <p className="text-sm font-medium">{appointment.veterinarian.name}</p>
           </div>
@@ -205,7 +209,7 @@ export function AppointmentDetailSheet({
               <Separator />
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Notas
+                  {t("notes")}
                 </p>
                 <div className="flex items-start gap-2">
                   <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -221,18 +225,18 @@ export function AppointmentDetailSheet({
           {onCreateInvoice && (
             <Button className="w-full" variant="outline" onClick={onCreateInvoice}>
               <Receipt className="w-4 h-4 mr-2" />
-              Crear factura
+              {t("createInvoice")}
             </Button>
           )}
           {onCreatePrescription && (
             <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
               <Pill className="w-4 h-4 mr-2" />
-              Crear receta
+              {t("createPrescription")}
             </Button>
           )}
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
-            Editar cita
+            {t("edit")}
           </Button>
           <Button
             variant="outline"
@@ -245,7 +249,7 @@ export function AppointmentDetailSheet({
             ) : (
               <Trash2 className="w-4 h-4 mr-2" />
             )}
-            Eliminar
+            {tc("delete")}
           </Button>
         </div>
       </SheetContent>

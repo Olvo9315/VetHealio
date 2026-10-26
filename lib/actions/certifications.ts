@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Role } from "@prisma/client";
 import { sendCertExpiryEmail } from "@/lib/email";
+import { assertModule } from "@/lib/license";
 
 async function requireAdminOrManager() {
   const session = await auth();
@@ -29,6 +30,7 @@ const certSchema = z.object({
 });
 
 export async function createCertification(data: z.infer<typeof certSchema>) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const parsed = certSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -49,6 +51,7 @@ export async function createCertification(data: z.infer<typeof certSchema>) {
 }
 
 export async function updateCertification(id: string, data: Partial<z.infer<typeof certSchema>>) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const cert = await prisma.staffCertification.update({
     where: { id },
@@ -65,6 +68,7 @@ export async function updateCertification(id: string, data: Partial<z.infer<type
 }
 
 export async function deleteCertification(id: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   await prisma.staffCertification.delete({ where: { id } });
   revalidatePath("/staff");
@@ -72,6 +76,7 @@ export async function deleteCertification(id: string) {
 
 // Called when opening a staff profile — checks for certs expiring within 30 days and notifies if not yet notified
 export async function checkAndNotifyCertExpiry(staffProfileId: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const now = new Date();
   const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);

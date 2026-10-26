@@ -1,11 +1,15 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { PrismaClient, Role } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
+import { databaseUrl } from "../lib/database-url";
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+config({ path: ".env.local" });
+config({ path: ".env" });
+
+const pool = new pg.Pool({ connectionString: databaseUrl() });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

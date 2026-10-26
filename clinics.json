@@ -1,0 +1,23 @@
+{
+  "orgId": "team_fAVug9ePnCB7axjg779zYJNJ",
+  "clinics": [
+    {
+      "slug": "demo",
+      "name": "VetHealio (demo / staging del desarrollador)",
+      "projectId": "prj_yzD20YajyIM6UPAQpDzp0OqRHvYP",
+      "url": "https://vethealio.vercel.app"
+    },
+    {
+      "slug": "veteridaria",
+      "name": "Veteridaria",
+      "projectId": "prj_JRIglJUZTnNsk8hwvr4s0xkFRMbx",
+      "url": "https://vethealio-veteridaria.vercel.app"
+    },
+    {
+      "slug": "drvera",
+      "name": "Dr. Vera",
+      "projectId": "prj_diyfgBk5s8YLxppNqdhSptNb4RJY",
+      "url": "https://vethealio-drvera.vercel.app"
+    }
+  ]
+}

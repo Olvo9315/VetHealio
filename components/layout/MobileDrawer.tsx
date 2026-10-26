@@ -20,10 +20,11 @@ interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
   showStaff?: boolean;
+  hiddenRoutes?: string[];
   clinic: ClinicBrand;
 }
 
-export function MobileDrawer({ open, onClose, showStaff, clinic }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose, showStaff, hiddenRoutes = [], clinic }: MobileDrawerProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
@@ -86,7 +87,7 @@ export function MobileDrawer({ open, onClose, showStaff, clinic }: MobileDrawerP
 
         {/* Nav items */}
         <nav className="p-4 space-y-1">
-          {extraNav.map(({ href, icon: Icon, key }) => {
+          {extraNav.filter((item) => !hiddenRoutes.includes(item.href)).map(({ href, icon: Icon, key }) => {
             const isActive = pathname.startsWith(href);
             return (
               <Link

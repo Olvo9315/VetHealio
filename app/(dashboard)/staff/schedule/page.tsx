@@ -9,8 +9,10 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { requireModule } from "@/lib/license";
 
 export default async function StaffSchedulePage() {
+  await requireModule("staff");
   const session = await auth();
   const user = session?.user as { id: string; role: Role } | undefined;
   if (!user) redirect("/login");

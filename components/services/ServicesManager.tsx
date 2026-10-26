@@ -20,7 +20,7 @@ export function ServicesManager({ initialTree }: ServicesManagerProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {initialTree.length} {initialTree.length === 1 ? "categoría" : "categorías"}
+          {t("categoriesCount", { count: initialTree.length })}
         </p>
         <Button size="sm" onClick={() => setAddRootOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />

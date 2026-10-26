@@ -24,10 +24,11 @@ const primaryNav = [
 
 interface BottomNavProps {
   showStaff?: boolean;
+  hiddenRoutes?: string[];
   clinic: ClinicBrand;
 }
 
-export function BottomNav({ showStaff, clinic }: BottomNavProps) {
+export function BottomNav({ showStaff, hiddenRoutes = [], clinic }: BottomNavProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -99,14 +100,14 @@ export function BottomNav({ showStaff, clinic }: BottomNavProps) {
                   isMoreActive ? "text-primary" : "text-muted-foreground"
                 )}
               >
-                Más
+                {t("more")}
               </span>
             </button>
           </li>
         </ul>
       </nav>
 
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} showStaff={showStaff} clinic={clinic} />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
     </>
   );
 }

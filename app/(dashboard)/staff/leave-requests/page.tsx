@@ -8,8 +8,10 @@ import { Role } from "@prisma/client";
 import { LeaveRequestsTable } from "@/components/staff/LeaveRequestsTable";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { requireModule } from "@/lib/license";
 
 export default async function LeaveRequestsPage() {
+  await requireModule("staff");
   const session = await auth();
   const user = session?.user as { id: string; role: Role } | undefined;
   if (!user) redirect("/login");

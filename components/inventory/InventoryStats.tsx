@@ -3,6 +3,7 @@
 import type { InventoryStats } from "@/lib/actions/inventory";
 import { Package, AlertTriangle, CalendarX, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
@@ -13,32 +14,33 @@ interface InventoryStatsProps {
 }
 
 export function InventoryStatsCards({ stats }: InventoryStatsProps) {
+  const t = useTranslations("inventory");
   const cards = [
     {
-      label: "Total artículos",
+      label: t("statTotal"),
       value: stats.totalItems.toString(),
-      sub: "Referencias en stock",
+      sub: t("statTotalSub"),
       icon: Package,
       color: "blue" as const,
     },
     {
-      label: "Stock bajo / agotado",
+      label: t("statLow"),
       value: stats.lowStockCount.toString(),
-      sub: "Requieren reposición",
+      sub: t("statLowSub"),
       icon: AlertTriangle,
       color: stats.lowStockCount > 0 ? ("amber" as const) : ("green" as const),
     },
     {
-      label: "Próximos a vencer",
+      label: t("statExpiring"),
       value: (stats.expiringSoonCount + stats.expiredCount).toString(),
-      sub: `${stats.expiredCount} vencido${stats.expiredCount !== 1 ? "s" : ""} · ${stats.expiringSoonCount} en 30 días`,
+      sub: t("statExpiringSub", { expired: stats.expiredCount, soon: stats.expiringSoonCount }),
       icon: CalendarX,
       color: stats.expiredCount > 0 ? ("red" as const) : stats.expiringSoonCount > 0 ? ("amber" as const) : ("green" as const),
     },
     {
-      label: "Valor del inventario",
+      label: t("statValue"),
       value: fmtCurrency(stats.totalValue),
-      sub: "Costo total estimado",
+      sub: t("statValueSub"),
       icon: TrendingUp,
       color: "primary" as const,
     },

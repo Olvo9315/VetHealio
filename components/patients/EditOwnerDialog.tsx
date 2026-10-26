@@ -61,10 +61,10 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
         notes: notes.trim() || undefined,
       });
       if ("error" in result) {
-        toast.error("Error al actualizar propietario");
+        toast.error(t("errorUpdateOwner"));
         return;
       }
-      toast.success(`${result.owner.firstName} ${result.owner.lastName} actualizado`);
+      toast.success(t("ownerUpdated", { name: `${result.owner.firstName} ${result.owner.lastName}` }));
       onOpenChange(false);
       router.refresh();
     });
@@ -80,7 +80,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
         <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="ownerFirstName">Nombre *</Label>
+              <Label htmlFor="ownerFirstName">{t("firstName")} *</Label>
               <Input
                 id="ownerFirstName"
                 value={firstName}
@@ -89,7 +89,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="ownerLastName">Apellido *</Label>
+              <Label htmlFor="ownerLastName">{t("lastName")} *</Label>
               <Input
                 id="ownerLastName"
                 value={lastName}
@@ -101,7 +101,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="ownerPhone">Teléfono *</Label>
+              <Label htmlFor="ownerPhone">{t("phone")} *</Label>
               <Input
                 id="ownerPhone"
                 type="tel"
@@ -123,7 +123,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="ownerEmail">Email</Label>
+              <Label htmlFor="ownerEmail">{t("email")}</Label>
               <Input
                 id="ownerEmail"
                 type="email"
@@ -142,7 +142,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="ownerAddress">Dirección</Label>
+            <Label htmlFor="ownerAddress">{t("address")}</Label>
             <Input
               id="ownerAddress"
               value={address}
@@ -151,7 +151,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="ownerNotes">Notas</Label>
+            <Label htmlFor="ownerNotes">{t("notes")}</Label>
             <Input
               id="ownerNotes"
               value={notes}

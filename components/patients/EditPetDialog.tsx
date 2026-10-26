@@ -24,6 +24,7 @@ interface EditPetDialogProps {
 
 export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
   const t = useTranslations("patients");
+  const tc = useTranslations("common");
   const router = useRouter();
   const [isSaving, startSave] = useTransition();
 
@@ -73,10 +74,10 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
         sterilized,
       });
       if ("error" in result) {
-        toast.error("Error al actualizar paciente");
+        toast.error(t("errorUpdatePet"));
         return;
       }
-      toast.success(`${result.pet.name} actualizado`);
+      toast.success(t("petUpdated", { name: result.pet.name }));
       onOpenChange(false);
       router.refresh();
     });
@@ -86,7 +87,7 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar paciente</DialogTitle>
+          <DialogTitle>{t("editPatient")}</DialogTitle>
         </DialogHeader>
 
         <form className="space-y-4 mt-2" onSubmit={handleSubmit}>
@@ -126,7 +127,7 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
             </div>
 
             <div className="space-y-1">
-              <Label>Sexo</Label>
+              <Label>{t("gender")}</Label>
               <Select value={gender} onValueChange={(v) => setGender(v as Gender | "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="—">
@@ -151,7 +152,7 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="editColor">Color</Label>
+              <Label htmlFor="editColor">{t("color")}</Label>
               <Input
                 id="editColor"
                 value={color}
@@ -217,14 +218,14 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
                 )}>
                   {sterilized && <span className="text-white text-[10px] font-bold">✓</span>}
                 </span>
-                {sterilized ? t("sterilized") : "No esterilizado / No castrado"}
+                {sterilized ? t("sterilized") : t("notSterilized")}
               </button>
             </div>
           </div>
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {tc("cancel")}
             </Button>
             <Button
               type="submit"
@@ -232,7 +233,7 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
               disabled={isSaving || !name.trim()}
             >
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Guardar
+              {tc("save")}
             </Button>
           </div>
         </form>

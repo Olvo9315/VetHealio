@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { format, addDays, subDays, isToday, isSameDay } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
-import { getTypeCfgForAppointment, statusConfig } from "./AppointmentConfig";
+import { getTypeCfgForAppointment, statusConfig, cfgLabel } from "./AppointmentConfig";
+import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
@@ -21,6 +22,8 @@ interface MobileAppointmentListProps {
 }
 
 export function MobileAppointmentList({ initialAppointments, vets, services }: MobileAppointmentListProps) {
+  const dateLocale = useDateLocale();
+  const t = useTranslations("appointments");
   const [date, setDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [selectedApt, setSelectedApt] = useState<AppointmentFull | null>(null);
@@ -91,7 +94,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
                 )}
               >
                 <span className="text-[10px] uppercase font-medium opacity-70">
-                  {format(d, "EEE", { locale: es }).slice(0, 2)}
+                  {format(d, "EEE", { locale: dateLocale }).slice(0, 2)}
                 </span>
                 <span className={cn("text-base font-bold", isToday(d) && !selected && "text-primary")}>
                   {format(d, "d")}
@@ -111,8 +114,8 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
       {/* Date header */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold capitalize">
-          {isToday(date) ? "Hoy · " : ""}
-          {format(date, "EEEE, d MMMM", { locale: es })}
+          {isToday(date) ? t("todayPrefix") : ""}
+          {format(date, "EEEE, d MMMM", { locale: dateLocale })}
         </h2>
         <Button
           size="sm"
@@ -120,7 +123,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="w-3.5 h-3.5 mr-1" />
-          Nueva
+          {t("newShort")}
         </Button>
       </div>
 
@@ -128,7 +131,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
       {dayAppointments.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">Sin citas este día</p>
+          <p className="text-sm">{t("noneThisDay")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -158,7 +161,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{apt.pet.name}</p>
                   <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
-                    {typeCfg.label} · Dr. {apt.veterinarian.name}
+                    {cfgLabel(t, typeCfg)} · {t("withDoctor", { name: apt.veterinarian.name })}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {apt.pet.owner.firstName} {apt.pet.owner.lastName}
@@ -170,7 +173,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
                     <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
                   )}
                   <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
-                    {stCfg.label}
+                    {t(stCfg.label)}
                   </span>
                 </div>
               </button>

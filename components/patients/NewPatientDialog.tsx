@@ -28,19 +28,20 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Search, Plus, Loader2, User, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { translateMessage } from "@/lib/i18n-messages";
 
 // ---- Schemas ----
 const ownerFormSchema = z.object({
-  firstName: z.string().min(1, "Requerido"),
-  lastName: z.string().min(1, "Requerido"),
-  phone: z.string().min(7, "Teléfono inválido"),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  firstName: z.string().min(1, "required"),
+  lastName: z.string().min(1, "required"),
+  phone: z.string().min(7, "invalidPhone"),
+  email: z.string().email("invalidEmail").optional().or(z.literal("")),
   address: z.string().optional(),
 });
 
 const petFormSchema = z.object({
-  name: z.string().min(1, "Requerido"),
-  species: z.nativeEnum(Species),
+  name: z.string().min(1, "required"),
+  species: z.nativeEnum(Species, { message: "required" }),
   breed: z.string().optional(),
   color: z.string().optional(),
   birthDate: z.string().optional(),
@@ -73,6 +74,7 @@ type OwnerMode = "search" | "create";
 export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDialogProps) {
   const t = useTranslations("patients");
   const tCommon = useTranslations("common");
+  const tv = useTranslations("validation");
 
   const [step, setStep] = useState<Step>("owner");
   const [, setOwnerMode] = useState<OwnerMode>("search");
@@ -130,7 +132,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
     startSave(async () => {
       const result = await createOwner(data);
       if ("error" in result) {
-        toast.error("Error al crear propietario");
+        toast.error(t("errorCreateOwner"));
         return;
       }
       setSelectedOwner(result.owner as OwnerResult);
@@ -150,10 +152,10 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
         gender: data.gender || "",
       });
       if ("error" in result) {
-        toast.error("Error al crear paciente");
+        toast.error(t("errorCreatePet"));
         return;
       }
-      toast.success(`${result.pet.name} fue añadido correctamente`);
+      toast.success(t("petCreated", { name: result.pet.name }));
       onCreated(result.pet as PetWithOwner);
       onOpenChange(false);
     });
@@ -164,7 +166,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === "owner" ? "Propietario" : t("newPatient")}
+            {step === "owner" ? t("owner") : t("newPatient")}
           </DialogTitle>
           {/* Step indicator */}
           <div className="flex items-center gap-2 mt-2">
@@ -183,7 +185,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                   {i + 1}
                 </div>
                 <span className={cn("text-sm", step === s ? "font-medium" : "text-muted-foreground")}>
-                  {s === "owner" ? "Propietario" : "Paciente"}
+                  {s === "owner" ? t("owner") : t("patient")}
                 </span>
                 {i < 1 && <div className="w-8 h-px bg-border" />}
               </div>
@@ -196,11 +198,11 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
           <div className="space-y-4 mt-2">
             {/* Search existing owner */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Buscar propietario existente</Label>
+              <Label className="text-sm font-medium">{t("searchOwner")}</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Nombre, teléfono o email..."
+                  placeholder={t("searchOwnerPlaceholder")}
                   className="pl-9"
                   value={ownerQuery}
                   onChange={(e) => setOwnerQuery(e.target.value)}
@@ -263,7 +265,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                     className="text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => setSelectedOwner(null)}
                   >
-                    Cambiar
+                    {tCommon("change")}
                   </button>
                 </div>
               )}
@@ -271,7 +273,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
 
             <div className="flex items-center gap-2">
               <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground px-2">o</span>
+              <span className="text-xs text-muted-foreground px-2">{t("or")}</span>
               <Separator className="flex-1" />
             </div>
 
@@ -283,7 +285,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
             >
               <span className="flex items-center gap-1">
                 <Plus className="w-4 h-4" />
-                Crear nuevo propietario
+                {t("createOwner")}
               </span>
               {showOwnerForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
@@ -311,38 +313,41 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="firstName">Nombre *</Label>
+                    <Label htmlFor="firstName">{t("firstName")} *</Label>
                     <Input id="firstName" {...ownerForm.register("firstName")} />
                     {ownerForm.formState.errors.firstName && (
-                      <p className="text-xs text-destructive">{ownerForm.formState.errors.firstName.message}</p>
+                      <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.firstName.message)}</p>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="lastName">Apellido *</Label>
+                    <Label htmlFor="lastName">{t("lastName")} *</Label>
                     <Input id="lastName" {...ownerForm.register("lastName")} />
                     {ownerForm.formState.errors.lastName && (
-                      <p className="text-xs text-destructive">{ownerForm.formState.errors.lastName.message}</p>
+                      <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.lastName.message)}</p>
                     )}
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="phone">Teléfono *</Label>
+                  <Label htmlFor="phone">{t("phone")} *</Label>
                   <Input id="phone" type="tel" {...ownerForm.register("phone")} />
                   {ownerForm.formState.errors.phone && (
-                    <p className="text-xs text-destructive">{ownerForm.formState.errors.phone.message}</p>
+                    <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.phone.message)}</p>
                   )}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("email")}</Label>
                   <Input id="email" type="email" {...ownerForm.register("email")} />
+                  {ownerForm.formState.errors.email && (
+                    <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.email.message)}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="address">Dirección</Label>
+                  <Label htmlFor="address">{t("address")}</Label>
                   <Input id="address" {...ownerForm.register("address")} />
                 </div>
                 <Button type="submit" className="w-full" disabled={isSaving}>
                   {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Crear propietario y continuar
+                  {t("createOwnerContinue")}
                 </Button>
               </form>
             )}
@@ -350,7 +355,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
             {/* Continue with selected owner */}
             {selectedOwner && !showOwnerForm && (
               <Button className="w-full bg-primary text-primary-foreground" onClick={() => setStep("pet")}>
-                Continuar con {selectedOwner.firstName}
+                {t("continueWith", { name: selectedOwner.firstName })}
               </Button>
             )}
           </div>
@@ -381,9 +386,9 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               {/* Name */}
               <div className="col-span-2 space-y-1">
                 <Label htmlFor="petName">{t("name")} *</Label>
-                <Input id="petName" placeholder="Ej: Max" {...petForm.register("name")} />
+                <Input id="petName" placeholder={t("exName")} {...petForm.register("name")} />
                 {petForm.formState.errors.name && (
-                  <p className="text-xs text-destructive">{petForm.formState.errors.name.message}</p>
+                  <p className="text-xs text-destructive">{translateMessage(tv, petForm.formState.errors.name.message)}</p>
                 )}
               </div>
 
@@ -395,8 +400,8 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                   onValueChange={(v) => petForm.setValue("species", (v ?? "") as Species)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar">
-                      {watchPetSpecies === "DOG" ? `🐕 ${t("dog")}` : watchPetSpecies === "CAT" ? `🐈 ${t("cat")}` : watchPetSpecies === "BIRD" ? `🦜 ${t("bird")}` : watchPetSpecies === "RABBIT" ? `🐇 ${t("rabbit")}` : watchPetSpecies === "REPTILE" ? `🦎 ${t("reptile")}` : watchPetSpecies === "OTHER" ? `🐾 ${t("other")}` : "Seleccionar"}
+                    <SelectValue placeholder={tCommon("select")}>
+                      {watchPetSpecies === "DOG" ? `🐕 ${t("dog")}` : watchPetSpecies === "CAT" ? `🐈 ${t("cat")}` : watchPetSpecies === "BIRD" ? `🦜 ${t("bird")}` : watchPetSpecies === "RABBIT" ? `🐇 ${t("rabbit")}` : watchPetSpecies === "REPTILE" ? `🦎 ${t("reptile")}` : watchPetSpecies === "OTHER" ? `🐾 ${t("other")}` : tCommon("select")}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -409,13 +414,13 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                   </SelectContent>
                 </Select>
                 {petForm.formState.errors.species && (
-                  <p className="text-xs text-destructive">{petForm.formState.errors.species.message}</p>
+                  <p className="text-xs text-destructive">{translateMessage(tv, petForm.formState.errors.species.message)}</p>
                 )}
               </div>
 
               {/* Gender */}
               <div className="space-y-1">
-                <Label>{t("gender") ?? "Sexo"}</Label>
+                <Label>{t("gender")}</Label>
                 <Select
                   value={watchPetGender ?? ""}
                   onValueChange={(v) => petForm.setValue("gender", (v ?? "") as Gender | "")}
@@ -440,7 +445,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
 
               {/* Color */}
               <div className="space-y-1">
-                <Label htmlFor="color">Color</Label>
+                <Label htmlFor="color">{t("color")}</Label>
                 <Input id="color" {...petForm.register("color")} />
               </div>
 
@@ -470,7 +475,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                 className="flex-1"
                 onClick={() => setStep("owner")}
               >
-                Atrás
+                {tCommon("back")}
               </Button>
               <Button
                 type="submit"

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect, useCallback, memo } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
 import type { InvoiceFull, AppointmentOption } from "@/lib/actions/invoices";
 import {
@@ -163,6 +163,7 @@ interface InvoiceDialogProps {
 }
 
 export function InvoiceDialog({ open, onOpenChange, invoice, services, presetAppointment, onSaved }: InvoiceDialogProps) {
+  const dateLocale = useDateLocale();
   const t = useTranslations("finances");
   const tc = useTranslations("common");
   const isEdit = !!invoice;
@@ -301,7 +302,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
       } else {
         const result = await createInvoice(data);
         if ("error" in result) {
-          toast.error(typeof result.error === "string" ? result.error : t("errorSave"));
+          toast.error(typeof result.error === "string" && t.has(result.error) ? t(result.error) : t("errorSave"));
           return;
         }
         toast.success(t("saved"));
@@ -330,7 +331,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
                   <div>
                     <p className="text-sm font-medium">{selectedApt.pet.name} — {selectedApt.title}</p>
                     <p className="text-xs text-muted-foreground capitalize">
-                      {format(new Date(selectedApt.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: es })}
+                      {format(new Date(selectedApt.startTime), "EEEE, d MMMM yyyy · HH:mm", { locale: dateLocale })}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {selectedApt.pet.owner.firstName} {selectedApt.pet.owner.lastName}
@@ -374,7 +375,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
                         <div>
                           <p className="text-sm font-medium">{apt.pet.name} — {apt.title}</p>
                           <p className="text-xs text-muted-foreground capitalize">
-                            {format(new Date(apt.startTime), "d MMM yyyy · HH:mm", { locale: es })}
+                            {format(new Date(apt.startTime), "d MMM yyyy · HH:mm", { locale: dateLocale })}
                           </p>
                         </div>
                       </button>

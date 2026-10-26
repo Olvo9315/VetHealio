@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Role, LeaveType, LeaveStatus } from "@prisma/client";
 import { sendLeaveRequestEmail, sendLeaveReviewEmail } from "@/lib/email";
+import { assertModule } from "@/lib/license";
 
 async function getSession() {
   const session = await auth();
@@ -31,6 +32,7 @@ const createSchema = z.object({
 });
 
 export async function createLeaveRequest(data: z.infer<typeof createSchema>) {
+  await assertModule("staff");
   const user = await getSession();
   if (!user) throw new Error("Unauthorized");
 
@@ -69,6 +71,7 @@ export async function createLeaveRequest(data: z.infer<typeof createSchema>) {
 }
 
 export async function getLeaveRequests(filters: { status?: LeaveStatus; staffProfileId?: string } = {}) {
+  await assertModule("staff");
   const user = await getSession();
   if (!user) throw new Error("Unauthorized");
 
@@ -93,6 +96,7 @@ export async function getLeaveRequests(filters: { status?: LeaveStatus; staffPro
 }
 
 export async function reviewLeaveRequest(id: string, status: "APPROVED" | "REJECTED", reviewNote?: string) {
+  await assertModule("staff");
   const reviewer = await requireAdminOrManager();
 
   const leave = await prisma.leaveRequest.update({

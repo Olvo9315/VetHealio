@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState, useCallback, useMemo, useTransition } from "react";
 import {
   Calendar,
@@ -10,7 +11,8 @@ import {
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import { format, parse, startOfWeek, getDay, addWeeks, subWeeks } from "date-fns";
-import { es } from "date-fns/locale";
+import { useDateLocale } from "@/lib/date-locale";
+import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
 import { createShift, updateShift, deleteShift } from "@/lib/actions/shifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +30,7 @@ import { cn } from "@/lib/utils";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
-const locales = { es };
+const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -49,6 +51,10 @@ interface StaffShiftCalendarProps {
 }
 
 export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendarProps) {
+  const dateLocale = useDateLocale();
+  const calendarI18n = useCalendarI18n();
+  const t = useTranslations("staff");
+  const tc = useTranslations("common");
   const router = useRouter();
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [view, setView] = useState<View>(Views.WEEK);
@@ -59,8 +65,8 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
   const [newNote, setNewNote] = useState("");
 
   const events = useMemo<CalEvent[]>(
-    () => shifts.map((s) => ({ id: s.id, title: s.note ?? "Turno", start: new Date(s.startTime), end: new Date(s.endTime), resource: s })),
-    [shifts]
+    () => shifts.map((s) => ({ id: s.id, title: s.note ?? t("shift"), start: new Date(s.startTime), end: new Date(s.endTime), resource: s })),
+    [shifts, t]
   );
 
   const handleSelectSlot = useCallback((slot: SlotInfo) => {
@@ -75,9 +81,9 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       });
-      toast.success("Turno actualizado");
+      toast.success(t("shiftUpdated"));
     });
-  }, []);
+  }, [t]);
 
   function handleCreateShift(e: React.FormEvent) {
     e.preventDefault();
@@ -89,8 +95,8 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
         endTime: createDialog.end.toISOString(),
         note: newNote,
       });
-      if (result?.error) { toast.error("Error al crear turno"); return; }
-      toast.success("Turno creado");
+      if (result?.error) { toast.error(t("shiftCreateError")); return; }
+      toast.success(t("shiftCreated"));
       setCreateDialog(null);
       router.refresh();
     });
@@ -101,7 +107,7 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
     startTransition(async () => {
       await deleteShift(deleteDialog.id);
       setShifts((prev) => prev.filter((s) => s.id !== deleteDialog.id));
-      toast.success("Turno eliminado");
+      toast.success(t("shiftDeleted"));
       setDeleteDialog(null);
     });
   }
@@ -113,15 +119,15 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
         <Button variant="outline" size="icon" onClick={() => setDate((d) => subWeeks(d, 1))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>Hoy</Button>
+        <Button variant="outline" size="sm" onClick={() => setDate(new Date())}>{calendarI18n.messages.today}</Button>
         <Button variant="outline" size="icon" onClick={() => setDate((d) => addWeeks(d, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-medium ml-2">{format(date, "MMMM yyyy", { locale: es })}</span>
+        <span className="text-sm font-medium ml-2">{format(date, "MMMM yyyy", { locale: dateLocale })}</span>
         <div className="ml-auto flex gap-1">
           {(["week", "day"] as View[]).map((v) => (
             <Button key={v} variant={view === v ? "default" : "outline"} size="sm" onClick={() => setView(v)}>
-              {v === "week" ? "Semana" : "Día"}
+              {v === "week" ? calendarI18n.messages.week : calendarI18n.messages.day}
             </Button>
           ))}
         </div>
@@ -151,24 +157,25 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
           onSelectSlot={handleSelectSlot}
           onEventDrop={handleEventDrop as never}
           onSelectEvent={(event) => setDeleteDialog((event as CalEvent).resource)}
-          culture="es"
+          culture={calendarI18n.culture}
+          messages={calendarI18n.messages}
         />
       </div>
 
       {/* Create shift dialog */}
       <Dialog open={!!createDialog} onOpenChange={(v) => !v && setCreateDialog(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Añadir turno</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("addShift")}</DialogTitle></DialogHeader>
           <form onSubmit={handleCreateShift} className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {createDialog && `${format(createDialog.start, "dd/MM/yyyy HH:mm")} – ${format(createDialog.end, "HH:mm")}`}
             </p>
             <div className="space-y-1">
-              <Label>Nota</Label>
-              <Input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Opcional" />
+              <Label>{t("note")}</Label>
+              <Input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder={t("optional")} />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setCreateDialog(null)}>Cancelar</Button>
+              <Button type="button" variant="outline" onClick={() => setCreateDialog(null)}>{tc("cancel")}</Button>
               <Button type="submit" disabled={isPending}>{isPending ? "..." : "Crear"}</Button>
             </div>
           </form>
@@ -178,14 +185,14 @@ export function StaffShiftCalendar({ userId, initialShifts }: StaffShiftCalendar
       {/* Delete shift dialog */}
       <Dialog open={!!deleteDialog} onOpenChange={(v) => !v && setDeleteDialog(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Eliminar turno</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("deleteShift")}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             {deleteDialog && `${format(new Date(deleteDialog.startTime), "dd/MM/yyyy HH:mm")} – ${format(new Date(deleteDialog.endTime), "HH:mm")}`}
           </p>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>{tc("cancel")}</Button>
             <Button variant="destructive" disabled={isPending} onClick={handleDeleteShift}>
-              <Trash2 className="h-4 w-4 mr-2" />Eliminar
+              <Trash2 className="h-4 w-4 mr-2" />{tc("delete")}
             </Button>
           </div>
         </DialogContent>
