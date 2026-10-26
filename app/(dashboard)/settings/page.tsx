@@ -6,6 +6,8 @@ import { getUserById } from "@/lib/actions/settings";
 import { ProfileCard } from "@/components/settings/ProfileCard";
 import { PasswordCard } from "@/components/settings/PasswordCard";
 import { PreferencesCard } from "@/components/settings/PreferencesCard";
+import { ClinicCard } from "@/components/settings/ClinicCard";
+import { getClinic } from "@/lib/clinic";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -16,6 +18,8 @@ export default async function SettingsPage() {
 
   const user = await getUserById(userId);
   if (!user) redirect("/login");
+
+  const clinic = user.role === "ADMIN" ? await getClinic() : null;
 
   return (
     <div className="flex flex-col min-h-full">
@@ -34,6 +38,9 @@ export default async function SettingsPage() {
 
           {/* Password full width */}
           <PasswordCard userId={user.id} />
+
+          {/* Clinic identity — admin only */}
+          {clinic && <ClinicCard clinic={clinic} />}
         </div>
       </div>
     </div>

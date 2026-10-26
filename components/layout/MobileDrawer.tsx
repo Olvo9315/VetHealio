@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { FileText, Package, Scissors, Settings, X, LogOut, Heart, Users } from "lucide-react";
+import { FileText, Package, Scissors, Settings, X, LogOut, Users } from "lucide-react";
+import { ClinicMark, type ClinicBrand } from "@/components/layout/ClinicMark";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 
@@ -19,9 +20,10 @@ interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
   showStaff?: boolean;
+  clinic: ClinicBrand;
 }
 
-export function MobileDrawer({ open, onClose, showStaff }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose, showStaff, clinic }: MobileDrawerProps) {
   const pathname = usePathname();
   const t = useTranslations("nav");
 
@@ -70,11 +72,9 @@ export function MobileDrawer({ open, onClose, showStaff }: MobileDrawerProps) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Heart className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">VetHealio</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <ClinicMark logoUrl={clinic.logoUrl} name={clinic.name} className="w-7 h-7" iconClassName="w-3.5 h-3.5" />
+            <span className="font-semibold text-sm truncate">{clinic.name}</span>
           </div>
           <button
             onClick={onClose}

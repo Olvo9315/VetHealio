@@ -3,44 +3,32 @@ import { getTranslations } from "next-intl/server";
 import { TopBar } from "@/components/layout/TopBar";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
-import { Calendar, Users, DollarSign, TrendingUp, Plus, Clock, AlertTriangle } from "lucide-react";
+import { Calendar, Users, Euro, TrendingUp, Plus, Clock, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { format, subDays } from "date-fns";
-
-// Mock revenue data for the last 30 days
-function generateRevenueData() {
-  return Array.from({ length: 30 }, (_, i) => {
-    const date = subDays(new Date(), 29 - i);
-    return {
-      date: format(date, "dd/MM"),
-      revenue: Math.floor(Math.random() * 800) + 200,
-    };
-  });
-}
-
-const mockUpcomingAppointments = [
-  { id: "1", time: "09:00", petName: "Max", ownerName: "García", type: "CONSULTATION", status: "SCHEDULED" },
-  { id: "2", time: "10:30", petName: "Luna", ownerName: "López", type: "VACCINATION", status: "SCHEDULED" },
-  { id: "3", time: "11:00", petName: "Rocky", ownerName: "Martín", type: "CHECKUP", status: "IN_PROGRESS" },
-  { id: "4", time: "12:00", petName: "Bella", ownerName: "Sánchez", type: "GROOMING", status: "SCHEDULED" },
-  { id: "5", time: "14:30", petName: "Thor", ownerName: "Pérez", type: "SURGERY", status: "SCHEDULED" },
-];
+import { getDashboardData, TIMEZONE } from "@/lib/dashboard";
 
 const statusColors: Record<string, string> = {
   SCHEDULED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   IN_PROGRESS: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  COMPLETED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 };
+
+const currency = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+const timeFormat = new Intl.DateTimeFormat("es-ES", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit" });
 
 export default async function DashboardPage() {
   const session = await auth();
   const t = await getTranslations("dashboard");
-  const revenueData = generateRevenueData();
-  const totalMonthRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-  const todayRevenue = revenueData[revenueData.length - 1].revenue;
+  const ta = await getTranslations("appointments");
+  const data = await getDashboardData();
+
+  function dueLabel(days: number) {
+    if (days < 0) return t("overdueDays", { count: -days });
+    if (days === 0) return t("today");
+    if (days === 1) return t("tomorrow");
+    return t("inDays", { count: days });
+  }
 
   return (
     <div className="flex flex-col min-h-full">
@@ -54,34 +42,38 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <MetricCard
             title={t("todayAppointments")}
-            value={mockUpcomingAppointments.length}
+            value={data.todayAppointments.value}
             icon={Calendar}
-            trend={12}
+            trend={data.todayAppointments.trend}
+            trendLabel={t("vsLastWeek")}
           />
           <MetricCard
             title={t("dailyRevenue")}
-            value={`$${todayRevenue}`}
-            icon={DollarSign}
-            trend={8}
+            value={currency.format(data.todayRevenue.value)}
+            icon={Euro}
+            trend={data.todayRevenue.trend}
+            trendLabel={t("vsLastWeek")}
           />
           <MetricCard
             title={t("monthlyRevenue")}
-            value={`$${totalMonthRevenue.toLocaleString()}`}
+            value={currency.format(data.monthRevenue.value)}
             icon={TrendingUp}
-            trend={5}
+            trend={data.monthRevenue.trend}
+            trendLabel={t("vsLastMonth")}
           />
           <MetricCard
             title={t("newPatients")}
-            value={7}
+            value={data.newPatients.value}
             icon={Users}
-            trend={-3}
+            trend={data.newPatients.trend}
+            trendLabel={t("vsLastMonth")}
           />
         </div>
 
         {/* Revenue chart + upcoming appointments */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="lg:col-span-2">
-            <RevenueChart data={revenueData} />
+            <RevenueChart data={data.revenueSeries} />
           </div>
 
           {/* Upcoming appointments */}
@@ -95,13 +87,21 @@ export default async function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent className="space-y-2 p-3">
-              {mockUpcomingAppointments.map((apt) => (
+              {data.upcoming.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">{t("noAppointments")}</p>
+              )}
+              {data.upcoming.map((apt) => (
                 <div
                   key={apt.id}
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="w-12 text-xs font-mono text-muted-foreground shrink-0">
-                    {apt.time}
+                  <div className="w-12 text-xs font-mono text-muted-foreground shrink-0 leading-tight">
+                    {timeFormat.format(apt.startTime)}
+                    {!apt.isToday && (
+                      <span className="block text-[10px]">
+                        {apt.dateKey.slice(8, 10)}/{apt.dateKey.slice(5, 7)}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{apt.petName}</p>
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
                       statusColors[apt.status] ?? ""
                     }`}
                   >
-                    {apt.status === "IN_PROGRESS" ? "En curso" : "Prog."}
+                    {apt.status === "IN_PROGRESS" ? ta("inProgress") : ta("scheduled")}
                   </span>
                 </div>
               ))}
@@ -131,15 +131,14 @@ export default async function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {[
-                { name: "Amoxicilina 500mg", qty: 5, unit: "tabletas", min: 20 },
-                { name: "Vacuna Rabia", qty: 2, unit: "dosis", min: 10 },
-                { name: "Vendas elásticas", qty: 8, unit: "unidades", min: 15 },
-              ].map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-sm">
+              {data.lowStock.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t("noLowStock")}</p>
+              )}
+              {data.lowStock.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm">
                   <span className="font-medium truncate">{item.name}</span>
                   <span className="text-destructive font-medium shrink-0 ml-2">
-                    {item.qty} {item.unit}
+                    {item.quantity} {item.unit}
                   </span>
                 </div>
               ))}
@@ -155,22 +154,21 @@ export default async function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {[
-                { petName: "Max", vaccine: "Rabia", dueDate: "Hoy", urgent: true },
-                { petName: "Luna", vaccine: "Moquillo", dueDate: "Mañana", urgent: true },
-                { petName: "Rocky", vaccine: "Parvovirus", dueDate: "En 3 días", urgent: false },
-              ].map((v) => (
-                <div key={v.petName + v.vaccine} className="flex items-center justify-between text-sm">
-                  <div>
+              {data.vaccinations.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t("noVaccinations")}</p>
+              )}
+              {data.vaccinations.map((v) => (
+                <div key={v.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0 truncate">
                     <span className="font-medium">{v.petName}</span>
-                    <span className="text-muted-foreground"> — {v.vaccine}</span>
+                    <span className="text-muted-foreground"> — {v.vaccineName}</span>
                   </div>
                   <span
-                    className={`text-xs font-medium ${
-                      v.urgent ? "text-destructive" : "text-amber-600"
+                    className={`text-xs font-medium shrink-0 ml-2 ${
+                      v.daysUntil <= 1 ? "text-destructive" : "text-amber-600"
                     }`}
                   >
-                    {v.dueDate}
+                    {dueLabel(v.daysUntil)}
                   </span>
                 </div>
               ))}
@@ -181,7 +179,7 @@ export default async function DashboardPage() {
 
       {/* FAB — mobile only */}
       <Link
-        href="/appointments/new"
+        href="/appointments"
         className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center z-40 hover:bg-primary/90 transition-colors"
         aria-label={t("newAppointment")}
       >

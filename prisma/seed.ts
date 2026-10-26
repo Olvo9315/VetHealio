@@ -3,30 +3,46 @@ import { PrismaClient, Role } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // Seed admin user (idempotent)
-  const existing = await prisma.user.findUnique({ where: { email: "admin@vethealio.com" } });
+  // Seed clinic identity + first admin (idempotent). Configure per clinic via env:
+  //   SEED_CLINIC_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_FIRST_NAME, SEED_ADMIN_LAST_NAME,
+  //   SEED_ADMIN_PASSWORD (omit to generate a random one, printed once)
+  const clinicName = process.env.SEED_CLINIC_NAME?.trim();
+  await prisma.clinicSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", ...(clinicName ? { name: clinicName } : {}) },
+    update: clinicName ? { name: clinicName } : {},
+  });
+  console.log(`Clinic: ${clinicName ?? "(unchanged)"}`);
+
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@vethealio.com").trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (!existing) {
-    const hashedPassword = await bcrypt.hash("admin123", 12);
+    const password = process.env.SEED_ADMIN_PASSWORD || randomBytes(9).toString("base64url");
+    const firstName = process.env.SEED_ADMIN_FIRST_NAME ?? "Admin";
+    const lastName = process.env.SEED_ADMIN_LAST_NAME ?? "";
     const admin = await prisma.user.create({
       data: {
-        email: "admin@vethealio.com",
-        password: hashedPassword,
-        name: "Dr. Admin",
+        email,
+        password: await bcrypt.hash(password, 12),
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`.trim(),
         role: Role.ADMIN,
         language: "es",
         theme: "light",
       },
     });
     console.log(`Created admin user: ${admin.email}`);
-    console.log("Login: admin@vethealio.com / admin123");
+    if (!process.env.SEED_ADMIN_PASSWORD) console.log(`Generated password: ${password}`);
   } else {
-    console.log("Admin user already exists — skipping");
+    console.log(`Admin ${email} already exists — skipping`);
   }
 
   // Seed services (idempotent)

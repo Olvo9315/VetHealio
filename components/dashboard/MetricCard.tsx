@@ -8,6 +8,7 @@ interface MetricCardProps {
   icon: LucideIcon;
   description?: string;
   trend?: number;
+  trendLabel?: string;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export function MetricCard({
   icon: Icon,
   description,
   trend,
+  trendLabel,
   className,
 }: MetricCardProps) {
   return (
@@ -42,7 +44,7 @@ export function MetricCard({
             )}
           >
             {trend >= 0 ? "+" : ""}
-            {trend}% vs mes anterior
+            {trend}% {trendLabel}
           </p>
         )}
       </CardContent>

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
-import { getSignedUrl } from "@/lib/storage";
+import { fileUrl } from "@/lib/storage";
 
 // ---- RBAC helpers ----
 
@@ -202,7 +202,7 @@ export async function reactivateStaff(id: string) {
 
 export async function getSignedDocumentUrl(path: string) {
   await requireAdminOrManager();
-  return getSignedUrl(path);
+  return fileUrl(path);
 }
 
 export async function getLeaveBalance(staffProfileId: string, year: number) {
