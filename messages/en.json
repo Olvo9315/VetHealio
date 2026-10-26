@@ -827,5 +827,54 @@
   },
   "release": {
     "stagingBanner": "Test version {version} — data is not real"
+  },
+  "dataTransfer": {
+    "title": "Import and export data",
+    "subtitle": "Backups, Excel export and loading from another program",
+    "exportTitle": "Export",
+    "exportHint": "CSV files that open in Excel. Exported patients, inventory and services can be imported back.",
+    "backup": "Full backup (JSON)",
+    "backupHint": "All clinic data in one file, without passwords or attached documents.",
+    "importTitle": "Import from CSV",
+    "entities": {
+      "patients": "Patients and owners",
+      "appointments": "Appointments",
+      "medical_records": "Medical records",
+      "vaccinations": "Vaccinations",
+      "invoices": "Invoices",
+      "inventory": "Inventory",
+      "services": "Services"
+    },
+    "step1": "Download the template and fill it in (one row per record).",
+    "downloadTemplate": "Download template",
+    "step2": {
+      "patients": "One row per pet. Owners are matched by phone; if the owner already has a pet with that name, the row is skipped.",
+      "inventory": "Items whose name already exists are skipped.",
+      "services": "For sub-services put the parent category in the parent column."
+    },
+    "step3": "Press “Check”: nothing is saved until you press “Import”.",
+    "chooseFile": "Choose CSV file",
+    "check": "Check",
+    "import": "Import",
+    "checkSummary": "{total} rows: {created} will be created, {skipped} duplicates skipped, {errors} with errors",
+    "importSummary": "Imported: {created}. Skipped: {skipped}. With errors: {errors}",
+    "errorsSkipped": "Rows with errors will not be imported; fix them and import the file again.",
+    "imported": "Imported {count} records",
+    "importFailed": "Could not import the file",
+    "rowN": "Row {n}",
+    "errors": {
+      "missingField": "required field missing",
+      "invalidValue": "invalid value",
+      "invalidNumber": "invalid number",
+      "invalidDate": "invalid date (YYYY-MM-DD or DD/MM/YYYY)",
+      "invalidPhone": "invalid phone",
+      "unknownParent": "parent category not found",
+      "duplicatePatient": "already exists (skipped)",
+      "duplicateItem": "already exists (skipped)",
+      "duplicateService": "already exists (skipped)",
+      "tooManyRows": "too many rows (max 5000)",
+      "missingFile": "no file chosen",
+      "fileTooLarge": "file too large (max 5 MB)"
+    }
   }
 }

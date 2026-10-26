@@ -827,5 +827,54 @@
   },
   "release": {
     "stagingBanner": "Versión de prueba {version} — los datos no son reales"
+  },
+  "dataTransfer": {
+    "title": "Importar y exportar datos",
+    "subtitle": "Copias de seguridad, exportación a Excel y carga desde otro programa",
+    "exportTitle": "Exportar",
+    "exportHint": "Archivos CSV que se abren en Excel. Los pacientes, inventario y servicios exportados se pueden volver a importar.",
+    "backup": "Copia de seguridad completa (JSON)",
+    "backupHint": "Todos los datos de la clínica en un archivo, sin contraseñas ni documentos adjuntos.",
+    "importTitle": "Importar desde CSV",
+    "entities": {
+      "patients": "Pacientes y propietarios",
+      "appointments": "Citas",
+      "medical_records": "Historiales médicos",
+      "vaccinations": "Vacunaciones",
+      "invoices": "Facturas",
+      "inventory": "Inventario",
+      "services": "Servicios"
+    },
+    "step1": "Descarga la plantilla y rellénala (una fila por registro).",
+    "downloadTemplate": "Descargar plantilla",
+    "step2": {
+      "patients": "Una fila por mascota. Los propietarios se agrupan por teléfono; si la mascota ya existe para ese propietario, se omite.",
+      "inventory": "Los artículos con un nombre que ya existe se omiten.",
+      "services": "Para subservicios indica la categoría padre en la columna parent."
+    },
+    "step3": "Pulsa «Comprobar»: nada se guarda hasta que pulses «Importar».",
+    "chooseFile": "Elegir archivo CSV",
+    "check": "Comprobar",
+    "import": "Importar",
+    "checkSummary": "{total} filas: se crearán {created}, se omitirán {skipped} duplicados, {errors} con errores",
+    "importSummary": "Importado: {created}. Omitidos: {skipped}. Con errores: {errors}",
+    "errorsSkipped": "Las filas con errores no se importarán; corrígelas y vuelve a importar el archivo.",
+    "imported": "Importados {count} registros",
+    "importFailed": "No se pudo importar el archivo",
+    "rowN": "Fila {n}",
+    "errors": {
+      "missingField": "falta un campo obligatorio",
+      "invalidValue": "valor no válido",
+      "invalidNumber": "número no válido",
+      "invalidDate": "fecha no válida (AAAA-MM-DD o DD/MM/AAAA)",
+      "invalidPhone": "teléfono no válido",
+      "unknownParent": "categoría padre no encontrada",
+      "duplicatePatient": "ya existe (omitido)",
+      "duplicateItem": "ya existe (omitido)",
+      "duplicateService": "ya existe (omitido)",
+      "tooManyRows": "demasiadas filas (máx. 5000)",
+      "missingFile": "no se ha elegido archivo",
+      "fileTooLarge": "archivo demasiado grande (máx. 5 MB)"
+    }
   }
 }

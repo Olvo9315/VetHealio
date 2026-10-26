@@ -8,10 +8,13 @@ import { PasswordCard } from "@/components/settings/PasswordCard";
 import { PreferencesCard } from "@/components/settings/PreferencesCard";
 import { ClinicCard } from "@/components/settings/ClinicCard";
 import { getClinic } from "@/lib/clinic";
+import Link from "next/link";
+import { Database, ChevronRight } from "lucide-react";
 
 export default async function SettingsPage() {
   const session = await auth();
   const t = await getTranslations("settings");
+  const tData = await getTranslations("dataTransfer");
 
   const userId = (session?.user as { id?: string })?.id;
   if (!userId) redirect("/login");
@@ -41,6 +44,21 @@ export default async function SettingsPage() {
 
           {/* Clinic identity — admin only */}
           {clinic && <ClinicCard clinic={clinic} />}
+
+          {/* Import / export — admin only */}
+          {clinic && (
+            <Link
+              href="/settings/data"
+              className="flex items-center gap-3 bg-card border border-border rounded-xl p-5 hover:bg-muted/40 transition-colors"
+            >
+              <Database className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{tData("title")}</p>
+                <p className="text-xs text-muted-foreground">{tData("subtitle")}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </Link>
+          )}
 
           <p className="text-center text-xs text-muted-foreground pt-2">
             VetHealio {process.env.NEXT_PUBLIC_APP_VERSION}
