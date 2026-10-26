@@ -8,13 +8,12 @@
     "vercel-build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
-    "clinic": "node scripts/clinic.mjs"
+    "clinic": "node scripts/clinic.mjs",
+    "db:new-migration": "node scripts/new-migration.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

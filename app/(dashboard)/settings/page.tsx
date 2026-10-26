@@ -9,6 +9,9 @@ import { PreferencesCard } from "@/components/settings/PreferencesCard";
 import { ClinicCard } from "@/components/settings/ClinicCard";
 import { getClinic } from "@/lib/clinic";
 import Link from "next/link";
+import { ModulesCard } from "@/components/settings/ModulesCard";
+import { getLicenseState } from "@/lib/license";
+import { MODULES } from "@/lib/modules";
 import { Database, ChevronRight } from "lucide-react";
 
 export default async function SettingsPage() {
@@ -23,6 +26,12 @@ export default async function SettingsPage() {
   if (!user) redirect("/login");
 
   const clinic = user.role === "ADMIN" ? await getClinic() : null;
+  const license = clinic ? await getLicenseState() : null;
+  const moduleRows = MODULES.map((m) => ({
+    key: m.key,
+    enabled: !m.planned && !!license?.modules.includes(m.key),
+    planned: !!m.planned,
+  }));
 
   return (
     <div className="flex flex-col min-h-full">
@@ -44,6 +53,15 @@ export default async function SettingsPage() {
 
           {/* Clinic identity — admin only */}
           {clinic && <ClinicCard clinic={clinic} />}
+
+          {/* Modules / license — admin only */}
+          {license && (
+            <ModulesCard
+              modules={moduleRows}
+              licenseStatus={license.status}
+              expiresAt={"license" in license ? license.license?.expiresAt : undefined}
+            />
+          )}
 
           {/* Import / export — admin only */}
           {clinic && (

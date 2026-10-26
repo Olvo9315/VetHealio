@@ -28,5 +28,5 @@
 ## Releases & clinics
 - Каждая клиника — отдельный проект Vercel (clinics.json), прод + тест (Preview со STAGING_DATABASE_URL)
 - Процесс выпуска и выкатки — RELEASES.md; выкатка только через `npm run clinic -- deploy`
-- Изменения схемы БД — только через `npm run db:migrate -- --name ...`, не `db push`
+- Изменения схемы БД — только через `npm run db:new-migration -- <name>`, не `db push` и не `migrate dev`
 - Тексты UI — только через next-intl во всех трёх языках (messages/es|ru|en.json)

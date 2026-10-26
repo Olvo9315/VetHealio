@@ -876,5 +876,37 @@
       "missingFile": "no file chosen",
       "fileTooLarge": "file too large (max 5 MB)"
     }
+  },
+  "modules": {
+    "title": "Modules",
+    "enabled": "Enabled",
+    "notIncluded": "Not included",
+    "comingSoon": "Coming soon",
+    "license": {
+      "none": "Basic plan",
+      "valid": "License active",
+      "expired": "License expired",
+      "invalid": "Invalid license"
+    },
+    "enterKey": "Enter license key",
+    "keyPlaceholder": "Paste the key we sent you",
+    "applyKey": "Apply",
+    "cancel": "Cancel",
+    "invalidLicense": "The key is not valid",
+    "licenseSaved": "License applied",
+    "names": {
+      "inventory": "Inventory",
+      "staff": "Staff",
+      "smsReminders": "SMS / WhatsApp reminders",
+      "presvet": "PRESVET",
+      "knowledgeBase": "Knowledge base"
+    },
+    "descriptions": {
+      "inventory": "Stock, expiry dates and restock alerts",
+      "staff": "Team profiles, shifts, leave and documents",
+      "smsReminders": "Automatic owner reminders for appointments and vaccines",
+      "presvet": "Antibiotic prescription reporting to MAPA (RD 666/2023)",
+      "knowledgeBase": "Clinic protocols, dosages and internal guides"
+    }
   }
 }

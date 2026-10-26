@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Role } from "@prisma/client";
+import { assertModule } from "@/lib/license";
 
 async function requireAdminOrManager() {
   const session = await auth();
@@ -26,6 +27,7 @@ const shiftSchema = z.object({
 });
 
 export async function getShifts(from: Date, to: Date) {
+  await assertModule("staff");
   await requireAdminOrManager();
   return prisma.staffShift.findMany({
     where: { startTime: { gte: from }, endTime: { lte: to } },
@@ -35,6 +37,7 @@ export async function getShifts(from: Date, to: Date) {
 }
 
 export async function getShiftsByUser(userId: string, from: Date, to: Date) {
+  await assertModule("staff");
   await requireAdminOrManager();
   return prisma.staffShift.findMany({
     where: { userId, startTime: { gte: from }, endTime: { lte: to } },
@@ -43,6 +46,7 @@ export async function getShiftsByUser(userId: string, from: Date, to: Date) {
 }
 
 export async function createShift(data: z.infer<typeof shiftSchema>) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const parsed = shiftSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -60,6 +64,7 @@ export async function createShift(data: z.infer<typeof shiftSchema>) {
 }
 
 export async function updateShift(id: string, data: Partial<z.infer<typeof shiftSchema>>) {
+  await assertModule("staff");
   await requireAdminOrManager();
   const shift = await prisma.staffShift.update({
     where: { id },
@@ -74,6 +79,7 @@ export async function updateShift(id: string, data: Partial<z.infer<typeof shift
 }
 
 export async function deleteShift(id: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   await prisma.staffShift.delete({ where: { id } });
   revalidatePath("/staff");

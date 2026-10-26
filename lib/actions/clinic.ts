@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Role } from "@prisma/client";
+import { parseLicense } from "@/lib/license";
 
 const optional = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -62,6 +63,20 @@ export async function updateClinicSettings(data: ClinicFormData) {
     update: { name, country, defaultTaxRate, ...nullable },
   });
 
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
+// Applies a license key pasted by the clinic admin (e.g. on-prem installs); empty clears it
+export async function updateLicenseKey(key: string) {
+  await requireAdmin();
+  const trimmed = key.trim();
+  if (trimmed && !parseLicense(trimmed)) return { error: "invalidLicense" };
+  await prisma.clinicSettings.upsert({
+    where: { id: "default" },
+    create: { id: "default", licenseKey: trimmed || null },
+    update: { licenseKey: trimmed || null },
+  });
   revalidatePath("/", "layout");
   return { success: true };
 }

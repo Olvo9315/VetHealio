@@ -8,11 +8,14 @@
 //   npm run clinic -- status
 //   npm run clinic -- deploy <slug|all> <tag> [--prod]
 //   npm run clinic -- new <slug> "<Clinic name>" <admin-email>
+//   npm run clinic -- license <slug> <module,module,...|default> [--expires YYYY-MM-DD]
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import pg from "pg";
+import { signLicense } from "./license.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const REGISTRY = path.join(ROOT, "clinics.json");
@@ -168,13 +171,43 @@ function newClinic(slug, name, adminEmail) {
   console.log(`  Next: npm run clinic -- deploy ${slug} <tag> --prod`);
 }
 
+// Writes a signed license into the clinic's production and staging databases (no redeploy needed)
+async function setLicense(slug, list, expiresAt) {
+  if (!slug || list === undefined) throw new Error("Usage: license <slug> <module,module,...|default> [--expires YYYY-MM-DD]");
+  const [clinic] = findClinics(slug);
+  const key = list === "default" ? null : signLicense(slug, list.split(",").map((m) => m.trim()).filter(Boolean), expiresAt);
+
+  const targets = [["production", pullEnv(clinic.projectId, "development").DATABASE_URL]];
+  const staging = pullEnv(clinic.projectId, "preview").STAGING_DATABASE_URL;
+  if (staging) targets.push(["staging", staging]);
+
+  for (const [label, url] of targets) {
+    const db = new pg.Client({ connectionString: url });
+    await db.connect();
+    try {
+      await db.query(
+        `INSERT INTO "ClinicSettings" (id, "licenseKey", "updatedAt") VALUES ('default', $1, now())
+         ON CONFLICT (id) DO UPDATE SET "licenseKey" = EXCLUDED."licenseKey", "updatedAt" = now()`,
+        [key]
+      );
+    } finally {
+      await db.end();
+    }
+    console.log(`  ✓ ${clinic.name} (${label}): ${key ? `modules = ${list || "(none)"}` : "default modules"}`);
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 try {
   if (command === "status") await status();
   else if (command === "deploy") deploy(args[0], args[1], args.includes("--prod"));
   else if (command === "new") newClinic(args[0], args[1], args[2]);
+  else if (command === "license") {
+    const i = args.indexOf("--expires");
+    await setLicense(args[0], args[1], i >= 0 ? args[i + 1] : undefined);
+  }
   else {
-    console.log('Usage:\n  npm run clinic -- status\n  npm run clinic -- deploy <slug|all> <tag> [--prod]\n  npm run clinic -- new <slug> "<Clinic name>" <admin-email>');
+    console.log('Usage:\n  npm run clinic -- status\n  npm run clinic -- deploy <slug|all> <tag> [--prod]\n  npm run clinic -- new <slug> "<Clinic name>" <admin-email>\n  npm run clinic -- license <slug> <module,module,...|default> [--expires YYYY-MM-DD]');
     process.exit(command ? 1 : 0);
   }
 } catch (err) {

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Role } from "@prisma/client";
+import { assertModule } from "@/lib/license";
 
 async function requireAdmin() {
   const session = await auth();
@@ -33,6 +34,7 @@ const reviewSchema = z.object({
 });
 
 export async function createPerformanceReview(data: z.infer<typeof reviewSchema>) {
+  await assertModule("staff");
   const admin = await requireAdmin();
   const parsed = reviewSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -52,6 +54,7 @@ export async function createPerformanceReview(data: z.infer<typeof reviewSchema>
 }
 
 export async function updatePerformanceReview(id: string, data: Partial<z.infer<typeof reviewSchema>>) {
+  await assertModule("staff");
   await requireAdmin();
   const review = await prisma.performanceReview.update({
     where: { id },
@@ -66,12 +69,14 @@ export async function updatePerformanceReview(id: string, data: Partial<z.infer<
 }
 
 export async function deletePerformanceReview(id: string) {
+  await assertModule("staff");
   await requireAdmin();
   await prisma.performanceReview.delete({ where: { id } });
   revalidatePath("/staff");
 }
 
 export async function getPerformanceReviews(staffProfileId: string) {
+  await assertModule("staff");
   await requireAdminOrManager();
   return prisma.performanceReview.findMany({
     where: { staffProfileId },

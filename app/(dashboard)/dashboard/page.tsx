@@ -122,7 +122,8 @@ export default async function DashboardPage() {
 
         {/* Alerts row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Low stock alert */}
+          {/* Low stock alert — only with the inventory module */}
+          {data.inventoryEnabled && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -144,6 +145,7 @@ export default async function DashboardPage() {
               ))}
             </CardContent>
           </Card>
+          )}
 
           {/* Upcoming vaccinations */}
           <Card>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isModuleEnabled } from "@/lib/license";
 
 // Day boundaries are computed in the clinic's timezone, not the server's (Vercel runs in UTC)
 export const TIMEZONE = "Europe/Madrid";
@@ -64,6 +65,7 @@ export async function getDashboardData() {
   );
 
   const chartStart = startOfLocalDay(addDays(todayKey, -29));
+  const inventoryEnabled = await isModuleEnabled("inventory");
   const activeStatus = { notIn: ["CANCELLED", "NO_SHOW"] as ("CANCELLED" | "NO_SHOW")[] };
 
   const [
@@ -110,7 +112,7 @@ export async function getDashboardData() {
       },
     }),
     prisma.inventoryItem.findMany({
-      where: { minStock: { gt: 0 } },
+      where: inventoryEnabled ? { minStock: { gt: 0 } } : { id: "" },
       select: { id: true, name: true, quantity: true, unit: true, minStock: true },
     }),
     prisma.vaccination.findMany({
@@ -152,6 +154,7 @@ export async function getDashboardData() {
       petName: a.pet.name,
       ownerName: a.pet.owner.lastName,
     })),
+    inventoryEnabled,
     lowStock: stockItems
       .filter((i) => i.quantity <= i.minStock)
       .sort((a, b) => a.quantity / a.minStock - b.quantity / b.minStock)

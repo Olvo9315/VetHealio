@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { getClinic } from "@/lib/clinic";
 import { StagingBanner } from "@/components/layout/StagingBanner";
+import { getLicenseState } from "@/lib/license";
+import { MODULES } from "@/lib/modules";
 
 export default async function DashboardLayout({
   children,
@@ -22,19 +24,24 @@ export default async function DashboardLayout({
     showStaff = profile?.canManageStaff ?? false;
   }
 
+  const { modules } = await getLicenseState();
+  showStaff = showStaff && modules.includes("staff");
+  // Routes of modules this clinic has not licensed are hidden from navigation
+  const hiddenRoutes = MODULES.filter((m) => !modules.includes(m.key)).flatMap((m) => m.routes);
+
   const { name, logoUrl } = await getClinic();
   const clinic = { name, logoUrl };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar showStaff={showStaff} clinic={clinic} />
+      <Sidebar showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {process.env.STAGING_DATABASE_URL && <StagingBanner />}
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
       </div>
-      <BottomNav showStaff={showStaff} clinic={clinic} />
+      <BottomNav showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
     </div>
   );
 }
