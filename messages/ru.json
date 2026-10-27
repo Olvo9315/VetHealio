@@ -742,7 +742,11 @@
     "installTitle": "Установить VetHealio",
     "installDesc": "Быстрый доступ с главного экрана",
     "install": "Установить",
-    "later": "Позже"
+    "later": "Позже",
+    "cardTitle": "Приложение",
+    "installed": "Уже установлено на этом устройстве",
+    "iosHint": "На iPhone/iPad: в Safari нажмите «Поделиться», затем «На экран „Домой“».",
+    "unavailableHint": "Этот браузер сейчас не предлагает установку. Откройте в Chrome или Edge (на iPhone — в Safari)."
   },
   "offline": {
     "title": "Нет соединения",

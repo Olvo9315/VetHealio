@@ -13,6 +13,7 @@ import { ModulesCard } from "@/components/settings/ModulesCard";
 import { getLicenseState } from "@/lib/license";
 import { MODULES } from "@/lib/modules";
 import { RoomsCard } from "@/components/settings/RoomsCard";
+import { InstallAppCard } from "@/components/settings/InstallAppCard";
 import { getRooms } from "@/lib/actions/rooms";
 import { can } from "@/lib/permissions";
 import { Database, ChevronRight } from "lucide-react";
@@ -54,6 +55,8 @@ export default async function SettingsPage() {
 
           {/* Password full width */}
           <PasswordCard userId={user.id} />
+
+          <InstallAppCard />
 
           {/* Clinic identity — admin only */}
           {clinic && <ClinicCard clinic={clinic} />}

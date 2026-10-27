@@ -742,7 +742,11 @@
     "installTitle": "Install VetHealio",
     "installDesc": "Quick access from your home screen",
     "install": "Install",
-    "later": "Not now"
+    "later": "Not now",
+    "cardTitle": "App",
+    "installed": "Already installed on this device",
+    "iosHint": "On iPhone/iPad: tap Share in Safari, then “Add to Home Screen”.",
+    "unavailableHint": "This browser doesn't offer installation right now. Open it in Chrome or Edge (Safari on iPhone)."
   },
   "offline": {
     "title": "No connection",
