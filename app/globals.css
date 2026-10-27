@@ -317,3 +317,17 @@
     min-height: 0;
   }
 }
+
+/* Touch: appointment armed for moving/resizing after a long press */
+.rbc-event.vh-armed {
+  z-index: 5;
+  box-shadow: 0 0 0 2px var(--primary), 0 6px 16px rgb(0 0 0 / 0.2) !important;
+}
+/* No text selection or callout menu while holding a finger on an appointment */
+@media (pointer: coarse) {
+  .rbc-event {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}

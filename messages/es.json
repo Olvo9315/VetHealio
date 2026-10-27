@@ -211,7 +211,8 @@
     "monthLabel": "Citas: {count}",
     "addService": "Añadir servicio",
     "removeService": "Quitar servicio",
-    "services": "Servicios"
+    "services": "Servicios",
+    "touchEditHint": "Arrastra la cita o tira de la barra inferior · toca un hueco para terminar"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
