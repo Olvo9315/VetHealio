@@ -212,7 +212,7 @@
     "addService": "Add service",
     "removeService": "Remove service",
     "services": "Services",
-    "touchEditHint": "Drag the appointment or pull the bottom bar · tap an empty spot to finish"
+    "touchEditHint": "Drag to move · the bottom bar changes the length · tap an empty spot to finish"
   },
   "medicalRecords": {
     "title": "Medical Records",

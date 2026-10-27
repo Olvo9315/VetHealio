@@ -336,9 +336,20 @@ export function AppointmentsCalendar({
   const armedRef = useRef(armedId);
   armedRef.current = armedId;
   const justArmedAtRef = useRef(0);
-  // Live end time while the bottom handle of the armed appointment is being dragged
-  const [resizeEnd, setResizeEnd] = useState<{ id: string; end: Date } | null>(null);
-  const handleEventDropRef = useRef<(args: { event: CalEvent; start: Date; end: Date }) => void>(() => {});
+  // Live position while the armed appointment is being moved or resized with a finger
+  // Resizing changes the appointment in place; moving draws a ghost over the grid instead, because
+  // re-rendering the appointment in another column would drop the finger's touch events
+  const [touchPreview, setTouchPreview] = useState<{
+    id: string;
+    mode: "move" | "resize";
+    start: Date;
+    end: Date;
+    resourceId?: string;
+    ghost?: { left: number; top: number; width: number; height: number };
+  } | null>(null);
+  const handleEventDropRef = useRef<
+    (args: { event: CalEvent; start: Date; end: Date; resourceId?: string }) => void
+  >(() => {});
   useEffect(() => {
     setTouchUi(window.matchMedia("(pointer: coarse)").matches);
   }, []);
@@ -348,38 +359,67 @@ export function AppointmentsCalendar({
     let armTimer: ReturnType<typeof setTimeout> | undefined;
     let startX = 0;
     let startY = 0;
-    let resizing: { apt: AppointmentFull; startY: number; pxPerMin: number; end: Date } | null = null;
+    // The finger that armed an appointment (or touched an armed one) moves it; the bottom bar resizes it
+    type Gesture = {
+      mode: "move" | "resize";
+      apt: AppointmentFull;
+      startX: number;
+      startY: number;
+      pxPerMin: number;
+      columns: Element[];
+      fromColumn: number;
+      start: Date;
+      end: Date;
+      resourceId?: string;
+      toColumn: number;
+      moved: boolean;
+    };
+    let gesture: Gesture | null = null;
     const cancelArm = () => {
       if (armTimer) clearTimeout(armTimer);
       armTimer = undefined;
+    };
+
+    const beginGesture = (mode: Gesture["mode"], aptId: string, target: Element, x: number, y: number) => {
+      const apt = appointmentsRef.current.find((a) => a.id === aptId);
+      const daySlot = target.closest(".rbc-day-slot");
+      if (!apt || !daySlot) return;
+      const columns = Array.from(box.querySelectorAll(".rbc-time-content .rbc-day-slot"));
+      gesture = {
+        mode,
+        apt,
+        startX: x,
+        startY: y,
+        pxPerMin: daySlot.getBoundingClientRect().height / ((DAY_END_HOUR - DAY_START_HOUR) * 60),
+        columns,
+        fromColumn: columns.indexOf(daySlot),
+        toColumn: columns.indexOf(daySlot),
+        start: new Date(apt.startTime),
+        end: new Date(apt.endTime),
+        moved: false,
+      };
     };
 
     const onStart = (e: TouchEvent) => {
       cancelArm();
       if (e.touches.length > 1) {
         multiTouchRef.current = true;
+        gesture = null;
+        setTouchPreview(null);
         return;
       }
       multiTouchRef.current = false;
       const touch = e.touches[0];
       const target = e.target as Element;
       const armed = armedRef.current;
-      if (armed && target.closest("[data-resize-handle]")) {
-        const apt = appointmentsRef.current.find((a) => a.id === armed);
-        const daySlot = target.closest(".rbc-day-slot");
-        if (!apt || !daySlot) return;
-        resizing = {
-          apt,
-          startY: touch.clientY,
-          pxPerMin: daySlot.getBoundingClientRect().height / ((DAY_END_HOUR - DAY_START_HOUR) * 60),
-          end: new Date(apt.endTime),
-        };
-        // Keep the calendar's own selection/drag logic out of this gesture
+      const id = target.closest<HTMLElement>("[data-apt-id]")?.dataset.aptId;
+      if (armed && id === armed) {
+        beginGesture(target.closest("[data-resize-handle]") ? "resize" : "move", armed, target, touch.clientX, touch.clientY);
+        // Keep the calendar's own selection logic out of this gesture
         e.stopPropagation();
         return;
       }
-      const id = target.closest<HTMLElement>("[data-apt-id]")?.dataset.aptId;
-      if (!id || id === armed) return;
+      if (!id) return;
       startX = touch.clientX;
       startY = touch.clientY;
       armTimer = setTimeout(() => {
@@ -388,6 +428,8 @@ export function AppointmentsCalendar({
         justArmedAtRef.current = Date.now();
         setArmedId(id);
         navigator.vibrate?.(30);
+        // Still holding: moving the finger now moves the appointment right away
+        beginGesture("move", id, target, startX, startY);
       }, ARM_HOLD_MS);
     };
 
@@ -395,20 +437,65 @@ export function AppointmentsCalendar({
       if (e.touches.length > 1) {
         multiTouchRef.current = true;
         cancelArm();
+        return;
       }
       const touch = e.touches[0];
-      if (resizing) {
+      if (gesture) {
         e.preventDefault();
         e.stopPropagation();
-        const start = new Date(resizing.apt.startTime);
-        const baseMin = (new Date(resizing.apt.endTime).getTime() - start.getTime()) / 60000;
-        const minutes = Math.max(15, Math.round((baseMin + (touch.clientY - resizing.startY) / resizing.pxPerMin) / 15) * 15);
-        const dayEnd = new Date(start);
-        dayEnd.setHours(DAY_END_HOUR, 0, 0, 0);
-        const end = new Date(Math.min(start.getTime() + minutes * 60000, dayEnd.getTime()));
-        if (end.getTime() !== resizing.end.getTime()) {
-          resizing.end = end;
-          setResizeEnd({ id: resizing.apt.id, end });
+        const g = gesture;
+        const deltaMin = Math.round((touch.clientY - g.startY) / g.pxPerMin / 15) * 15;
+        const origStart = new Date(g.apt.startTime);
+        const origEnd = new Date(g.apt.endTime);
+        let start = origStart;
+        let end: Date;
+        let resourceId: string | undefined;
+        if (g.mode === "resize") {
+          const minutes = Math.max(15, (origEnd.getTime() - origStart.getTime()) / 60000 + deltaMin);
+          const dayEnd = new Date(origStart);
+          dayEnd.setHours(DAY_END_HOUR, 0, 0, 0);
+          end = new Date(Math.min(origStart.getTime() + minutes * 60000, dayEnd.getTime()));
+        } else {
+          // Column under the finger: another day in the week view, another room in the per-room day view
+          const column = g.columns.findIndex((c) => {
+            const r = c.getBoundingClientRect();
+            return touch.clientX >= r.left && touch.clientX < r.right;
+          });
+          const toColumn = column === -1 ? g.fromColumn : column;
+          const rooms = roomColumnsRef.current;
+          const dayShift = rooms ? 0 : toColumn - g.fromColumn;
+          if (rooms && g.fromColumn !== -1) resourceId = rooms[toColumn]?.id;
+          g.toColumn = toColumn;
+          const duration = origEnd.getTime() - origStart.getTime();
+          start = new Date(origStart.getTime() + deltaMin * 60000);
+          start.setDate(start.getDate() + dayShift);
+          // Stay inside the working hours of that day
+          const dayStart = new Date(start);
+          dayStart.setHours(DAY_START_HOUR, 0, 0, 0);
+          const dayEnd = new Date(start);
+          dayEnd.setHours(DAY_END_HOUR, 0, 0, 0);
+          start = new Date(Math.max(dayStart.getTime(), Math.min(start.getTime(), dayEnd.getTime() - duration)));
+          end = new Date(start.getTime() + duration);
+        }
+        if (start.getTime() !== g.start.getTime() || end.getTime() !== g.end.getTime() || resourceId !== g.resourceId) {
+          g.start = start;
+          g.end = end;
+          g.resourceId = resourceId;
+          g.moved = true;
+          let ghost: { left: number; top: number; width: number; height: number } | undefined;
+          const col = g.columns[g.toColumn];
+          if (g.mode === "move" && col) {
+            const c = col.getBoundingClientRect();
+            const b = box.getBoundingClientRect();
+            const fromDayStart = (start.getHours() - DAY_START_HOUR) * 60 + start.getMinutes();
+            ghost = {
+              left: c.left - b.left,
+              top: c.top - b.top + fromDayStart * g.pxPerMin,
+              width: c.width,
+              height: ((end.getTime() - start.getTime()) / 60000) * g.pxPerMin,
+            };
+          }
+          setTouchPreview({ id: g.apt.id, mode: g.mode, start, end, resourceId, ghost });
         }
         return;
       }
@@ -417,19 +504,24 @@ export function AppointmentsCalendar({
 
     const onEnd = (e: TouchEvent) => {
       cancelArm();
-      if (!resizing) return;
+      const g = gesture;
+      if (!g) return;
+      gesture = null;
+      setTouchPreview(null);
+      // The tap that may follow a hold must not open the appointment
+      justArmedAtRef.current = Date.now();
+      if (!g.moved) return;
       e.stopPropagation();
-      const { apt, end } = resizing;
-      resizing = null;
-      setResizeEnd(null);
-      if (end.getTime() !== new Date(apt.endTime).getTime()) {
-        const start = new Date(apt.startTime);
-        handleEventDropRef.current({
-          event: { id: apt.id, title: apt.title, start, end: new Date(apt.endTime), resource: apt, resourceId: apt.roomId ?? NO_ROOM },
-          start,
-          end,
-        });
-      }
+      const origStart = new Date(g.apt.startTime);
+      const origEnd = new Date(g.apt.endTime);
+      const roomChanged = g.resourceId !== undefined && g.resourceId !== (g.apt.roomId ?? NO_ROOM);
+      if (g.start.getTime() === origStart.getTime() && g.end.getTime() === origEnd.getTime() && !roomChanged) return;
+      handleEventDropRef.current({
+        event: { id: g.apt.id, title: g.apt.title, start: origStart, end: origEnd, resource: g.apt, resourceId: g.apt.roomId ?? NO_ROOM },
+        start: g.start,
+        end: g.end,
+        resourceId: roomChanged ? g.resourceId : undefined,
+      });
     };
 
     box.addEventListener("touchstart", onStart, { capture: true, passive: true });
@@ -503,11 +595,11 @@ export function AppointmentsCalendar({
       id: apt.id,
       title: apt.title,
       start: new Date(apt.startTime),
-      end: resizeEnd?.id === apt.id ? resizeEnd.end : new Date(apt.endTime),
+      end: touchPreview?.id === apt.id && touchPreview.mode === "resize" ? touchPreview.end : new Date(apt.endTime),
       resource: apt,
       resourceId: apt.roomId ?? NO_ROOM,
     })),
-    [visibleAppointments, resizeEnd]
+    [visibleAppointments, touchPreview]
   );
 
   // Day view with rooms: one column per selected room (+ "no room" when such appointments exist)
@@ -684,7 +776,7 @@ export function AppointmentsCalendar({
   const handleSelectEvent = useCallback((event: CalItem) => {
     if (isLeave(event) || multiTouchRef.current) return;
     if (touchUiRef.current) {
-      // The hold that armed it ends in a tap: not an "open" request
+      // The hold that armed it (or a drag of it) ends in a tap: not an "open" request
       if (Date.now() - justArmedAtRef.current < 800 || armedRef.current === event.id) return;
       if (armedRef.current) {
         setArmedId(null);
@@ -1157,6 +1249,14 @@ export function AppointmentsCalendar({
           style={mobile ? undefined : { height: "calc(100vh - 260px)", minHeight: 400 }}
           ref={calendarBoxRef}
         >
+          {touchPreview?.ghost && (
+            <div
+              className="pointer-events-none absolute z-20 rounded-md border-2 border-primary bg-primary/20 px-1 text-[10px] font-semibold leading-tight text-primary shadow-lg overflow-hidden"
+              style={touchPreview.ghost}
+            >
+              {format(touchPreview.start, "HH:mm")}–{format(touchPreview.end, "HH:mm")}
+            </div>
+          )}
           {touchUi && armedId && (
             <div className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 w-max max-w-[90%] rounded-full bg-foreground/85 px-3 py-1 text-center text-[11px] text-background shadow vh-pop-in">
               {t("touchEditHint")}
@@ -1185,9 +1285,9 @@ export function AppointmentsCalendar({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
-            // Touch: only the armed appointment moves; resizing uses its own handle (the library's
-            // edge anchors react to the emulated mouse of any tap and resized by accident)
-            draggableAccessor={(e: object) => !isLeave(e) && (!touchUi || (e as CalEvent).id === armedId)}
+            // Touch screens move/resize an appointment with their own hold-then-drag gesture (above):
+            // the library's touch dragging and edge anchors started from passing touches
+            draggableAccessor={(e: object) => !isLeave(e) && !touchUi}
             resizableAccessor={(e: object) => !isLeave(e) && !touchUi}
             components={{
               event: EventComponent as (props: { event: object }) => JSX.Element,
