@@ -76,6 +76,8 @@ type Zoom = "compact" | "normal" | "large";
 // Calendar hours shown in week/day views
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
+// Touch: how long a finger must rest on an appointment before it can be moved or resized
+const ARM_HOLD_MS = 450;
 
 type RoomColumn = { id: string; name: string; color: string };
 const NO_ROOM = "none";
@@ -325,19 +327,121 @@ export function AppointmentsCalendar({
   // Pinch-zooming with two fingers must not count as a tap on a slot or an appointment.
   // Set as soon as a second finger touches down, cleared when a new gesture starts with one.
   const multiTouchRef = useRef(false);
+  // Touch screens: an appointment can be moved or resized only after holding a finger on it
+  // ("armed": highlighted, with a handle at the bottom), never from a passing touch
+  const [touchUi, setTouchUi] = useState(false);
+  const touchUiRef = useRef(touchUi);
+  touchUiRef.current = touchUi;
+  const [armedId, setArmedId] = useState<string | null>(null);
+  const armedRef = useRef(armedId);
+  armedRef.current = armedId;
+  const justArmedAtRef = useRef(0);
+  // Live end time while the bottom handle of the armed appointment is being dragged
+  const [resizeEnd, setResizeEnd] = useState<{ id: string; end: Date } | null>(null);
+  const handleEventDropRef = useRef<(args: { event: CalEvent; start: Date; end: Date }) => void>(() => {});
+  useEffect(() => {
+    setTouchUi(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
   useEffect(() => {
     const box = calendarBoxRef.current;
     if (!box) return;
-    const onTouch = (e: TouchEvent) => {
-      if (e.touches.length > 1) multiTouchRef.current = true;
-      else if (e.type === "touchstart") multiTouchRef.current = false;
+    let armTimer: ReturnType<typeof setTimeout> | undefined;
+    let startX = 0;
+    let startY = 0;
+    let resizing: { apt: AppointmentFull; startY: number; pxPerMin: number; end: Date } | null = null;
+    const cancelArm = () => {
+      if (armTimer) clearTimeout(armTimer);
+      armTimer = undefined;
     };
-    const opts = { capture: true, passive: true };
-    box.addEventListener("touchstart", onTouch, opts);
-    box.addEventListener("touchmove", onTouch, opts);
+
+    const onStart = (e: TouchEvent) => {
+      cancelArm();
+      if (e.touches.length > 1) {
+        multiTouchRef.current = true;
+        return;
+      }
+      multiTouchRef.current = false;
+      const touch = e.touches[0];
+      const target = e.target as Element;
+      const armed = armedRef.current;
+      if (armed && target.closest("[data-resize-handle]")) {
+        const apt = appointmentsRef.current.find((a) => a.id === armed);
+        const daySlot = target.closest(".rbc-day-slot");
+        if (!apt || !daySlot) return;
+        resizing = {
+          apt,
+          startY: touch.clientY,
+          pxPerMin: daySlot.getBoundingClientRect().height / ((DAY_END_HOUR - DAY_START_HOUR) * 60),
+          end: new Date(apt.endTime),
+        };
+        // Keep the calendar's own selection/drag logic out of this gesture
+        e.stopPropagation();
+        return;
+      }
+      const id = target.closest<HTMLElement>("[data-apt-id]")?.dataset.aptId;
+      if (!id || id === armed) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      armTimer = setTimeout(() => {
+        armTimer = undefined;
+        if (multiTouchRef.current) return;
+        justArmedAtRef.current = Date.now();
+        setArmedId(id);
+        navigator.vibrate?.(30);
+      }, ARM_HOLD_MS);
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        multiTouchRef.current = true;
+        cancelArm();
+      }
+      const touch = e.touches[0];
+      if (resizing) {
+        e.preventDefault();
+        e.stopPropagation();
+        const start = new Date(resizing.apt.startTime);
+        const baseMin = (new Date(resizing.apt.endTime).getTime() - start.getTime()) / 60000;
+        const minutes = Math.max(15, Math.round((baseMin + (touch.clientY - resizing.startY) / resizing.pxPerMin) / 15) * 15);
+        const dayEnd = new Date(start);
+        dayEnd.setHours(DAY_END_HOUR, 0, 0, 0);
+        const end = new Date(Math.min(start.getTime() + minutes * 60000, dayEnd.getTime()));
+        if (end.getTime() !== resizing.end.getTime()) {
+          resizing.end = end;
+          setResizeEnd({ id: resizing.apt.id, end });
+        }
+        return;
+      }
+      if (armTimer && Math.hypot(touch.clientX - startX, touch.clientY - startY) > 8) cancelArm();
+    };
+
+    const onEnd = (e: TouchEvent) => {
+      cancelArm();
+      if (!resizing) return;
+      e.stopPropagation();
+      const { apt, end } = resizing;
+      resizing = null;
+      setResizeEnd(null);
+      if (end.getTime() !== new Date(apt.endTime).getTime()) {
+        const start = new Date(apt.startTime);
+        handleEventDropRef.current({
+          event: { id: apt.id, title: apt.title, start, end: new Date(apt.endTime), resource: apt, resourceId: apt.roomId ?? NO_ROOM },
+          start,
+          end,
+        });
+      }
+    };
+
+    box.addEventListener("touchstart", onStart, { capture: true, passive: true });
+    box.addEventListener("touchmove", onMove, { capture: true, passive: false });
+    box.addEventListener("touchend", onEnd, { capture: true, passive: true });
+    box.addEventListener("touchcancel", onEnd, { capture: true, passive: true });
     return () => {
-      box.removeEventListener("touchstart", onTouch, opts);
-      box.removeEventListener("touchmove", onTouch, opts);
+      cancelArm();
+      box.removeEventListener("touchstart", onStart, { capture: true });
+      box.removeEventListener("touchmove", onMove, { capture: true });
+      box.removeEventListener("touchend", onEnd, { capture: true });
+      box.removeEventListener("touchcancel", onEnd, { capture: true });
     };
   }, []);
   // Click on a pet name in the hover card: pet card panel with "Back" / "Open record"
@@ -399,11 +503,11 @@ export function AppointmentsCalendar({
       id: apt.id,
       title: apt.title,
       start: new Date(apt.startTime),
-      end: new Date(apt.endTime),
+      end: resizeEnd?.id === apt.id ? resizeEnd.end : new Date(apt.endTime),
       resource: apt,
       resourceId: apt.roomId ?? NO_ROOM,
     })),
-    [visibleAppointments]
+    [visibleAppointments, resizeEnd]
   );
 
   // Day view with rooms: one column per selected room (+ "no room" when such appointments exist)
@@ -562,6 +666,11 @@ export function AppointmentsCalendar({
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     if (multiTouchRef.current) return;
+    // A tap on empty space just finishes editing the armed appointment
+    if (armedRef.current) {
+      setArmedId(null);
+      return;
+    }
     if (viewRef.current === Views.MONTH) {
       openDayRef.current(slotInfo.start as Date);
       return;
@@ -574,6 +683,14 @@ export function AppointmentsCalendar({
 
   const handleSelectEvent = useCallback((event: CalItem) => {
     if (isLeave(event) || multiTouchRef.current) return;
+    if (touchUiRef.current) {
+      // The hold that armed it ends in a tap: not an "open" request
+      if (Date.now() - justArmedAtRef.current < 800 || armedRef.current === event.id) return;
+      if (armedRef.current) {
+        setArmedId(null);
+        return;
+      }
+    }
     setSelectedAppointment(event.resource);
     setDetailOpen(true);
   }, []);
@@ -582,6 +699,7 @@ export function AppointmentsCalendar({
     ({ event, start, end, resourceId }: { event: CalEvent; start: Date | string; end: Date | string; resourceId?: string | number }) => {
       const startDate = new Date(start);
       const endDate = new Date(end);
+      setArmedId(null);
       // Dropping into another room column also moves the appointment to that room
       // (only in the per-room day view: in week/month views react-big-calendar passes an empty resourceId)
       const column = roomColumnsRef.current?.find((c) => c.id === resourceId);
@@ -612,6 +730,8 @@ export function AppointmentsCalendar({
     },
     []
   );
+
+  handleEventDropRef.current = handleEventDrop;
 
   const handleEventResize = useCallback(
     ({ event, start, end }: { event: CalEvent; start: Date | string; end: Date | string }) => {
@@ -675,8 +795,10 @@ export function AppointmentsCalendar({
     (event: CalItem) => {
       if (isLeave(event)) return { style: event.leave.type === "VACATION" ? LEAVE_STYLE.vacation : LEAVE_STYLE.absent };
       const style = getEventStyleForAppointment(event.resource, event.resource.status);
+      const className = event.id === armedId ? "vh-armed" : undefined;
       if (conflictIds.has(event.id)) {
         return {
+          className,
           style: {
             ...style,
             borderLeftColor: "#EF4444",
@@ -685,9 +807,9 @@ export function AppointmentsCalendar({
           },
         };
       }
-      return { style };
+      return { style, className };
     },
-    [conflictIds]
+    [conflictIds, armedId]
   );
 
   // Memoized per-view to avoid remounting events on unrelated state changes
@@ -726,7 +848,13 @@ export function AppointmentsCalendar({
         return (
           <TooltipPrimitive.Root delayDuration={300}>
             <TooltipPrimitive.Trigger asChild>
-              <div className="h-full w-full overflow-hidden">
+              <div className="relative h-full w-full overflow-hidden" data-apt-id={apt.id}>
+                {/* Armed on a touch screen: pull this bar to change the end time */}
+                {touchUiRef.current && armedRef.current === apt.id && !isMonthView && (
+                  <div data-resize-handle className="absolute inset-x-0 bottom-0 z-10 h-[45%] max-h-5 flex items-end justify-center">
+                    <span className="mb-px h-1 w-6 max-w-[70%] rounded-full bg-primary shadow" />
+                  </div>
+                )}
                 {isMonthView ? (
                   <div className="flex items-center gap-1 overflow-hidden">
                     {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500" />}
@@ -1023,11 +1151,17 @@ export function AppointmentsCalendar({
               ? zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[18px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[28px]" : "[&_.rbc-timeslot-group]:min-h-[48px]"
               : zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[36px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[48px]" : "[&_.rbc-timeslot-group]:min-h-[72px]",
             mobile && "vh-cal-phone-h",
+            "relative",
             isPending && "opacity-70 pointer-events-none"
           )}
           style={mobile ? undefined : { height: "calc(100vh - 260px)", minHeight: 400 }}
           ref={calendarBoxRef}
         >
+          {touchUi && armedId && (
+            <div className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 w-max max-w-[90%] rounded-full bg-foreground/85 px-3 py-1 text-center text-[11px] text-background shadow vh-pop-in">
+              {t("touchEditHint")}
+            </div>
+          )}
           <div className="h-full overflow-x-auto">
           <div
             className="h-full"
@@ -1051,8 +1185,10 @@ export function AppointmentsCalendar({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
-            draggableAccessor={(e: object) => !isLeave(e)}
-            resizableAccessor={(e: object) => !isLeave(e)}
+            // Touch: only the armed appointment moves; resizing uses its own handle (the library's
+            // edge anchors react to the emulated mouse of any tap and resized by accident)
+            draggableAccessor={(e: object) => !isLeave(e) && (!touchUi || (e as CalEvent).id === armedId)}
+            resizableAccessor={(e: object) => !isLeave(e) && !touchUi}
             components={{
               event: EventComponent as (props: { event: object }) => JSX.Element,
               month: { dateHeader: MonthDateHeader as unknown as React.ComponentType<DateHeaderProps> },

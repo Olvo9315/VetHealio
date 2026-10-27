@@ -211,7 +211,8 @@
     "monthLabel": "Appointments: {count}",
     "addService": "Add service",
     "removeService": "Remove service",
-    "services": "Services"
+    "services": "Services",
+    "touchEditHint": "Drag the appointment or pull the bottom bar · tap an empty spot to finish"
   },
   "medicalRecords": {
     "title": "Medical Records",
