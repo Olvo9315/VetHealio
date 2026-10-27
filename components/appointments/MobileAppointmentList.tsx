@@ -10,8 +10,11 @@ import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Room } from "@/lib/actions/rooms";
+import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
+import { servicePath } from "@/lib/service-path";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -19,9 +22,10 @@ interface MobileAppointmentListProps {
   initialAppointments: AppointmentFull[];
   vets: Vet[];
   services: ServiceFlat[];
+  rooms: Room[];
 }
 
-export function MobileAppointmentList({ initialAppointments, vets, services }: MobileAppointmentListProps) {
+export function MobileAppointmentList({ initialAppointments, vets, services, rooms }: MobileAppointmentListProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("appointments");
   const [date, setDate] = useState(new Date());
@@ -30,6 +34,13 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingApt, setEditingApt] = useState<AppointmentFull | null>(null);
+  // Tap on the pet name: quick pet card in a bottom sheet, closes back to the list
+  const [petPreview, setPetPreview] = useState<PetPreview | null>(null);
+
+  function serviceLabel(apt: AppointmentFull) {
+    if (!apt.service) return undefined;
+    return servicePath(services, apt.service.id, apt.service.name);
+  }
 
   const dayAppointments = appointments
     .filter((a) => isSameDay(new Date(a.startTime), date))
@@ -134,14 +145,16 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
           <p className="text-sm">{t("noneThisDay")}</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {dayAppointments.map((apt) => {
+        // Re-keyed per day so the cards slide in from top to bottom each time the day changes
+        <div key={date.toDateString()} className="space-y-2 vh-list-in">
+          {dayAppointments.map((apt, index) => {
             const typeCfg = getTypeCfgForAppointment(apt);
             const stCfg = statusConfig[apt.status];
             const hasConflict = conflictIds.has(apt.id);
             return (
               <button
                 key={apt.id}
+                style={{ "--i": index } as React.CSSProperties}
                 className={cn(
                   "w-full flex items-start gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 transition-colors text-left",
                   hasConflict ? "border-red-400 dark:border-red-600" : "border-border"
@@ -159,12 +172,33 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{apt.pet.name}</p>
-                  <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
-                    {cfgLabel(t, typeCfg)} · {t("withDoctor", { name: apt.veterinarian.name })}
+                  <p className="font-medium text-sm truncate">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="underline decoration-dotted underline-offset-2"
+                      onClick={(e) => { e.stopPropagation(); setPetPreview({ id: apt.petId, name: apt.pet.name }); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.stopPropagation(); e.preventDefault(); setPetPreview({ id: apt.petId, name: apt.pet.name }); }
+                      }}
+                    >
+                      {apt.pet.name}
+                    </span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  {/* Full "Category › Sub-service" (wraps instead of being cut off) */}
+                  <p className="text-xs text-foreground/80 leading-snug">
+                    {serviceLabel(apt) ?? cfgLabel(t, typeCfg)}
+                    {!!apt.extraServices?.length && `, ${apt.extraServices.map((s) => servicePath(services, s.id, s.name)).join(", ")}`}
+                  </p>
+                  <p className={cn("text-xs truncate flex items-center gap-1", hasConflict ? "text-red-500" : "text-muted-foreground")}>
+                    <Stethoscope className="w-3 h-3 shrink-0" />
+                    {apt.veterinarian.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
                     {apt.pet.owner.firstName} {apt.pet.owner.lastName}
+                    {apt.room && (
+                      <span className="font-semibold" style={{ color: apt.room.color }}> · {apt.room.name}</span>
+                    )}
                   </p>
                 </div>
                 {/* Conflict warning / Status badge */}
@@ -182,10 +216,14 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
         </div>
       )}
 
+      {/* Pet quick card */}
+      <PetQuickSheet pet={petPreview} onClose={() => setPetPreview(null)} />
+
       {/* Detail Sheet */}
       {selectedApt && (
         <AppointmentDetailSheet
           open={detailOpen}
+          services={services}
           onOpenChange={setDetailOpen}
           appointment={selectedApt}
           onUpdated={handleUpdated}
@@ -201,6 +239,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
           onOpenChange={(v) => { if (!v) { setCreateOpen(false); setEditingApt(null); } }}
           vets={vets}
           services={services}
+          rooms={rooms}
           appointment={editingApt ?? undefined}
           presetStart={editingApt ? undefined : date}
           onSaved={handleSaved}

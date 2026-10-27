@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { updateStaffProfile, deactivateStaff, reactivateStaff } from "@/lib/actions/staff";
+import { updateStaffProfile, changeStaffRole, deactivateStaff, reactivateStaff } from "@/lib/actions/staff";
 import { Role, LeaveType, LeaveStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { CheckCircle, XCircle, Clock, CalendarDays, PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 type StaffFull = {
   id: string;
@@ -81,6 +82,7 @@ const SPEC_KEYS = [
 export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffProfileTabsProps) {
   const t = useTranslations("staff");
   const tc = useTranslations("common");
+  const canAssignAdmin = useCan("staff.assignAdmin");
   const router = useRouter();
 
   const STATUS_LABELS: Record<LeaveStatus, string> = {
@@ -131,11 +133,44 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
 
   function handleDeactivate() {
     startTransition(async () => {
-      await (staff.isActive ? deactivateStaff(staff.id) : reactivateStaff(staff.id));
+      try {
+        await (staff.isActive ? deactivateStaff(staff.id) : reactivateStaff(staff.id));
+        toast.success(t("saved"));
+        router.refresh();
+      } catch (e) {
+        const code = e instanceof Error ? e.message : "";
+        toast.error(t.has(`errors.${code}`) ? t(`errors.${code}`) : t("errorSave"));
+      }
+    });
+  }
+
+  function handleRoleChange(role: Role) {
+    startTransition(async () => {
+      const result = await changeStaffRole(staff.id, role);
+      if (result && "error" in result && result.error) {
+        toast.error(t.has(`errors.${result.error}`) ? t(`errors.${result.error}`) : t("errorSave"));
+        return;
+      }
       toast.success(t("saved"));
       router.refresh();
     });
   }
+
+  const ROLE_LABELS: Record<Role, string> = {
+    ADMIN: t("roleAdmin"),
+    VETERINARIAN: t("roleVeterinarian"),
+    RECEPTIONIST: t("roleReceptionist"),
+    ASSISTANT: t("roleAssistant"),
+  };
+  // Audit log values: role codes and booleans shown as words
+  function auditValue(field: string, value: string | null) {
+    if (value === null) return "—";
+    if (field === "role" || field === "created") return ROLE_LABELS[value as Role] ?? value;
+    if (value === "true") return tc("yes");
+    if (value === "false") return tc("no");
+    return value;
+  }
+  const roleLocked = staff.user.role === "ADMIN" && !canAssignAdmin;
 
   // Calculate leave balance for current year
   const currentYear = new Date().getFullYear();
@@ -163,16 +198,32 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
             <h2 className="text-xl font-semibold">{staff.user.name}</h2>
             <p className="text-sm text-muted-foreground">{staff.user.email}</p>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-xs">
-                {({ ADMIN: t("roleAdmin"), VETERINARIAN: t("roleVeterinarian"), RECEPTIONIST: t("roleReceptionist"), ASSISTANT: t("roleAssistant") })[staff.user.role]}
-              </Badge>
+              {canManage && !roleLocked ? (
+                <select
+                  aria-label={t("role")}
+                  value={staff.user.role}
+                  disabled={isPending}
+                  onChange={(e) => handleRoleChange(e.target.value as Role)}
+                  className="h-6 rounded-md border border-input bg-background px-1.5 text-xs"
+                >
+                  {(["VETERINARIAN", "RECEPTIONIST", "ASSISTANT"] as Role[]).map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
+                  {canAssignAdmin && <option value="ADMIN">{ROLE_LABELS.ADMIN}</option>}
+                </select>
+              ) : (
+                <Badge variant="outline" className="text-xs">{ROLE_LABELS[staff.user.role]}</Badge>
+              )}
+              {staff.user.role === "VETERINARIAN" && staff.canManageStaff && (
+                <Badge className="text-xs">{t("headVet")}</Badge>
+              )}
               <Badge variant={staff.isActive ? "default" : "secondary"} className="text-xs">
                 {staff.isActive ? t("active") : t("inactive")}
               </Badge>
             </div>
           </div>
         </div>
-        {isAdmin && (
+        {canManage && !roleLocked && (
           <Button
             variant={staff.isActive ? "destructive" : "outline"}
             size="sm"
@@ -281,8 +332,8 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
                 <Label>{t("annualLeaveDays")}</Label>
                 <Input type="number" min={0} max={365} value={form.annualLeaveDays} onChange={(e) => setForm((f) => ({ ...f, annualLeaveDays: e.target.value }))} />
               </div>
-              {isAdmin && (
-                <div className="flex items-center gap-2">
+              {canManage && staff.user.role === "VETERINARIAN" && (
+                <div className="flex items-center gap-2 sm:col-span-2">
                   <input type="checkbox" id="canManage" checked={form.canManageStaff} onChange={(e) => setForm((f) => ({ ...f, canManageStaff: e.target.checked }))} className="rounded" />
                   <Label htmlFor="canManage" className="cursor-pointer">{t("canManageStaff")}</Label>
                 </div>
@@ -321,9 +372,9 @@ export function StaffProfileTabs({ staff, shifts, isAdmin, canManage }: StaffPro
                   <tbody>
                     {staff.auditLogs.map((log) => (
                       <tr key={log.id} className="border-t border-border">
-                        <td className="px-3 py-2 font-medium">{log.field}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{log.oldValue ?? "—"}</td>
-                        <td className="px-3 py-2">{log.newValue ?? "—"}</td>
+                        <td className="px-3 py-2 font-medium">{t.has(`auditFields.${log.field}`) ? t(`auditFields.${log.field}`) : log.field}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{auditValue(log.field, log.oldValue)}</td>
+                        <td className="px-3 py-2">{auditValue(log.field, log.newValue)}</td>
                         <td className="px-3 py-2 text-muted-foreground">{log.changedBy.name}</td>
                         <td className="px-3 py-2 text-muted-foreground">{format(new Date(log.createdAt), "dd/MM/yy HH:mm")}</td>
                       </tr>

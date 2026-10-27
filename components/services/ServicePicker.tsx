@@ -13,8 +13,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
-export type SelectedService = { id: string; name: string; price: number | null };
+export type SelectedService = { id: string; name: string; officialName?: string; price: number | null };
 
 interface ServicePickerProps {
   services: ServiceFlat[];
@@ -25,16 +26,18 @@ interface ServicePickerProps {
   compact?: boolean;
 }
 
-function buildLabel(id: string | null, services: ServiceFlat[]): string {
+// "Parent › Child" path; `official` uses the clinic-language names (for titles and invoices)
+function buildLabel(id: string | null, services: ServiceFlat[], official = false): string {
   if (!id) return "";
   const svc = services.find((s) => s.id === id);
   if (!svc) return "";
-  const parts: string[] = [svc.name];
+  const nameOf = (s: ServiceFlat) => (official ? s.officialName ?? s.name : s.name);
+  const parts: string[] = [nameOf(svc)];
   let cur = svc;
   while (cur.parentId) {
     const parent = services.find((s) => s.id === cur.parentId);
     if (!parent) break;
-    parts.unshift(parent.name);
+    parts.unshift(nameOf(parent));
     cur = parent;
   }
   return parts.join(" › ");
@@ -44,6 +47,7 @@ export function ServicePicker({
   services, value, onChange, onAddNew, error, compact = false,
 }: ServicePickerProps) {
   const t = useTranslations("services");
+  const canManageCatalog = useCan("catalog.manage");
 
   const roots = services.filter((s) => s.parentId === null);
   const childrenOf = (id: string) => services.filter((s) => s.parentId === id);
@@ -81,7 +85,7 @@ export function ServicePicker({
     setL1(id); setL2(null); setL3(null);
     if (isLeaf(id)) {
       const svc = services.find((s) => s.id === id)!;
-      onChange({ id: svc.id, name: buildLabel(svc.id, services), price: svc.price });
+      onChange({ id: svc.id, name: buildLabel(svc.id, services), officialName: buildLabel(svc.id, services, true), price: svc.price });
     } else {
       onChange(null);
     }
@@ -92,7 +96,7 @@ export function ServicePicker({
     setL2(id); setL3(null);
     if (isLeaf(id)) {
       const svc = services.find((s) => s.id === id)!;
-      onChange({ id: svc.id, name: buildLabel(svc.id, services), price: svc.price });
+      onChange({ id: svc.id, name: buildLabel(svc.id, services), officialName: buildLabel(svc.id, services, true), price: svc.price });
     } else {
       onChange(null);
     }
@@ -102,7 +106,7 @@ export function ServicePicker({
     if (!id) return;
     setL3(id);
     const svc = services.find((s) => s.id === id)!;
-    onChange({ id: svc.id, name: buildLabel(svc.id, services), price: svc.price });
+    onChange({ id: svc.id, name: buildLabel(svc.id, services), officialName: buildLabel(svc.id, services, true), price: svc.price });
   }
 
   const l2Options = l1 ? childrenOf(l1) : [];
@@ -166,6 +170,7 @@ export function ServicePicker({
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
+      {canManageCatalog && (
       <Button
         type="button"
         variant="ghost"
@@ -176,6 +181,7 @@ export function ServicePicker({
         <Plus className="h-3 w-3 mr-1" />
         {t("addNew")}
       </Button>
+      )}
     </div>
   );
 }

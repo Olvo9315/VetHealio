@@ -24,6 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2, Loader2, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NumberInput } from "@/components/common/NumberInput";
 
 type ItemType = "CONSULTATION" | "MEDICATION" | "SERVICE" | "OTHER";
 const ITEM_TYPES: ItemType[] = ["CONSULTATION", "MEDICATION", "SERVICE", "OTHER"];
@@ -117,24 +118,21 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
 
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("quantityShort")}</Label>
-          <Input
-            type="number"
-            min="1"
+          <NumberInput
+            integer
+            fallback={1}
             className="h-8 text-sm"
             value={item.quantity}
-            onChange={(e) => onUpdate(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+            onValueChange={(v) => onUpdate(item.id, { quantity: Math.max(1, v) })}
           />
         </div>
 
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("unitPriceLabel")}</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
+          <NumberInput
             className="h-8 text-sm"
             value={item.unitPrice}
-            onChange={(e) => onUpdate(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+            onValueChange={(v) => onUpdate(item.id, { unitPrice: Math.max(0, v) })}
           />
         </div>
       </div>

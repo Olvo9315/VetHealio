@@ -6,7 +6,9 @@ import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
 import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 import type { InventoryItem, StockStatus } from "@/lib/actions/inventory";
-import { getInventoryItems, getStockStatus, getExpiryStatus } from "@/lib/actions/inventory";
+import { getInventoryItems } from "@/lib/actions/inventory";
+// Plain helpers: importing them via the "use server" actions file would turn them into server calls
+import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
 import { InventoryDialog } from "./InventoryDialog";
 import { InventoryDetailSheet } from "./InventoryDetailSheet";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { adjustStock } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
@@ -98,6 +101,7 @@ interface InventoryTableProps {
 export function InventoryTable({ initialItems, categories }: InventoryTableProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("inventory");
+  const canManage = useCan("inventory.manage");
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -231,10 +235,12 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
             <Download className="w-4 h-4 mr-1.5" />
             CSV
           </Button>
+          {canManage && (
           <Button className="bg-primary text-primary-foreground" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             {t("new")}
           </Button>
+          )}
         </div>
       </div>
 

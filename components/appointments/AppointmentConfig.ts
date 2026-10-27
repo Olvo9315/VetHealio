@@ -43,7 +43,8 @@ export function buildEventStyle(
     fontSize: "11px",
     fontWeight: 500,
     overflow: "hidden",
-    boxShadow: `2px 2px 0 ${cfg.border}, 4px 4px 0 ${cfg.border}80`,
+    // No offset shadow: it bled into neighbouring events in side-by-side layout
+    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
   };
 }
 

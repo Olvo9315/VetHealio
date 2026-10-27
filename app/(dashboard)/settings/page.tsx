@@ -12,6 +12,9 @@ import Link from "next/link";
 import { ModulesCard } from "@/components/settings/ModulesCard";
 import { getLicenseState } from "@/lib/license";
 import { MODULES } from "@/lib/modules";
+import { RoomsCard } from "@/components/settings/RoomsCard";
+import { getRooms } from "@/lib/actions/rooms";
+import { can } from "@/lib/permissions";
 import { Database, ChevronRight } from "lucide-react";
 
 export default async function SettingsPage() {
@@ -27,6 +30,7 @@ export default async function SettingsPage() {
 
   const clinic = user.role === "ADMIN" ? await getClinic() : null;
   const license = clinic ? await getLicenseState() : null;
+  const rooms = (await can("rooms.manage")) ? await getRooms(true) : null;
   const moduleRows = MODULES.map((m) => ({
     key: m.key,
     enabled: !m.planned && !!license?.modules.includes(m.key),
@@ -53,6 +57,9 @@ export default async function SettingsPage() {
 
           {/* Clinic identity — admin only */}
           {clinic && <ClinicCard clinic={clinic} />}
+
+          {/* Rooms — admin and head vet */}
+          {rooms && <RoomsCard rooms={rooms} />}
 
           {/* Modules / license — admin only */}
           {license && (

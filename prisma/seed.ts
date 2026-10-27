@@ -5,6 +5,7 @@ import pg from "pg";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { databaseUrl } from "../lib/database-url";
+import { LOCALES, SERVICE_CATALOG, type CatalogEntry, type Locale } from "./service-catalog";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -17,12 +18,15 @@ async function main() {
   // Seed clinic identity + first admin (idempotent). Configure per clinic via env:
   //   SEED_CLINIC_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_FIRST_NAME, SEED_ADMIN_LAST_NAME,
   //   SEED_ADMIN_PASSWORD (omit to generate a random one, printed once)
+  //   SEED_CLINIC_LOCALE (es | ru | en): language of official data, default es
   const clinicName = process.env.SEED_CLINIC_NAME?.trim();
-  await prisma.clinicSettings.upsert({
+  const seedLocale = process.env.SEED_CLINIC_LOCALE as Locale | undefined;
+  const clinic = await prisma.clinicSettings.upsert({
     where: { id: "default" },
-    create: { id: "default", ...(clinicName ? { name: clinicName } : {}) },
-    update: clinicName ? { name: clinicName } : {},
+    create: { id: "default", ...(clinicName ? { name: clinicName } : {}), ...(seedLocale ? { dataLocale: seedLocale } : {}) },
+    update: { ...(clinicName ? { name: clinicName } : {}), ...(seedLocale ? { dataLocale: seedLocale } : {}) },
   });
+  const dataLocale = (LOCALES as string[]).includes(clinic.dataLocale) ? (clinic.dataLocale as Locale) : "es";
   console.log(`Clinic: ${clinicName ?? "(unchanged)"}`);
 
   const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@vethealio.com").trim().toLowerCase();
@@ -49,33 +53,38 @@ async function main() {
     console.log(`Admin ${email} already exists — skipping`);
   }
 
-  // Seed services (idempotent)
+  // Seed the default service catalog (idempotent). SEED_RESET_SERVICES=1 first removes the
+  // existing services, refusing if any are already used by appointments or invoices.
+  if (process.env.SEED_RESET_SERVICES === "1") {
+    const used =
+      (await prisma.appointment.count({ where: { serviceId: { not: null } } })) +
+      (await prisma.appointmentService.count()) +
+      (await prisma.invoiceItem.count({ where: { serviceId: { not: null } } }));
+    if (used > 0) throw new Error(`Cannot reset services: ${used} appointments/invoice items use them`);
+    // Children first (parent relation is Restrict)
+    for (let depth = 0; depth < 3; depth++) {
+      await prisma.service.deleteMany({ where: { children: { none: {} } } });
+    }
+    console.log("Existing services removed");
+  }
+
   const serviceCount = await prisma.service.count();
   if (serviceCount === 0) {
-    const roots = await prisma.service.createManyAndReturn({
-      data: [
-        { name: "Consulta",            price: 35,   color: "#15803D", sortOrder: 0 },
-        { name: "Analítica de sangre", price: 45,   color: "#1D4ED8", sortOrder: 1 },
-        { name: "Ecografía",           price: 55,   color: "#0F766E", sortOrder: 2 },
-        { name: "Esterilización",      price: 180,  color: "#B91C1C", sortOrder: 3 },
-        { name: "Castración",          price: 150,  color: "#7C3AED", sortOrder: 4 },
-        { name: "Cortar uñas",         price: 15,   color: "#D97706", sortOrder: 5 },
-        { name: "Analítica de orina",  price: null, color: "#6B7280", sortOrder: 6 },
-        { name: "Citología",           price: 35,   color: "#BE185D", sortOrder: 7 },
-      ],
-    });
-
-    const urina = roots.find((r) => r.name === "Analítica de orina");
-    if (urina) {
-      await prisma.service.createMany({
-        data: [
-          { name: "Tira reactiva",      price: 12, parentId: urina.id, sortOrder: 0 },
-          { name: "Sedimento urinario", price: 20, parentId: urina.id, sortOrder: 1 },
-        ],
-      });
-    }
-
-    console.log(`Created ${roots.length + 2} services`);
+    let created = 0;
+    const createLevel = async (entries: CatalogEntry[], parentId: string | null) => {
+      for (let sortOrder = 0; sortOrder < entries.length; sortOrder++) {
+        const entry = entries[sortOrder];
+        // Official name in the clinic language; the other languages become translations
+        const translations = Object.fromEntries(LOCALES.filter((l) => l !== dataLocale).map((l) => [l, entry.labels[l]]));
+        const service = await prisma.service.create({
+          data: { name: entry.labels[dataLocale], translations, color: entry.color ?? null, price: null, parentId, sortOrder },
+        });
+        created++;
+        if (entry.children) await createLevel(entry.children, service.id);
+      }
+    };
+    await createLevel(SERVICE_CATALOG, null);
+    console.log(`Created ${created} services`);
   } else {
     console.log(`Services already seeded (${serviceCount} found)`);
   }

@@ -40,6 +40,9 @@ import {
   Pill,
 } from "lucide-react";
 import { cn, formatAppointmentId } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
+import type { ServiceFlat } from "@/lib/actions/services";
+import { servicePath } from "@/lib/service-path";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -50,6 +53,8 @@ interface AppointmentDetailSheetProps {
   onEdit: () => void;
   onCreateInvoice?: () => void;
   onCreatePrescription?: () => void;
+  // Catalog, to show "Category › Sub-service" instead of a bare sub-service name
+  services?: ServiceFlat[];
 }
 
 export function AppointmentDetailSheet({
@@ -61,9 +66,13 @@ export function AppointmentDetailSheet({
   onEdit,
   onCreateInvoice,
   onCreatePrescription,
+  services = [],
 }: AppointmentDetailSheetProps) {
   const dateLocale = useDateLocale();
+  const canInvoice = useCan("invoice.write");
+  const canPrescribe = useCan("prescription.write");
   const t = useTranslations("appointments");
+  const tr = useTranslations("rooms");
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
@@ -96,7 +105,7 @@ export function AppointmentDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader className="pb-4">
+        <SheetHeader className="px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
             <div
               className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
@@ -114,7 +123,7 @@ export function AppointmentDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-5 px-5 pb-4">
           {/* Date & time */}
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -203,6 +212,36 @@ export function AppointmentDetailSheet({
             <p className="text-sm font-medium">{appointment.veterinarian.name}</p>
           </div>
 
+          {/* Services (main + extra) */}
+          {appointment.service && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {t("services")}
+              </p>
+              <ul className="text-sm space-y-0.5">
+                {[appointment.service, ...(appointment.extraServices ?? [])].map((s) => (
+                  <li key={s.id} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color ?? "#9CA3AF" }} />
+                    {servicePath(services, s.id, s.name)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Room */}
+          {appointment.room && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {tr("room")}
+              </p>
+              <p className="text-sm font-semibold flex items-center gap-2" style={{ color: appointment.room.color }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: appointment.room.color }} />
+                {appointment.room.name}
+              </p>
+            </div>
+          )}
+
           {/* Notes */}
           {appointment.notes && (
             <>
@@ -221,14 +260,14 @@ export function AppointmentDetailSheet({
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-border space-y-2">
-          {onCreateInvoice && (
+        <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
+          {onCreateInvoice && canInvoice && (
             <Button className="w-full" variant="outline" onClick={onCreateInvoice}>
               <Receipt className="w-4 h-4 mr-2" />
               {t("createInvoice")}
             </Button>
           )}
-          {onCreatePrescription && (
+          {onCreatePrescription && canPrescribe && (
             <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
               <Pill className="w-4 h-4 mr-2" />
               {t("createPrescription")}

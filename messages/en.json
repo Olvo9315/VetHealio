@@ -202,7 +202,14 @@
     "todayPrefix": "Today · ",
     "newShort": "New",
     "noneThisDay": "No appointments this day",
-    "withDoctor": "Dr. {name}"
+    "withDoctor": "Dr. {name}",
+    "monthConflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+    "leaveVacation": "On holiday: {name}",
+    "leaveAbsent": "Away: {name}",
+    "monthLabel": "Appointments: {count}",
+    "addService": "Add service",
+    "removeService": "Remove service",
+    "services": "Services"
   },
   "medicalRecords": {
     "title": "Medical Records",
@@ -355,7 +362,10 @@
     "totalIssued": "Total issued",
     "confirmedPayments": "Confirmed payments",
     "appointmentNotFound": "Appointment not found",
-    "invoiceExists": "This appointment already has an invoice"
+    "invoiceExists": "This appointment already has an invoice",
+    "invoiceExistsPending": "It has not been paid yet: you can open and edit it.",
+    "invoiceExistsPaid": "That invoice is already paid and cannot be edited.",
+    "invoiceExistsCancelled": "That invoice is cancelled."
   },
   "inventory": {
     "title": "Inventory",
@@ -521,7 +531,7 @@
     "fullTime": "Full time",
     "partTime": "Part time",
     "contractor": "Contractor",
-    "canManageStaff": "Can manage staff",
+    "canManageStaff": "Head vet: registers staff, changes roles and appoints head vets",
     "annualLeaveDays": "Annual leave days",
     "emergencyContact": "Emergency contact",
     "emergencyName": "Emergency name",
@@ -632,7 +642,35 @@
     "note": "Note",
     "optional": "Optional",
     "date": "Date",
-    "emailInUse": "This email is already in use"
+    "emailInUse": "This email is already in use",
+    "headVet": "Head vet",
+    "errors": {
+      "adminOnly": "Only an administrator can grant or remove the administrator role",
+      "cannotChangeSelf": "You cannot change your own role or deactivate yourself",
+      "lastAdmin": "The clinic must keep at least one active administrator",
+      "invalidRole": "Invalid role",
+      "notFound": "Staff member not found"
+    },
+    "auditFields": {
+      "created": "Created",
+      "role": "Role",
+      "isActive": "Active",
+      "canManageStaff": "Head vet",
+      "specialization": "Specialization",
+      "licenseNumber": "License number",
+      "education": "Education",
+      "salaryAmount": "Salary",
+      "salaryType": "Salary type",
+      "hireDate": "Hire date",
+      "contractType": "Contract type",
+      "annualLeaveDays": "Annual leave days",
+      "weeklyTemplate": "Weekly schedule",
+      "emergencyName": "Emergency contact",
+      "emergencyPhone": "Emergency phone",
+      "notes": "Notes",
+      "diplomaPath": "Diploma",
+      "contractPath": "Contract"
+    }
   },
   "prescriptions": {
     "title": "Prescriptions",
@@ -694,7 +732,11 @@
     "isActive": "Active",
     "parentCategory": "Parent category",
     "root": "(Root)",
-    "categoriesCount": "{count, plural, one {# category} other {# categories}}"
+    "categoriesCount": "{count, plural, one {# category} other {# categories}}",
+    "officialName": "Official name ({language})",
+    "officialNameHint": "This is how it appears on invoices and documents.",
+    "translate": "Translation",
+    "translationsHint": "Optional: the name staff using the interface in another language will see."
   },
   "pwa": {
     "installTitle": "Install VetHealio",
@@ -773,7 +815,10 @@
     "invalidNif": "Invalid NIF/CIF",
     "invalidEmail": "Invalid email",
     "invalidIban": "Invalid IBAN",
-    "invalidValue": "Invalid value"
+    "invalidValue": "Invalid value",
+    "sectionLanguage": "Data language",
+    "dataLocale": "Clinic's official language",
+    "dataLocaleHint": "Language of service names, invoices, prescriptions and documents. Each staff member can still use the interface in their own language."
   },
   "validation": {
     "required": "Required",
@@ -908,5 +953,42 @@
       "presvet": "Antibiotic prescription reporting to MAPA (RD 666/2023)",
       "knowledgeBase": "Clinic protocols, dosages and internal guides"
     }
+  },
+  "rooms": {
+    "title": "Rooms",
+    "hint": "Rooms appointments are booked into. Each has its own colour in the calendar.",
+    "namePlaceholder": "E.g. Consulting room 1, Theatre",
+    "add": "Add",
+    "delete": "Delete",
+    "deleteConfirm": "Delete “{name}”?",
+    "deleted": "Room deleted",
+    "archived": "The room has appointments: it was archived",
+    "archivedTitle": "Archived",
+    "restore": "Restore",
+    "none": "No rooms yet",
+    "saved": "Saved",
+    "errorSave": "Could not save",
+    "room": "Room",
+    "noRoom": "No room",
+    "allRooms": "All rooms",
+    "selectRooms": "Rooms",
+    "allVets": "All vets",
+    "busy": "{room} is busy: {items}",
+    "vetBusy": "{vet} has another appointment: {items}",
+    "conflictRoom": "Conflict: room {room} is busy at this time",
+    "bookAnyway": "Save anyway",
+    "maxVisible": "Up to 3 rooms fit on screen; scroll for more"
+  },
+  "petInfo": {
+    "loading": "Loading…",
+    "notFound": "Patient not found",
+    "age": "Age",
+    "neutered": "Spayed / neutered",
+    "yes": "Yes",
+    "no": "No",
+    "noVaccinations": "No vaccinations recorded",
+    "back": "Back",
+    "openCard": "View record",
+    "hoverHint": "Hover for details, click to open the record"
   }
 }

@@ -42,6 +42,12 @@ function findClinics(slug) {
   return [clinic];
 }
 
+// Stable alias of a clinic's latest test (Preview) deployment
+function testUrlFor(clinic) {
+  const host = new URL(clinic.url).host.replace(/\.vercel\.app$/, "");
+  return `https://${host}-test.vercel.app`;
+}
+
 function tmpDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
@@ -64,7 +70,13 @@ function pullEnv(projectId, environment) {
     run(`vercel env pull "${file}" --environment=${environment} --yes`, { env: vercelEnv(projectId), cwd: dir });
     return readEnvFile(file);
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    // The file holds secrets: always delete it. Windows may keep the folder busy for a moment.
+    fs.rmSync(file, { force: true });
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // empty temp folder, harmless
+    }
   }
 }
 
@@ -95,15 +107,28 @@ function deploy(slug, tag, prod) {
     for (const c of clinics) {
       const target = prod ? "PRODUCTION" : "preview (staging DB)";
       console.log(`\n▶ ${c.name}: deploying ${tag} → ${target}`);
+      // Vercel prints the deployment URL on stderr
       const out = run(
-        `vercel deploy --yes ${prod ? "--prod" : ""} --build-env APP_RELEASE=${tag}`,
+        `vercel deploy --yes ${prod ? "--prod" : ""} --build-env APP_RELEASE=${tag} 2>&1`,
         { cwd: worktree, env: vercelEnv(c.projectId) }
       );
-      const url = out.trim().split(/\s+/).filter((s) => s.startsWith("https://")).pop();
-      console.log(prod ? `  ✓ live at ${c.url} (${url})` : `  ✓ test URL for the clinic: ${url}`);
+      const url = out.match(/https:\/\/[\w.-]+\.vercel\.app/g)?.[0];
+      if (prod) {
+        console.log(`  ✓ live at ${c.url} (${url})`);
+      } else {
+        // Stable address the clinic can bookmark: always points to its latest test deployment
+        const testUrl = testUrlFor(c);
+        run(`vercel alias set ${url} ${new URL(testUrl).host}`, { env: vercelEnv(c.projectId) });
+        console.log(`  ✓ test version for the clinic: ${testUrl} (${url})`);
+      }
     }
   } finally {
-    run(`git worktree remove --force "${worktree}"`);
+    try {
+      run(`git worktree remove --force "${worktree}"`);
+    } catch {
+      // Windows may still hold files from the upload; prune later
+      run("git worktree prune");
+    }
   }
 }
 

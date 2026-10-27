@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NumberInput } from "@/components/common/NumberInput";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 type ItemType = "CONSULTATION" | "MEDICATION" | "SERVICE" | "OTHER";
 
@@ -102,7 +104,7 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
           if (svc) {
             onUpdate(item.id, {
               serviceId: svc.id,
-              description: svc.name,
+              description: svc.officialName ?? svc.name,
               unitPrice: item.unitPrice === 0 && svc.price != null ? svc.price : item.unitPrice,
             });
           } else {
@@ -128,24 +130,21 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("quantityShort")}</Label>
-          <Input
-            type="number"
-            min="1"
+          <NumberInput
+            integer
+            fallback={1}
             className="h-8 text-sm"
             value={item.quantity}
-            onChange={(e) => onUpdate(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+            onValueChange={(v) => onUpdate(item.id, { quantity: Math.max(1, v) })}
           />
         </div>
 
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("unitPriceLabel")}</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
+          <NumberInput
             className="h-8 text-sm"
             value={item.unitPrice}
-            onChange={(e) => onUpdate(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+            onValueChange={(v) => onUpdate(item.id, { unitPrice: Math.max(0, v) })}
           />
         </div>
       </div>
@@ -162,10 +161,14 @@ interface InvoiceDialogProps {
   onSaved: (invoice: InvoiceFull) => void;
 }
 
-export function InvoiceDialog({ open, onOpenChange, invoice, services, presetAppointment, onSaved }: InvoiceDialogProps) {
+export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, services, presetAppointment, onSaved }: InvoiceDialogProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("finances");
   const tc = useTranslations("common");
+  const canWrite = useCan("invoice.write");
+  // An unpaid invoice that already exists for the chosen appointment can be opened here for editing
+  const [existingInvoice, setExistingInvoice] = useState<InvoiceFull | null>(null);
+  const invoice = invoiceProp ?? existingInvoice ?? undefined;
   const isEdit = !!invoice;
   const [isSaving, startSave] = useTransition();
 
@@ -202,6 +205,12 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
     }
   }, [invoice]);
 
+  function openExistingInvoice(existing: InvoiceFull) {
+    setExistingInvoice(existing);
+    setItems(existing.items.length ? existing.items.map(itemFromInvoice) : [newItem()]);
+    setErrors({});
+  }
+
   useEffect(() => {
     if (open && presetAppointment && !invoice) {
       applyAppointment(presetAppointment);
@@ -211,8 +220,9 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
 
   // Reset on close (new invoice only)
   useEffect(() => {
-    if (!open && !isEdit) {
+    if (!open && !invoiceProp) {
       setTimeout(() => {
+        setExistingInvoice(null);
         setAppointmentId("");
         setSelectedApt(null);
         setAptQuery("");
@@ -221,7 +231,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
         setErrors({});
       }, 150);
     }
-  }, [open, isEdit]);
+  }, [open, invoiceProp]);
 
   // Appointment search
   useEffect(() => {
@@ -235,20 +245,33 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
     });
   }, [aptQuery, invoice?.appointmentId]);
 
+  // "Category › Service" in the clinic language, so invoice lines are self-explanatory
+  function officialServicePath(serviceId: string, fallback: string) {
+    const parts: string[] = [];
+    let cur = localServices.find((s) => s.id === serviceId);
+    while (cur) {
+      parts.unshift(cur.officialName ?? cur.name);
+      cur = cur.parentId ? localServices.find((s) => s.id === cur!.parentId) : undefined;
+    }
+    return parts.length ? parts.join(" › ") : fallback;
+  }
+
   function applyAppointment(apt: AppointmentOption) {
     setSelectedApt(apt);
     setAppointmentId(apt.id);
     setAptQuery("");
     setAptResults([]);
-    if (apt.service) {
-      setItems([{
+    // One invoice line per appointment service (main one first)
+    const aptServices = [...(apt.service ? [apt.service] : []), ...(apt.extraServices ?? [])];
+    if (aptServices.length) {
+      setItems(aptServices.map((svc) => ({
         id: nextId(),
-        description: apt.service.name,
+        description: officialServicePath(svc.id, svc.officialName ?? svc.name),
         quantity: 1,
-        unitPrice: apt.service.price ?? 0,
-        type: "SERVICE",
-        serviceId: apt.service.id,
-      }]);
+        unitPrice: svc.price ?? localServices.find((s) => s.id === svc.id)?.price ?? 0,
+        type: "SERVICE" as const,
+        serviceId: svc.id,
+      })));
     }
   }
 
@@ -302,7 +325,18 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
       } else {
         const result = await createInvoice(data);
         if ("error" in result) {
-          toast.error(typeof result.error === "string" && t.has(result.error) ? t(result.error) : t("errorSave"));
+          const existing = "existing" in result ? result.existing : null;
+          if (existing && existing.status === "PENDING" && canWrite) {
+            toast.error(t("invoiceExists"), {
+              description: t("invoiceExistsPending"),
+              action: { label: t("editInvoice"), onClick: () => openExistingInvoice(existing) },
+              duration: 10000,
+            });
+          } else if (existing) {
+            toast.error(t("invoiceExists"), { description: t(existing.status === "PAID" ? "invoiceExistsPaid" : "invoiceExistsCancelled") });
+          } else {
+            toast.error(typeof result.error === "string" && t.has(result.error) ? t(result.error) : t("errorSave"));
+          }
           return;
         }
         toast.success(t("saved"));
@@ -463,7 +497,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
         if (quickAddRowId) {
           updateItem(quickAddRowId, {
             serviceId: svc.id,
-            description: svc.name,
+            description: svc.officialName ?? svc.name,
           });
           if (svc.price != null) {
             setItems((prev) =>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Species } from "@prisma/client";
+import { requirePermission } from "@/lib/permissions";
 
 // ---- Types ----
 
@@ -105,6 +106,7 @@ export async function getMedicalRecords(search?: string): Promise<MedicalRecordF
 // ---- Mutations ----
 
 export async function createMedicalRecord(data: MedicalRecordFormData) {
+  await requirePermission("medical.write");
   const parsed = medicalRecordSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -139,6 +141,7 @@ export async function createMedicalRecord(data: MedicalRecordFormData) {
 }
 
 export async function updateMedicalRecord(id: string, data: MedicalRecordFormData) {
+  await requirePermission("medical.write");
   const parsed = medicalRecordSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -176,6 +179,7 @@ export async function updateMedicalRecord(id: string, data: MedicalRecordFormDat
 }
 
 export async function deleteMedicalRecord(id: string) {
+  await requirePermission("medical.delete");
   const record = await prisma.medicalRecord.delete({ where: { id } });
   revalidatePath("/medical-records");
   revalidatePath(`/patients/${record.petId}`);

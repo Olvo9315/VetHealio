@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addDays } from "date-fns";
-import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
+import { getStockStatus } from "@/lib/utils/inventoryHelpers";
 import { assertModule } from "@/lib/license";
+import { requirePermission } from "@/lib/permissions";
 export type { StockStatus, ExpiryStatus } from "@/lib/utils/inventoryHelpers";
-export { getStockStatus, getExpiryStatus };
 
 // ---- Types ----
 
@@ -116,6 +116,7 @@ export async function getDistinctCategories(): Promise<string[]> {
 // ---- Mutations ----
 
 export async function createInventoryItem(data: InventoryFormData) {
+  await requirePermission("inventory.manage");
   await assertModule("inventory");
   const parsed = inventorySchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -139,6 +140,7 @@ export async function createInventoryItem(data: InventoryFormData) {
 }
 
 export async function updateInventoryItem(id: string, data: InventoryFormData) {
+  await requirePermission("inventory.manage");
   await assertModule("inventory");
   const parsed = inventorySchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -181,6 +183,7 @@ export async function adjustStock(id: string, delta: number) {
 }
 
 export async function deleteInventoryItem(id: string) {
+  await requirePermission("inventory.manage");
   await assertModule("inventory");
   await prisma.inventoryItem.delete({ where: { id } });
   revalidatePath("/inventory");

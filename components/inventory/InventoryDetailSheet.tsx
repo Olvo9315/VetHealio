@@ -6,7 +6,9 @@ import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
 import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 import type { InventoryItem } from "@/lib/actions/inventory";
-import { adjustStock, deleteInventoryItem, getStockStatus, getExpiryStatus } from "@/lib/actions/inventory";
+import { adjustStock, deleteInventoryItem } from "@/lib/actions/inventory";
+// Plain helpers: importing them via the "use server" actions file would turn them into server calls
+import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -34,6 +36,7 @@ import {
   Euro,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
@@ -72,6 +75,8 @@ export function InventoryDetailSheet({
   onEdit,
 }: InventoryDetailSheetProps) {
   const dateLocale = useDateLocale();
+  const canEdit = useCan("inventory.manage");
+  const canDelete = useCan("inventory.manage");
   const t = useTranslations("inventory");
   const tc = useTranslations("common");
   const [isAdjusting, startAdjust] = useTransition();
@@ -114,7 +119,7 @@ export function InventoryDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader className="pb-4">
+        <SheetHeader className="px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Package className="w-5 h-5 text-primary" />
@@ -135,7 +140,7 @@ export function InventoryDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-5 px-5 pb-4">
           {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -293,11 +298,14 @@ export function InventoryDetailSheet({
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-border space-y-2">
+        <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
+          {canEdit && (
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
             {t("edit")}
           </Button>
+          )}
+          {canDelete && (
           <Button
             variant="outline"
             className="w-full text-destructive hover:bg-destructive/10"
@@ -307,6 +315,7 @@ export function InventoryDetailSheet({
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
             {tc("delete")}
           </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

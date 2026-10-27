@@ -19,6 +19,7 @@ export type ClinicInfo = {
   iban: string | null;
   defaultTaxRate: number;
   invoiceFooter: string | null;
+  dataLocale: "es" | "ru" | "en";
 };
 
 // One read per request; creates the singleton row on first use
@@ -46,5 +47,6 @@ export const getClinic = cache(async (): Promise<ClinicInfo> => {
     iban: s.iban,
     defaultTaxRate: s.defaultTaxRate,
     invoiceFooter: s.invoiceFooter,
+    dataLocale: (["es", "ru", "en"].includes(s.dataLocale) ? s.dataLocale : "es") as ClinicInfo["dataLocale"],
   };
 });

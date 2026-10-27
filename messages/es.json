@@ -202,7 +202,14 @@
     "todayPrefix": "Hoy · ",
     "newShort": "Nueva",
     "noneThisDay": "Sin citas este día",
-    "withDoctor": "Dr. {name}"
+    "withDoctor": "Dr. {name}",
+    "monthConflicts": "{count, plural, one {# conflicto} other {# conflictos}}",
+    "leaveVacation": "Vacaciones: {name}",
+    "leaveAbsent": "Ausente: {name}",
+    "monthLabel": "Citas: {count}",
+    "addService": "Añadir servicio",
+    "removeService": "Quitar servicio",
+    "services": "Servicios"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
@@ -355,7 +362,10 @@
     "totalIssued": "Total emitidas",
     "confirmedPayments": "Pagos confirmados",
     "appointmentNotFound": "Cita no encontrada",
-    "invoiceExists": "Esta cita ya tiene una factura asociada"
+    "invoiceExists": "Esta cita ya tiene una factura asociada",
+    "invoiceExistsPending": "La factura aún no está pagada: puedes abrirla y editarla.",
+    "invoiceExistsPaid": "La factura ya está pagada y no se puede editar.",
+    "invoiceExistsCancelled": "La factura está anulada."
   },
   "inventory": {
     "title": "Inventario",
@@ -521,7 +531,7 @@
     "fullTime": "Tiempo completo",
     "partTime": "Tiempo parcial",
     "contractor": "Contratista",
-    "canManageStaff": "Puede gestionar personal",
+    "canManageStaff": "Médico jefe: da de alta al personal, cambia roles y nombra médicos jefe",
     "annualLeaveDays": "Días de vacaciones anuales",
     "emergencyContact": "Contacto de emergencia",
     "emergencyName": "Nombre de emergencia",
@@ -632,7 +642,35 @@
     "note": "Nota",
     "optional": "Opcional",
     "date": "Fecha",
-    "emailInUse": "Este correo ya está en uso"
+    "emailInUse": "Este correo ya está en uso",
+    "headVet": "Médico jefe",
+    "errors": {
+      "adminOnly": "Solo un administrador puede asignar o quitar el rol de administrador",
+      "cannotChangeSelf": "No puedes cambiar tu propio rol ni desactivarte",
+      "lastAdmin": "La clínica debe tener al menos un administrador activo",
+      "invalidRole": "Rol no válido",
+      "notFound": "Empleado no encontrado"
+    },
+    "auditFields": {
+      "created": "Alta",
+      "role": "Rol",
+      "isActive": "Activo",
+      "canManageStaff": "Médico jefe",
+      "specialization": "Especialización",
+      "licenseNumber": "Número de licencia",
+      "education": "Educación",
+      "salaryAmount": "Salario",
+      "salaryType": "Tipo de salario",
+      "hireDate": "Fecha de contratación",
+      "contractType": "Tipo de contrato",
+      "annualLeaveDays": "Días de vacaciones",
+      "weeklyTemplate": "Horario semanal",
+      "emergencyName": "Contacto de emergencia",
+      "emergencyPhone": "Teléfono de emergencia",
+      "notes": "Notas",
+      "diplomaPath": "Diploma",
+      "contractPath": "Contrato"
+    }
   },
   "prescriptions": {
     "title": "Recetas",
@@ -694,7 +732,11 @@
     "isActive": "Activo",
     "parentCategory": "Categoría padre",
     "root": "(Raíz)",
-    "categoriesCount": "{count, plural, one {# categoría} other {# categorías}}"
+    "categoriesCount": "{count, plural, one {# categoría} other {# categorías}}",
+    "officialName": "Nombre oficial ({language})",
+    "officialNameHint": "Así aparecerá en facturas y documentos.",
+    "translate": "Traducción",
+    "translationsHint": "Opcional: nombre que verá el personal que usa la interfaz en otro idioma."
   },
   "pwa": {
     "installTitle": "Instalar VetHealio",
@@ -773,7 +815,10 @@
     "invalidNif": "NIF/CIF no válido",
     "invalidEmail": "Correo no válido",
     "invalidIban": "IBAN no válido",
-    "invalidValue": "Valor no válido"
+    "invalidValue": "Valor no válido",
+    "sectionLanguage": "Idioma de los datos",
+    "dataLocale": "Idioma oficial de la clínica",
+    "dataLocaleHint": "Idioma de los nombres de servicios, facturas, recetas y documentos. Cada empleado puede usar la interfaz en su propio idioma."
   },
   "validation": {
     "required": "Obligatorio",
@@ -908,5 +953,42 @@
       "presvet": "Comunicación de recetas de antibióticos al MAPA (RD 666/2023)",
       "knowledgeBase": "Protocolos, dosis y guías internas de la clínica"
     }
+  },
+  "rooms": {
+    "title": "Consultas y quirófanos",
+    "hint": "Salas en las que se reservan las citas. Cada una tiene su color en el calendario.",
+    "namePlaceholder": "Ej. Consulta 1, Quirófano",
+    "add": "Añadir",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Eliminar «{name}»?",
+    "deleted": "Sala eliminada",
+    "archived": "La sala tiene citas: se ha archivado",
+    "archivedTitle": "Archivadas",
+    "restore": "Restaurar",
+    "none": "Aún no hay salas",
+    "saved": "Guardado",
+    "errorSave": "No se pudo guardar",
+    "room": "Sala",
+    "noRoom": "Sin sala",
+    "allRooms": "Todas las salas",
+    "selectRooms": "Salas",
+    "allVets": "Todos los veterinarios",
+    "busy": "{room} está ocupada: {items}",
+    "vetBusy": "{vet} tiene otra cita: {items}",
+    "conflictRoom": "Conflicto: la sala {room} está ocupada a esta hora",
+    "bookAnyway": "Guardar igualmente",
+    "maxVisible": "Se muestran hasta 3 salas a la vez; desplaza para ver más"
+  },
+  "petInfo": {
+    "loading": "Cargando…",
+    "notFound": "Paciente no encontrado",
+    "age": "Edad",
+    "neutered": "Esterilizado / castrado",
+    "yes": "Sí",
+    "no": "No",
+    "noVaccinations": "Sin vacunas registradas",
+    "back": "Volver",
+    "openCard": "Ver ficha",
+    "hoverHint": "Pasa el cursor para ver los datos; haz clic para abrir la ficha"
   }
 }

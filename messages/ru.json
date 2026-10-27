@@ -202,7 +202,14 @@
     "todayPrefix": "Сегодня · ",
     "newShort": "Новая",
     "noneThisDay": "Нет записей в этот день",
-    "withDoctor": "Др. {name}"
+    "withDoctor": "Др. {name}",
+    "monthConflicts": "{count, plural, one {# конфликт} few {# конфликта} many {# конфликтов} other {# конфликта}}",
+    "leaveVacation": "Отпуск: {name}",
+    "leaveAbsent": "Нет на месте: {name}",
+    "monthLabel": "Записи: {count}",
+    "addService": "Добавить услугу",
+    "removeService": "Убрать услугу",
+    "services": "Услуги"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -355,7 +362,10 @@
     "totalIssued": "Всего выставлено",
     "confirmedPayments": "Подтверждённые оплаты",
     "appointmentNotFound": "Запись не найдена",
-    "invoiceExists": "У этой записи уже есть счёт"
+    "invoiceExists": "У этой записи уже есть счёт",
+    "invoiceExistsPending": "Счёт ещё не оплачен — его можно открыть и отредактировать.",
+    "invoiceExistsPaid": "Этот счёт уже оплачен, редактировать его нельзя.",
+    "invoiceExistsCancelled": "Этот счёт отменён."
   },
   "inventory": {
     "title": "Склад",
@@ -521,7 +531,7 @@
     "fullTime": "Полная занятость",
     "partTime": "Частичная занятость",
     "contractor": "Подрядчик",
-    "canManageStaff": "Может управлять персоналом",
+    "canManageStaff": "Главный врач: регистрирует персонал, меняет роли и назначает главврачей",
     "annualLeaveDays": "Дней отпуска в год",
     "emergencyContact": "Экстренный контакт",
     "emergencyName": "Имя для экстренной связи",
@@ -632,7 +642,35 @@
     "note": "Заметка",
     "optional": "Необязательно",
     "date": "Дата",
-    "emailInUse": "Этот email уже используется"
+    "emailInUse": "Этот email уже используется",
+    "headVet": "Главный врач",
+    "errors": {
+      "adminOnly": "Назначать и снимать роль администратора может только администратор",
+      "cannotChangeSelf": "Нельзя менять свою роль или деактивировать себя",
+      "lastAdmin": "В клинике должен остаться хотя бы один активный администратор",
+      "invalidRole": "Неверная роль",
+      "notFound": "Сотрудник не найден"
+    },
+    "auditFields": {
+      "created": "Создан",
+      "role": "Роль",
+      "isActive": "Активен",
+      "canManageStaff": "Главный врач",
+      "specialization": "Специализация",
+      "licenseNumber": "Номер лицензии",
+      "education": "Образование",
+      "salaryAmount": "Зарплата",
+      "salaryType": "Тип зарплаты",
+      "hireDate": "Дата найма",
+      "contractType": "Тип договора",
+      "annualLeaveDays": "Дней отпуска",
+      "weeklyTemplate": "Недельный график",
+      "emergencyName": "Контакт на экстренный случай",
+      "emergencyPhone": "Экстренный телефон",
+      "notes": "Заметки",
+      "diplomaPath": "Диплом",
+      "contractPath": "Договор"
+    }
   },
   "prescriptions": {
     "title": "Рецепты",
@@ -694,7 +732,11 @@
     "isActive": "Активна",
     "parentCategory": "Родительская категория",
     "root": "(Корень)",
-    "categoriesCount": "{count, plural, one {# категория} few {# категории} many {# категорий} other {# категории}}"
+    "categoriesCount": "{count, plural, one {# категория} few {# категории} many {# категорий} other {# категории}}",
+    "officialName": "Официальное название ({language})",
+    "officialNameHint": "Так услуга будет указана в счетах и документах.",
+    "translate": "Перевод",
+    "translationsHint": "Необязательно: так услугу увидят сотрудники с интерфейсом на другом языке."
   },
   "pwa": {
     "installTitle": "Установить VetHealio",
@@ -773,7 +815,10 @@
     "invalidNif": "Неверный NIF/CIF",
     "invalidEmail": "Неверный email",
     "invalidIban": "Неверный IBAN",
-    "invalidValue": "Неверное значение"
+    "invalidValue": "Неверное значение",
+    "sectionLanguage": "Язык данных",
+    "dataLocale": "Официальный язык клиники",
+    "dataLocaleHint": "На нём хранятся названия услуг и составляются счета, рецепты и документы. Интерфейс каждый сотрудник может выбрать свой."
   },
   "validation": {
     "required": "Обязательное поле",
@@ -908,5 +953,42 @@
       "presvet": "Передача рецептов на антибиотики в MAPA (RD 666/2023)",
       "knowledgeBase": "Протоколы, дозировки и внутренние инструкции клиники"
     }
+  },
+  "rooms": {
+    "title": "Кабинеты",
+    "hint": "Помещения, в которые записываются приёмы. У каждого свой цвет в календаре.",
+    "namePlaceholder": "Напр.: Кабинет 1, Операционная",
+    "add": "Добавить",
+    "delete": "Удалить",
+    "deleteConfirm": "Удалить «{name}»?",
+    "deleted": "Кабинет удалён",
+    "archived": "У кабинета есть записи — он отправлен в архив",
+    "archivedTitle": "В архиве",
+    "restore": "Вернуть",
+    "none": "Кабинетов пока нет",
+    "saved": "Сохранено",
+    "errorSave": "Не удалось сохранить",
+    "room": "Кабинет",
+    "noRoom": "Без кабинета",
+    "allRooms": "Все кабинеты",
+    "selectRooms": "Кабинеты",
+    "allVets": "Все врачи",
+    "busy": "Кабинет «{room}» занят: {items}",
+    "vetBusy": "У {vet} другая запись: {items}",
+    "conflictRoom": "Конфликт: кабинет «{room}» занят в это время",
+    "bookAnyway": "Записать всё равно",
+    "maxVisible": "На экране до 3 кабинетов, остальные — прокруткой"
+  },
+  "petInfo": {
+    "loading": "Загрузка…",
+    "notFound": "Пациент не найден",
+    "age": "Возраст",
+    "neutered": "Стерилизация / кастрация",
+    "yes": "Да",
+    "no": "Нет",
+    "noVaccinations": "Вакцинаций нет",
+    "back": "Назад",
+    "openCard": "Открыть карточку",
+    "hoverHint": "Наведите — краткие данные, нажмите — карточка"
   }
 }

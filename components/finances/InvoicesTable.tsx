@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Plus, Loader2, Receipt, ChevronRight, Download } from "lucide-react";
 import { cn, formatInvoiceId } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 const STATUS_TABS: { value: InvoiceStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "all" },
@@ -77,6 +78,7 @@ interface InvoicesTableProps {
 export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("finances");
+  const canWrite = useCan("invoice.write");
   const [invoices, setInvoices] = useState<InvoiceFull[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
@@ -162,10 +164,12 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
             <Download className="w-4 h-4 mr-1.5" />
             CSV
           </Button>
+          {canWrite && (
           <Button className="bg-primary text-primary-foreground" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             {t("newInvoice")}
           </Button>
+          )}
         </div>
       </div>
 
@@ -232,7 +236,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                       {inv.pet.owner.firstName} {inv.pet.owner.lastName}
                     </TableCell>
                     <TableCell className="text-sm max-w-[180px]">
-                      <p className="truncate">{inv.appointment?.title ?? "Servicios prestados"}</p>
+                      <p className="truncate">{inv.appointment?.title ?? t("noAppointment")}</p>
                     </TableCell>
                     <TableCell>
                       <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
@@ -280,7 +284,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                     <span className="font-medium text-sm">{inv.pet.name}</span>
                     <SpeciesBadge species={inv.pet.species} size="sm" />
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? "Servicios prestados"}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? t("noAppointment")}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
                       {t(stCfg.label)}

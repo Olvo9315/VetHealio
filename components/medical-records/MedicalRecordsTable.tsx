@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Plus, Stethoscope, Loader2, Pill, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 interface MedicalRecordsTableProps {
   initialRecords: MedicalRecordFull[];
@@ -29,6 +30,7 @@ interface MedicalRecordsTableProps {
 export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("medicalRecords");
+  const canWrite = useCan("medical.write");
   const [records, setRecords] = useState<MedicalRecordFull[]>(initialRecords);
   const [search, setSearch] = useState("");
   const [isSearching, startSearch] = useTransition();
@@ -89,6 +91,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
           )}
         </div>
+        {canWrite && (
         <Button
           className="bg-primary text-primary-foreground shrink-0"
           onClick={() => setCreateOpen(true)}
@@ -96,6 +99,7 @@ export function MedicalRecordsTable({ initialRecords }: MedicalRecordsTableProps
           <Plus className="w-4 h-4 mr-2" />
           {t("newShort")}
         </Button>
+        )}
       </div>
 
       {/* Desktop table */}

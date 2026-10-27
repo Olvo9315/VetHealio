@@ -43,6 +43,7 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
     iban: clinic.iban ?? "",
     defaultTaxRate: String(clinic.defaultTaxRate),
     invoiceFooter: clinic.invoiceFooter ?? "",
+    dataLocale: clinic.dataLocale,
   };
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -187,6 +188,24 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
             {field("phone", t("phone"), { type: "tel", placeholder: "+34 600 000 000" })}
             {field("email", t("email"), { type: "email" })}
             {field("website", t("website"), { placeholder: "https://" })}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("sectionLanguage")}</h3>
+          <div className="space-y-1.5">
+            <Label htmlFor="clinic-dataLocale">{t("dataLocale")}</Label>
+            <select
+              id="clinic-dataLocale"
+              name="dataLocale"
+              defaultValue={initial.dataLocale}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="es">Español</option>
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{t("dataLocaleHint")}</p>
           </div>
         </section>
 

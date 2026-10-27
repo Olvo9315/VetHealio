@@ -313,14 +313,31 @@ model Appointment {
   pet            Pet      @relation(fields: [petId], references: [id])
   veterinarianId String
   veterinarian   User     @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  // First (main) service: drives the calendar colour; further services are in extraServices
   serviceId      String?
   service        Service? @relation(fields: [serviceId], references: [id])
+  extraServices  AppointmentService[]
+  roomId         String?
+  room           Room?    @relation(fields: [roomId], references: [id])
   invoice        Invoice?
   prescriptions  Prescription[]
 
   @@index([startTime, endTime])
   @@index([petId])
   @@index([veterinarianId])
+  @@index([roomId, startTime])
+}
+
+// Additional services of an appointment (the first one is Appointment.serviceId)
+model AppointmentService {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  sortOrder     Int         @default(0)
+
+  @@index([appointmentId])
 }
 
 model MedicalRecord {
@@ -449,7 +466,10 @@ model InvoiceItem {
 
 model Service {
   id        String    @id @default(cuid())
+  // Official name, in the clinic's data language (used on invoices and documents)
   name      String
+  // Optional display names for other UI languages: { "ru": "...", "en": "..." }
+  translations Json?
   price     Float?
   color     String?
   isActive  Boolean   @default(true)
@@ -461,6 +481,7 @@ model Service {
   updatedAt DateTime  @updatedAt
 
   appointments Appointment[]
+  appointmentExtras AppointmentService[]
   invoiceItems InvoiceItem[]
 }
 
@@ -500,6 +521,8 @@ model ClinicSettings {
   invoiceFooter      String?
   // Signed module license (see lib/license.ts)
   licenseKey         String?
+  // Language of official data (service names, invoices, documents): es | ru | en
+  dataLocale         String   @default("es")
   updatedAt          DateTime @updatedAt
 }
 
@@ -510,4 +533,15 @@ model StoredFile {
   size        Int
   data        Bytes
   createdAt   DateTime @default(now())
+}
+
+// Consulting rooms / operating theatres; an appointment can be booked into one
+model Room {
+  id           String        @id @default(cuid())
+  name         String
+  color        String        @default("#1D9E75")
+  sortOrder    Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
 }

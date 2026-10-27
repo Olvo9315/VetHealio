@@ -1,9 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getServiceLocalizer, type ServiceTranslations } from "@/lib/service-i18n";
+import { requirePermission } from "@/lib/permissions";
 
 export type ServiceFlat = {
   id: string;
@@ -13,13 +14,16 @@ export type ServiceFlat = {
   isActive: boolean;
   sortOrder: number;
   parentId: string | null;
+  // Set by the localizer: stored official name and per-language display names
+  officialName?: string;
+  translations?: ServiceTranslations;
 };
 
 export type ServiceNode = ServiceFlat & {
   children: ServiceNode[];
 };
 
-export type SelectedService = { id: string; name: string; price: number | null };
+export type SelectedService = { id: string; name: string; officialName?: string; price: number | null };
 
 const serviceSchema = z.object({
   name: z.string().min(1).max(100),
@@ -30,9 +34,25 @@ const serviceSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional().transform((v) => v ?? null),
   parentId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   sortOrder: z.coerce.number().int().default(0),
+  // Display names in other UI languages; empty strings are dropped
+  translations: z
+    .partialRecord(z.enum(["es", "ru", "en"]), z.string().trim().max(100))
+    .optional()
+    .transform((t) => (t ? Object.fromEntries(Object.entries(t).filter(([, v]) => v)) : undefined)),
 });
 
+// Updates only touch the fields sent: no default sortOrder/parentId (which would reorder or re-parent)
+const updateSchema = serviceSchema
+  .extend({
+    sortOrder: z.coerce.number().int().optional(),
+    parentId: z.string().cuid().nullable().optional(),
+  })
+  .partial();
+
 export async function getServiceTree(): Promise<ServiceNode[]> {
+  const localize = await getServiceLocalizer();
+  const localizeTree = (nodes: ServiceNode[]): ServiceNode[] =>
+    nodes.map((n) => ({ ...localize(n), children: localizeTree(n.children ?? []) }));
   const roots = await prisma.service.findMany({
     where: { parentId: null, isActive: true },
     orderBy: { sortOrder: "asc" },
@@ -49,28 +69,29 @@ export async function getServiceTree(): Promise<ServiceNode[]> {
       },
     },
   });
-  return roots as unknown as ServiceNode[];
+  return localizeTree(roots as unknown as ServiceNode[]);
 }
 
 export async function getServicesFlat(): Promise<ServiceFlat[]> {
-  return prisma.service.findMany({
+  const localize = await getServiceLocalizer();
+  const services = await prisma.service.findMany({
     where: { isActive: true },
     orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
-    select: { id: true, name: true, price: true, color: true, isActive: true, sortOrder: true, parentId: true },
+    select: { id: true, name: true, price: true, color: true, isActive: true, sortOrder: true, parentId: true, translations: true },
   });
+  return services.map(localize);
 }
 
 export async function createService(data: unknown) {
-  const session = await auth();
-  if (!session) return { error: "Unauthorized" };
+  await requirePermission("catalog.manage");
 
   const parsed = serviceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
-  const { name, price, color, parentId, sortOrder } = parsed.data;
+  const { name, price, color, parentId, sortOrder, translations } = parsed.data;
 
   const service = await prisma.service.create({
-    data: { name, price, color: color ?? null, parentId: parentId ?? null, sortOrder },
+    data: { name, price, color: color ?? null, parentId: parentId ?? null, sortOrder, translations: translations ?? {} },
   });
 
   revalidatePath("/services");
@@ -78,10 +99,9 @@ export async function createService(data: unknown) {
 }
 
 export async function updateService(id: string, data: unknown) {
-  const session = await auth();
-  if (!session) return { error: "Unauthorized" };
+  await requirePermission("catalog.manage");
 
-  const parsed = serviceSchema.partial().safeParse(data);
+  const parsed = updateSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   const service = await prisma.service.update({
@@ -94,14 +114,14 @@ export async function updateService(id: string, data: unknown) {
 }
 
 export async function deleteService(id: string) {
-  const session = await auth();
-  if (!session) return { error: "Unauthorized" };
+  await requirePermission("catalog.manage");
 
   const hasChildren = await prisma.service.count({ where: { parentId: id } });
   if (hasChildren > 0) return { error: "has_children" };
 
   const inUse =
     (await prisma.appointment.count({ where: { serviceId: id } })) +
+    (await prisma.appointmentService.count({ where: { serviceId: id } })) +
     (await prisma.invoiceItem.count({ where: { serviceId: id } }));
   if (inUse > 0) return { error: "in_use" };
 
@@ -112,8 +132,7 @@ export async function deleteService(id: string) {
 }
 
 export async function reorderServices(items: { id: string; sortOrder: number }[]) {
-  const session = await auth();
-  if (!session) return { error: "Unauthorized" };
+  await requirePermission("catalog.manage");
 
   await prisma.$transaction(
     items.map(({ id, sortOrder }) => prisma.service.update({ where: { id }, data: { sortOrder } }))

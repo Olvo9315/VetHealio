@@ -10,6 +10,8 @@ import {
   updateAppointment,
   searchPetsForAppointment,
   createAppointmentWithNewPatient,
+  checkAvailability,
+  type BusySlot,
 } from "@/lib/actions/appointments";
 import { findExistingPatients } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
@@ -35,10 +37,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, PawPrint, Loader2, AlertCircle, Check } from "lucide-react";
+import { Search, PawPrint, Loader2, AlertCircle, Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { translateMessage } from "@/lib/i18n-messages";
+import type { Room } from "@/lib/actions/rooms";
 
 // ---- Schema ----
 const schema = z.object({
@@ -68,6 +71,10 @@ interface AppointmentDialogProps {
   appointment?: AppointmentFull;
   presetStart?: Date;
   presetPet?: PetResult;
+  // Bookable rooms; when the clinic has any, choosing one is required
+  rooms?: Room[];
+  // Pre-selected room (e.g. clicking a slot in a room column)
+  presetRoomId?: string;
   onSaved: (appointment: AppointmentFull) => void;
 }
 
@@ -83,6 +90,8 @@ export function AppointmentDialog({
   appointment,
   presetStart,
   presetPet,
+  rooms = [],
+  presetRoomId,
   onSaved,
 }: AppointmentDialogProps) {
   const isEdit = !!appointment;
@@ -102,9 +111,19 @@ export function AppointmentDialog({
   const [selectedService, setSelectedService] = useState<SelectedService | null>(
     appointment?.service ? { id: appointment.service.id, name: appointment.service.name, price: null } : null
   );
+  // Further services after the main one (like invoice lines); all of them go to the invoice later
+  const [extraServices, setExtraServices] = useState<(SelectedService | null)[]>(
+    () => (appointment?.extraServices ?? []).map((s) => ({ id: s.id, name: s.name, officialName: s.officialName, price: null }))
+  );
+  // Which picker the quick-add dialog fills: -1 = main service, n = extra row n
+  const [quickAddTarget, setQuickAddTarget] = useState(-1);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
   const [serviceError, setServiceError] = useState<string | undefined>();
+  const tr = useTranslations("rooms");
+  const [roomId, setRoomId] = useState<string>(appointment?.roomId ?? presetRoomId ?? "");
+  const [roomError, setRoomError] = useState<string | undefined>();
+  const [busy, setBusy] = useState<{ vet: BusySlot[]; room: BusySlot[] }>({ vet: [], room: [] });
 
   // ── Mode toggle ──
   const [mode, setMode] = useState<"existing" | "primary">("existing");
@@ -180,8 +199,14 @@ export function AppointmentDialog({
         owner: apt.pet.owner,
       });
       setSelectedService(apt.service ? { id: apt.service.id, name: apt.service.name, price: null } : null);
+      setExtraServices((apt.extraServices ?? []).map((s) => ({ id: s.id, name: s.name, officialName: s.officialName, price: null })));
       setServiceError(undefined);
+      setRoomId(apt.roomId ?? "");
+      setRoomError(undefined);
     } else {
+      setExtraServices([]);
+      setRoomId(presetRoomId ?? "");
+      setRoomError(undefined);
       const now = new Date();
       form.reset({
         title: "",
@@ -292,17 +317,43 @@ export function AppointmentDialog({
   const watchStart = form.watch("startTime");
   const watchEnd = form.watch("endTime");
 
+  const selectedRoom = rooms.find((r) => r.id === roomId);
+  const vetName = vets.find((v) => v.id === watchVetId)?.name ?? "";
+  const hasConflict = busy.vet.length > 0 || busy.room.length > 0;
+  const timeFmt = (d: Date) => format(new Date(d), "HH:mm");
+  const busyText = (slots: BusySlot[]) => slots.map((b) => `${timeFmt(b.startTime)}–${timeFmt(b.endTime)} ${b.title}`).join("; ");
+
+  // Live check: is the vet or the room already booked at this time?
+  useEffect(() => {
+    if (!open || !watchStart || !watchEnd) { setBusy({ vet: [], room: [] }); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkAvailability({
+          startTime: new Date(watchStart).toISOString(),
+          endTime: new Date(watchEnd).toISOString(),
+          veterinarianId: watchVetId || undefined,
+          roomId: roomId || null,
+          excludeId: appointment?.id,
+        });
+        setBusy(result);
+      } catch {
+        setBusy({ vet: [], room: [] });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [open, watchStart, watchEnd, watchVetId, roomId, appointment?.id]);
+
   // Auto-fill title — existing mode
   useEffect(() => {
     if (mode === "existing" && selectedPet && selectedService && !isEdit) {
-      form.setValue("title", `${selectedService.name} — ${selectedPet.name}`);
+      form.setValue("title", `${selectedService.officialName ?? selectedService.name} — ${selectedPet.name}`);
     }
   }, [selectedPet, selectedService, mode, isEdit, form]);
 
   // Auto-fill title — primary mode
   useEffect(() => {
     if (mode === "primary" && primaryPetName && selectedService && !isEdit) {
-      form.setValue("title", `${selectedService.name} — ${primaryPetName}`);
+      form.setValue("title", `${selectedService.officialName ?? selectedService.name} — ${primaryPetName}`);
     }
   }, [primaryPetName, selectedService, mode, isEdit, form]);
 
@@ -333,6 +384,11 @@ export function AppointmentDialog({
       return;
     }
     setServiceError(undefined);
+    if (rooms.length > 0 && !roomId) {
+      setRoomError(tv("required"));
+      return;
+    }
+    setRoomError(undefined);
 
     // Convert datetime-local strings (no timezone) to UTC ISO strings so the
     // server action produces the same Date regardless of the server's timezone.
@@ -340,6 +396,8 @@ export function AppointmentDialog({
       ...data,
       startTime: new Date(data.startTime).toISOString(),
       endTime: new Date(data.endTime).toISOString(),
+      roomId: roomId || null,
+      extraServiceIds: extraServices.filter((s): s is SelectedService => !!s).map((s) => s.id),
     };
 
     if (mode === "existing") {
@@ -715,9 +773,43 @@ export function AppointmentDialog({
               services={localServices}
               value={selectedService?.id ?? null}
               onChange={(svc) => { setSelectedService(svc); setServiceError(undefined); }}
-              onAddNew={() => setQuickAddOpen(true)}
+              onAddNew={() => { setQuickAddTarget(-1); setQuickAddOpen(true); }}
               error={serviceError}
             />
+            {extraServices.map((svc, idx) => (
+              <div key={idx} className="flex items-start gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <ServicePicker
+                    services={localServices}
+                    value={svc?.id ?? null}
+                    onChange={(next) => setExtraServices((prev) => prev.map((s, i) => (i === idx ? next : s)))}
+                    onAddNew={() => { setQuickAddTarget(idx); setQuickAddOpen(true); }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={t("removeService")}
+                  onClick={() => setExtraServices((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            {extraServices.length < 10 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-primary"
+                onClick={() => setExtraServices((prev) => [...prev, null])}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                {t("addService")}
+              </Button>
+            )}
           </div>
 
           {/* ── Veterinarian ── */}
@@ -744,6 +836,47 @@ export function AppointmentDialog({
               <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.veterinarianId.message)}</p>
             )}
           </div>
+
+          {/* ── Room ── */}
+          {rooms.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>{tr("room")} *</Label>
+              <Select value={roomId} onValueChange={(v) => { setRoomId(v ?? ""); setRoomError(undefined); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={tc("select")}>
+                    {selectedRoom ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedRoom.color }} />
+                        {selectedRoom.name}
+                      </span>
+                    ) : tc("select")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.color }} />
+                        {r.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roomError && <p className="text-xs text-destructive">{roomError}</p>}
+            </div>
+          )}
+
+          {/* ── Availability (vet / room) ── */}
+          {hasConflict && (
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                {busy.vet.length > 0 && <p>{tr("vetBusy", { vet: vetName, items: busyText(busy.vet) })}</p>}
+                {busy.room.length > 0 && <p>{tr("busy", { room: selectedRoom?.name ?? "", items: busyText(busy.room) })}</p>}
+              </div>
+            </div>
+          )}
 
           {/* ── Title ── */}
           <div className="space-y-1.5">
@@ -799,7 +932,7 @@ export function AppointmentDialog({
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? tc("save") : t("create")}
+              {hasConflict ? tr("bookAnyway") : isEdit ? tc("save") : t("create")}
             </Button>
           </div>
         </form>
@@ -821,8 +954,12 @@ export function AppointmentDialog({
           parentId: null,
         };
         setLocalServices((prev) => [...prev, flat]);
-        setSelectedService(svc);
-        setServiceError(undefined);
+        if (quickAddTarget >= 0) {
+          setExtraServices((prev) => prev.map((s, i) => (i === quickAddTarget ? svc : s)));
+        } else {
+          setSelectedService(svc);
+          setServiceError(undefined);
+        }
       }}
     />
     </>

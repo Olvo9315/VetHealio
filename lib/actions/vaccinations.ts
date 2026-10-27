@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requirePermission } from "@/lib/permissions";
 
 const vaccinationSchema = z.object({
   petId: z.string().min(1),
@@ -34,6 +35,7 @@ const fullInclude = {
 } as const;
 
 export async function createVaccination(data: VaccinationFormData) {
+  await requirePermission("medical.write");
   const parsed = vaccinationSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -55,6 +57,7 @@ export async function createVaccination(data: VaccinationFormData) {
 }
 
 export async function updateVaccination(id: string, data: VaccinationFormData) {
+  await requirePermission("medical.write");
   const parsed = vaccinationSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -76,6 +79,7 @@ export async function updateVaccination(id: string, data: VaccinationFormData) {
 }
 
 export async function deleteVaccination(id: string, petId: string) {
+  await requirePermission("medical.delete");
   await prisma.vaccination.delete({ where: { id } });
   revalidatePath(`/patients/${petId}`);
   return { success: true };

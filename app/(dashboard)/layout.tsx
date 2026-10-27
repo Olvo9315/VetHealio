@@ -8,6 +8,8 @@ import { getClinic } from "@/lib/clinic";
 import { StagingBanner } from "@/components/layout/StagingBanner";
 import { getLicenseState } from "@/lib/license";
 import { MODULES } from "@/lib/modules";
+import { getActor, grantedPermissions } from "@/lib/permissions";
+import { PermissionsProvider } from "@/components/layout/PermissionsProvider";
 
 export default async function DashboardLayout({
   children,
@@ -30,9 +32,11 @@ export default async function DashboardLayout({
   const hiddenRoutes = MODULES.filter((m) => !modules.includes(m.key)).flatMap((m) => m.routes);
 
   const { name, logoUrl } = await getClinic();
+  const permissions = grantedPermissions(await getActor());
   const clinic = { name, logoUrl };
 
   return (
+    <PermissionsProvider permissions={permissions}>
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -43,5 +47,6 @@ export default async function DashboardLayout({
       </div>
       <BottomNav showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
     </div>
+    </PermissionsProvider>
   );
 }
