@@ -4,6 +4,7 @@ import { startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { TopBar } from "@/components/layout/TopBar";
 import { getAppointments, getVeterinarians } from "@/lib/actions/appointments";
 import { getServicesFlat } from "@/lib/actions/services";
+import { getRooms } from "@/lib/actions/rooms";
 import { AppointmentsCalendar } from "@/components/appointments/AppointmentsCalendar";
 import { MobileAppointmentList } from "@/components/appointments/MobileAppointmentList";
 
@@ -15,10 +16,11 @@ export default async function AppointmentsPage() {
   const from = startOfMonth(addMonths(new Date(), -1));
   const to = endOfMonth(addMonths(new Date(), 1));
 
-  const [appointments, vets, services] = await Promise.all([
+  const [appointments, vets, services, rooms] = await Promise.all([
     getAppointments(from, to),
     getVeterinarians(),
     getServicesFlat(),
+    getRooms(),
   ]);
 
   return (
@@ -27,11 +29,11 @@ export default async function AppointmentsPage() {
       <div className="flex-1 p-4 md:p-6 flex flex-col min-h-0">
         {/* Desktop calendar */}
         <div className="hidden md:flex flex-col flex-1 min-h-0">
-          <AppointmentsCalendar initialAppointments={appointments} vets={vets} services={services} />
+          <AppointmentsCalendar initialAppointments={appointments} vets={vets} services={services} rooms={rooms} />
         </div>
         {/* Mobile day list */}
         <div className="md:hidden">
-          <MobileAppointmentList initialAppointments={appointments} vets={vets} services={services} />
+          <MobileAppointmentList initialAppointments={appointments} vets={vets} services={services} rooms={rooms} />
         </div>
       </div>
     </div>

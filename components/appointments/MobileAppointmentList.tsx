@@ -12,6 +12,7 @@ import { AppointmentDialog } from "./AppointmentDialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Room } from "@/lib/actions/rooms";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -19,9 +20,10 @@ interface MobileAppointmentListProps {
   initialAppointments: AppointmentFull[];
   vets: Vet[];
   services: ServiceFlat[];
+  rooms: Room[];
 }
 
-export function MobileAppointmentList({ initialAppointments, vets, services }: MobileAppointmentListProps) {
+export function MobileAppointmentList({ initialAppointments, vets, services, rooms }: MobileAppointmentListProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("appointments");
   const [date, setDate] = useState(new Date());
@@ -163,8 +165,11 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
                   <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
                     {cfgLabel(t, typeCfg)} · {t("withDoctor", { name: apt.veterinarian.name })}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate">
                     {apt.pet.owner.firstName} {apt.pet.owner.lastName}
+                    {apt.room && (
+                      <span className="font-semibold" style={{ color: apt.room.color }}> · {apt.room.name}</span>
+                    )}
                   </p>
                 </div>
                 {/* Conflict warning / Status badge */}
@@ -201,6 +206,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services }: M
           onOpenChange={(v) => { if (!v) { setCreateOpen(false); setEditingApt(null); } }}
           vets={vets}
           services={services}
+          rooms={rooms}
           appointment={editingApt ?? undefined}
           presetStart={editingApt ? undefined : date}
           onSaved={handleSaved}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AppointmentStatus, AppointmentType, Species } from "@prisma/client";
 import { getServiceRelationLocalizer } from "@/lib/service-i18n";
+import { requireUserId } from "@/lib/permissions";
 
 // ---- Types ----
 
@@ -24,6 +25,8 @@ export type AppointmentFull = {
   veterinarianId: string;
   serviceId: string | null;
   service: { id: string; name: string; officialName?: string; color: string | null } | null;
+  roomId: string | null;
+  room: { id: string; name: string; color: string } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
   veterinarian: { id: string; name: string };
 };
@@ -35,6 +38,7 @@ const appointmentSchema = z.object({
   petId: z.string().min(1),
   veterinarianId: z.string().min(1),
   serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  roomId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
@@ -44,6 +48,8 @@ const appointmentSchema = z.object({
 const updateStatusSchema = z.object({
   status: z.nativeEnum(AppointmentStatus),
 });
+
+const roomInclude = { select: { id: true, name: true, color: true } };
 
 // Sub-services have no color of their own: the calendar uses the nearest category color
 const serviceInclude = {
@@ -90,6 +96,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      room: roomInclude,
     },
     orderBy: { startTime: "asc" },
   })) as unknown as AppointmentFull[];
@@ -111,6 +118,7 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      room: roomInclude,
     },
   })) as unknown as AppointmentFull | null;
   return row && (await getAppointmentLocalizer())(row);
@@ -167,6 +175,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       petId: parsed.data.petId,
       veterinarianId: parsed.data.veterinarianId,
       serviceId: parsed.data.serviceId ?? null,
+      roomId: parsed.data.roomId ?? null,
       type: parsed.data.type ?? null,
       startTime,
       endTime,
@@ -182,6 +191,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      room: roomInclude,
     },
   });
 
@@ -189,10 +199,11 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
   return { appointment: (await getAppointmentLocalizer())(appointment) };
 }
 
-export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date) {
+// Drag & drop / resize in the calendar; in the per-room day view a drop can also move rooms
+export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date, roomId?: string | null) {
   await prisma.appointment.update({
     where: { id },
-    data: { startTime, endTime },
+    data: { startTime, endTime, ...(roomId !== undefined ? { roomId } : {}) },
   });
   revalidatePath("/appointments");
 }
@@ -216,6 +227,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       ...(data.petId ? { petId: data.petId } : {}),
       ...(data.veterinarianId ? { veterinarianId: data.veterinarianId } : {}),
       ...("serviceId" in data ? { serviceId: data.serviceId ?? null } : {}),
+      ...("roomId" in data ? { roomId: data.roomId ?? null } : {}),
       ...(data.type ? { type: data.type } : {}),
       ...(data.startTime ? { startTime: new Date(data.startTime) } : {}),
       ...(data.endTime ? { endTime: new Date(data.endTime) } : {}),
@@ -230,6 +242,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      room: roomInclude,
     },
   });
 
@@ -258,6 +271,7 @@ const appointmentBaseSchema = z.object({
   title: z.string().min(1).max(100),
   veterinarianId: z.string().min(1),
   serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  roomId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
@@ -308,6 +322,7 @@ export async function createAppointmentWithNewPatient(
         petId: resolvedPetId,
         veterinarianId: parsedAppt.data.veterinarianId,
         serviceId: parsedAppt.data.serviceId ?? null,
+        roomId: parsedAppt.data.roomId ?? null,
         type: parsedAppt.data.type ?? null,
         startTime,
         endTime,
@@ -323,6 +338,7 @@ export async function createAppointmentWithNewPatient(
         },
         veterinarian: { select: { id: true, name: true } },
         service: serviceInclude,
+        room: roomInclude,
       },
     });
   });
@@ -330,4 +346,37 @@ export async function createAppointmentWithNewPatient(
   revalidatePath("/appointments");
   revalidatePath("/patients");
   return { appointment: (await getAppointmentLocalizer())(appointment) };
+}
+
+export type BusySlot = { id: string; title: string; startTime: Date; endTime: Date };
+
+// Appointments that would overlap a booking for the same vet or the same room
+// (cancelled and no-show ones don't count). Used to warn before saving.
+export async function checkAvailability(input: {
+  startTime: string;
+  endTime: string;
+  veterinarianId?: string;
+  roomId?: string | null;
+  excludeId?: string;
+}): Promise<{ vet: BusySlot[]; room: BusySlot[] }> {
+  await requireUserId();
+  const start = new Date(input.startTime);
+  const end = new Date(input.endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return { vet: [], room: [] };
+  const overlapping = {
+    startTime: { lt: end },
+    endTime: { gt: start },
+    status: { notIn: ["CANCELLED", "NO_SHOW"] as AppointmentStatus[] },
+    ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+  };
+  const select = { id: true, title: true, startTime: true, endTime: true };
+  const [vet, room] = await Promise.all([
+    input.veterinarianId
+      ? prisma.appointment.findMany({ where: { ...overlapping, veterinarianId: input.veterinarianId }, select, orderBy: { startTime: "asc" } })
+      : [],
+    input.roomId
+      ? prisma.appointment.findMany({ where: { ...overlapping, roomId: input.roomId }, select, orderBy: { startTime: "asc" } })
+      : [],
+  ]);
+  return { vet, room };
 }

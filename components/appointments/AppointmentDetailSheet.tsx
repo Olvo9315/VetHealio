@@ -67,6 +67,7 @@ export function AppointmentDetailSheet({
   const canInvoice = useCan("invoice.write");
   const canPrescribe = useCan("prescription.write");
   const t = useTranslations("appointments");
+  const tr = useTranslations("rooms");
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
@@ -205,6 +206,19 @@ export function AppointmentDetailSheet({
             </p>
             <p className="text-sm font-medium">{appointment.veterinarian.name}</p>
           </div>
+
+          {/* Room */}
+          {appointment.room && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {tr("room")}
+              </p>
+              <p className="text-sm font-semibold flex items-center gap-2" style={{ color: appointment.room.color }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: appointment.room.color }} />
+                {appointment.room.name}
+              </p>
+            </div>
+          )}
 
           {/* Notes */}
           {appointment.notes && (

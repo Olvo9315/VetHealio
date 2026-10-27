@@ -946,5 +946,30 @@
       "presvet": "Comunicación de recetas de antibióticos al MAPA (RD 666/2023)",
       "knowledgeBase": "Protocolos, dosis y guías internas de la clínica"
     }
+  },
+  "rooms": {
+    "title": "Consultas y quirófanos",
+    "hint": "Salas en las que se reservan las citas. Cada una tiene su color en el calendario.",
+    "namePlaceholder": "Ej. Consulta 1, Quirófano",
+    "add": "Añadir",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Eliminar «{name}»?",
+    "deleted": "Sala eliminada",
+    "archived": "La sala tiene citas: se ha archivado",
+    "archivedTitle": "Archivadas",
+    "restore": "Restaurar",
+    "none": "Aún no hay salas",
+    "saved": "Guardado",
+    "errorSave": "No se pudo guardar",
+    "room": "Sala",
+    "noRoom": "Sin sala",
+    "allRooms": "Todas las salas",
+    "selectRooms": "Salas",
+    "allVets": "Todos los veterinarios",
+    "busy": "{room} está ocupada: {items}",
+    "vetBusy": "{vet} tiene otra cita: {items}",
+    "conflictRoom": "Conflicto: la sala {room} está ocupada a esta hora",
+    "bookAnyway": "Guardar igualmente",
+    "maxVisible": "Se muestran hasta 3 salas a la vez; desplaza para ver más"
   }
 }

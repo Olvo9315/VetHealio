@@ -11,6 +11,8 @@ export const PERMISSIONS = {
   "clinic.settings": ["ADMIN"],
   // Register staff, change roles, appoint head vets (the only difference between vet and head vet)
   "staff.manage": ["ADMIN", "HEAD_VET"],
+  // Consulting rooms / theatres used for booking
+  "rooms.manage": ["ADMIN", "HEAD_VET"],
   // Create admins or change the role of an admin
   "staff.assignAdmin": ["ADMIN"],
   // Create invoices, edit pending ones, register payments

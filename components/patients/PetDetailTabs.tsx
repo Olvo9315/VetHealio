@@ -18,6 +18,7 @@ import type { InvoiceFull } from "@/lib/actions/invoices";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import type { PrescriptionFull } from "@/lib/actions/prescriptions";
 import { getVeterinarians } from "@/lib/actions/appointments";
+import { getRooms, type Room } from "@/lib/actions/rooms";
 import { format } from "date-fns";
 import { Calendar, DollarSign, Clock, Plus, Receipt } from "lucide-react";
 import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
@@ -47,6 +48,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
 
   const [activeTab, setActiveTab] = useState<Tab>("medical");
   const [vets, setVets] = useState<Vet[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [, startVetLoad] = useTransition();
 
   const [medicalOpen, setMedicalOpen] = useState(false);
@@ -74,8 +76,9 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
 
   useEffect(() => {
     startVetLoad(async () => {
-      const data = await getVeterinarians();
+      const [data, roomList] = await Promise.all([getVeterinarians(), getRooms()]);
       setVets(data);
+      setRooms(roomList);
     });
   }, []);
 
@@ -410,6 +413,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
           open={appointmentOpen}
           onOpenChange={setAppointmentOpen}
           vets={vets}
+          rooms={rooms}
           presetPet={presetPet}
           onSaved={handleAppointmentSaved}
         />

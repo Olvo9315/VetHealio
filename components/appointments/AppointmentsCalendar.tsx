@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition, useRef } from "react";
+import { useState, useCallback, useMemo, useTransition, useRef, useEffect } from "react";
 import {
   Calendar,
   dateFnsLocalizer,
@@ -24,9 +24,10 @@ import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
 import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import type { Room } from "@/lib/actions/rooms";
 
 const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
@@ -45,7 +46,15 @@ type CalEvent = {
   start: Date;
   end: Date;
   resource: AppointmentFull;
+  // Column in the per-room day view ("none" = appointments without a room)
+  resourceId: string;
 };
+
+type RoomColumn = { id: string; name: string; color: string };
+const NO_ROOM = "none";
+// Day view shows at most this many room columns per screen; more scroll horizontally
+const ROOMS_PER_SCREEN = 3;
+const FILTER_STORAGE_KEY = "vh.calendar.filters";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -53,6 +62,7 @@ interface AppointmentsCalendarProps {
   initialAppointments: AppointmentFull[];
   vets: Vet[];
   services: ServiceFlat[];
+  rooms: Room[];
 }
 
 
@@ -62,12 +72,14 @@ function AppointmentCard({
   endTime,
   highlight = false,
   conflict = false,
+  roomConflict = false,
 }: {
   apt: AppointmentFull;
   startTime: Date;
   endTime: Date;
   highlight?: boolean;
   conflict?: boolean;
+  roomConflict?: boolean;
 }) {
   const t = useTranslations("appointments");
   const typeCfg = getTypeCfgForAppointment(apt);
@@ -118,6 +130,15 @@ function AppointmentCard({
         {conflict && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
       </div>
 
+      {/* Room */}
+      {apt.room && (
+        <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: apt.room.color }}>
+          <DoorOpen className="w-3 h-3 shrink-0" />
+          <span>{apt.room.name}</span>
+          {roomConflict && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
+        </div>
+      )}
+
       {/* Owner + phone */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <User className="w-3 h-3 shrink-0" />
@@ -142,7 +163,7 @@ function AppointmentCard({
   );
 }
 
-export function AppointmentsCalendar({ initialAppointments, vets, services }: AppointmentsCalendarProps) {
+export function AppointmentsCalendar({ initialAppointments, vets, services, rooms }: AppointmentsCalendarProps) {
   const dateLocale = useDateLocale();
   const calendarI18n = useCalendarI18n();
   const t = useTranslations("appointments");
@@ -155,6 +176,37 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [presetStart, setPresetStart] = useState<Date | undefined>();
+  const [presetRoomId, setPresetRoomId] = useState<string | undefined>();
+  const tr = useTranslations("rooms");
+  const trRef = useRef(tr);
+  trRef.current = tr;
+
+  // Filters: one vet (or all) and a set of rooms; remembered per browser
+  const [vetFilter, setVetFilter] = useState<string>("ALL");
+  const [roomFilter, setRoomFilter] = useState<string[]>(() => rooms.map((r) => r.id));
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) ?? "{}");
+      if (typeof saved.vet === "string" && (saved.vet === "ALL" || vets.some((v) => v.id === saved.vet))) setVetFilter(saved.vet);
+      if (Array.isArray(saved.rooms)) {
+        const known = saved.rooms.filter((id: string) => rooms.some((r) => r.id === id));
+        if (known.length) setRoomFilter(known);
+      }
+    } catch {
+      // storage unavailable: keep defaults
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ vet: vetFilter, rooms: roomFilter }));
+    } catch {
+      // ignore
+    }
+  }, [vetFilter, roomFilter]);
+  const allRoomsSelected = roomFilter.length === rooms.length;
+  function toggleRoom(id: string) {
+    setRoomFilter((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
+  }
 
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentFull | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -171,40 +223,63 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
   // Refs keep EventComponent stable so DnD HOC doesn't break on state changes
   const viewRef = useRef(view);
   viewRef.current = view;
+  const roomsRef = useRef(rooms);
+  roomsRef.current = rooms;
   const appointmentsRef = useRef(appointments);
   appointmentsRef.current = appointments;
 
-  // IDs of appointments where same vet has overlapping time
-  const conflictIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (let i = 0; i < appointments.length; i++) {
-      for (let j = i + 1; j < appointments.length; j++) {
-        const a = appointments[i], b = appointments[j];
-        if (
-          a.veterinarianId === b.veterinarianId &&
-          new Date(a.startTime) < new Date(b.endTime) &&
-          new Date(a.endTime) > new Date(b.startTime)
-        ) {
-          ids.add(a.id);
-          ids.add(b.id);
-        }
+  // Appointments that overlap another one with the same vet / in the same room
+  const { conflictIds, roomConflictIds } = useMemo(() => {
+    const vetIds = new Set<string>();
+    const roomIds = new Set<string>();
+    const active = appointments.filter((a) => a.status !== "CANCELLED" && a.status !== "NO_SHOW");
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        const a = active[i], b = active[j];
+        const overlap = new Date(a.startTime) < new Date(b.endTime) && new Date(a.endTime) > new Date(b.startTime);
+        if (!overlap) continue;
+        if (a.veterinarianId === b.veterinarianId) { vetIds.add(a.id); vetIds.add(b.id); }
+        if (a.roomId && a.roomId === b.roomId) { roomIds.add(a.id); roomIds.add(b.id); }
       }
     }
-    return ids;
+    return { conflictIds: new Set(Array.from(vetIds).concat(Array.from(roomIds))), roomConflictIds: roomIds };
   }, [appointments]);
+  const roomConflictIdsRef = useRef(roomConflictIds);
+  roomConflictIdsRef.current = roomConflictIds;
   const conflictIdsRef = useRef(conflictIds);
   conflictIdsRef.current = conflictIds;
 
+  const visibleAppointments = useMemo(
+    () =>
+      appointments.filter(
+        (a) =>
+          (vetFilter === "ALL" || a.veterinarianId === vetFilter) &&
+          (rooms.length === 0 || allRoomsSelected || (a.roomId !== null && roomFilter.includes(a.roomId)))
+      ),
+    [appointments, vetFilter, roomFilter, allRoomsSelected, rooms.length]
+  );
+
   const events = useMemo<CalEvent[]>(() =>
-    appointments.map((apt) => ({
+    visibleAppointments.map((apt) => ({
       id: apt.id,
       title: apt.title,
       start: new Date(apt.startTime),
       end: new Date(apt.endTime),
       resource: apt,
+      resourceId: apt.roomId ?? NO_ROOM,
     })),
-    [appointments]
+    [visibleAppointments]
   );
+
+  // Day view with rooms: one column per selected room (+ "no room" when such appointments exist)
+  const roomColumns = useMemo<RoomColumn[] | undefined>(() => {
+    if (view !== Views.DAY || rooms.length === 0) return undefined;
+    const cols: RoomColumn[] = rooms.filter((r) => roomFilter.includes(r.id));
+    const dayKey = format(date, "yyyy-MM-dd");
+    const unassigned = visibleAppointments.some((a) => !a.roomId && format(new Date(a.startTime), "yyyy-MM-dd") === dayKey);
+    if (unassigned) cols.push({ id: NO_ROOM, name: tr("noRoom"), color: "#6B7280" });
+    return cols.length ? cols : undefined;
+  }, [view, rooms, roomFilter, visibleAppointments, date, tr]);
 
   function navigate(direction: "prev" | "next" | "today") {
     if (direction === "today") { setDate(new Date()); return; }
@@ -228,6 +303,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     setPresetStart(slotInfo.start as Date);
+    const rid = slotInfo.resourceId as string | undefined;
+    setPresetRoomId(rid && rid !== NO_ROOM ? rid : undefined);
     setCreateDialogOpen(true);
   }, []);
 
@@ -237,23 +314,28 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
   }, []);
 
   const handleEventDrop = useCallback(
-    ({ event, start, end }: { event: CalEvent; start: Date | string; end: Date | string }) => {
+    ({ event, start, end, resourceId }: { event: CalEvent; start: Date | string; end: Date | string; resourceId?: string | number }) => {
       const startDate = new Date(start);
       const endDate = new Date(end);
+      // Dropping into another room column also moves the appointment to that room
+      const newRoom = resourceId === undefined ? undefined : resourceId === NO_ROOM ? null : String(resourceId);
+      const roomObj = newRoom ? roomsRef.current.find((r) => r.id === newRoom) ?? null : null;
       setAppointments((prev) =>
         prev.map((a) =>
-          a.id === event.id ? { ...a, startTime: startDate, endTime: endDate } : a
+          a.id === event.id
+            ? { ...a, startTime: startDate, endTime: endDate, ...(newRoom !== undefined ? { roomId: newRoom, room: roomObj } : {}) }
+            : a
         )
       );
       startTransition(async () => {
         try {
-          await updateAppointmentTime(event.id, startDate, endDate);
+          await updateAppointmentTime(event.id, startDate, endDate, newRoom);
           toast.success(tRef.current("dragDropSuccess"));
         } catch {
           setAppointments((prev) =>
             prev.map((a) =>
               a.id === event.id
-                ? { ...a, startTime: event.resource.startTime, endTime: event.resource.endTime }
+                ? { ...a, startTime: event.resource.startTime, endTime: event.resource.endTime, roomId: event.resource.roomId, room: event.resource.room }
                 : a
             )
           );
@@ -329,7 +411,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             ...style,
             borderLeftColor: "#EF4444",
             borderColor: "#FCA5A5",
-            boxShadow: "2px 2px 0 #FCA5A5, 4px 4px 0 #FCA5A580",
+            boxShadow: "inset 0 0 0 1px #FCA5A5",
           },
         };
       }
@@ -354,6 +436,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
         );
         const others = overlapping.filter((a) => a.id !== apt.id);
         const hasConflict = conflictIdsRef.current.has(apt.id);
+        const hasRoomConflict = roomConflictIdsRef.current.has(apt.id);
 
         return (
           <TooltipPrimitive.Root delayDuration={300}>
@@ -375,6 +458,11 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                     <span className="text-[10px] leading-tight truncate opacity-80">
                       {apt.veterinarian.name}
                     </span>
+                    {apt.room && (
+                      <span className="text-[10px] leading-tight truncate font-semibold" style={{ color: apt.room.color }}>
+                        ● {apt.room.name}
+                      </span>
+                    )}
                     {durationMin >= 45 && apt.notes && (
                       <span className="text-[9px] leading-tight truncate opacity-60 italic">
                         {apt.notes}
@@ -404,7 +492,9 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                   <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                      {tRef.current("conflict", { vet: apt.veterinarian.name })}
+                      {hasRoomConflict && apt.room
+                        ? trRef.current("conflictRoom", { room: apt.room.name })
+                        : tRef.current("conflict", { vet: apt.veterinarian.name })}
                     </p>
                   </div>
                 )}
@@ -426,7 +516,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
                 )}
 
                 {/* Current appointment (highlighted) */}
-                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight />
+                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight roomConflict={hasRoomConflict} />
 
                 {/* Other overlapping appointments */}
                 {others.map((oa) => (
@@ -471,7 +561,48 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             <span className="text-sm font-medium ml-2 capitalize">{navLabel()}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Vet filter */}
+            <select
+              aria-label={tr("allVets")}
+              value={vetFilter}
+              onChange={(e) => setVetFilter(e.target.value)}
+              className="h-8 rounded-lg border border-border bg-background px-2 text-sm"
+            >
+              <option value="ALL">{tr("allVets")}</option>
+              {vets.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+
+            {/* Room filter (checkboxes) */}
+            {rooms.length > 0 && (
+              <details className="relative">
+                <summary className="h-8 list-none cursor-pointer rounded-lg border border-border bg-background px-3 text-sm flex items-center gap-1.5">
+                  <DoorOpen className="w-3.5 h-3.5" />
+                  {allRoomsSelected ? tr("allRooms") : `${tr("selectRooms")}: ${roomFilter.length}`}
+                </summary>
+                <div className="absolute right-0 z-50 mt-1 w-56 rounded-lg border border-border bg-popover p-2 shadow-lg space-y-1">
+                  <label className="flex items-center gap-2 text-sm px-1 py-0.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allRoomsSelected}
+                      onChange={() => setRoomFilter(allRoomsSelected ? [] : rooms.map((r) => r.id))}
+                    />
+                    {tr("allRooms")}
+                  </label>
+                  {rooms.map((r) => (
+                    <label key={r.id} className="flex items-center gap-2 text-sm px-1 py-0.5 cursor-pointer">
+                      <input type="checkbox" checked={roomFilter.includes(r.id)} onChange={() => toggleRoom(r.id)} />
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                      <span className="truncate">{r.name}</span>
+                    </label>
+                  ))}
+                  {view === Views.DAY && roomFilter.length > ROOMS_PER_SCREEN && (
+                    <p className="text-[11px] text-muted-foreground px-1 pt-1">{tr("maxVisible")}</p>
+                  )}
+                </div>
+              </details>
+            )}
+
             {/* Zoom control */}
             <div className="flex rounded-lg border border-border overflow-hidden" title={t("zoom")}>
               {(["compact", "normal", "large"] as const).map((z) => (
@@ -507,7 +638,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             </div>
             <Button
               className="bg-primary text-primary-foreground"
-              onClick={() => { setPresetStart(undefined); setCreateDialogOpen(true); }}
+              onClick={() => { setPresetStart(undefined); setPresetRoomId(undefined); setCreateDialogOpen(true); }}
             >
               + {t("new")}
             </Button>
@@ -539,6 +670,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             "rounded-xl border border-border overflow-hidden bg-card",
             "[&_.rbc-calendar]:h-full",
             "[&_.rbc-header]:text-xs [&_.rbc-header]:font-medium [&_.rbc-header]:text-muted-foreground [&_.rbc-header]:border-border",
+            // Room columns in day view: the room name is the header, no need to repeat the date per column
+            "[&_.rbc-row-resource+.rbc-time-header-cell-single-day]:hidden",
             "[&_.rbc-month-view]:border-none [&_.rbc-month-view]:flex-1",
             "[&_.rbc-month-row]:border-border [&_.rbc-month-row]:min-h-[100px]",
             "[&_.rbc-day-bg]:border-border [&_.rbc-day-bg.rbc-today]:bg-primary/5",
@@ -560,6 +693,11 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
           )}
           style={{ height: "calc(100vh - 260px)", minHeight: 400 }}
         >
+          <div className="h-full overflow-x-auto">
+          <div
+            className="h-full"
+            style={roomColumns && roomColumns.length > ROOMS_PER_SCREEN ? { width: `${(roomColumns.length / ROOMS_PER_SCREEN) * 100}%` } : undefined}
+          >
           <DnDCalendar
             localizer={localizer}
             events={events}
@@ -576,9 +714,22 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
-            components={{ event: EventComponent as (props: { event: object }) => JSX.Element }}
+            components={{
+              event: EventComponent as (props: { event: object }) => JSX.Element,
+              resourceHeader: ({ label, resource }: { label: React.ReactNode; resource: object }) => (
+                <span className="flex items-center justify-center gap-1.5 text-xs font-semibold py-1" style={{ color: (resource as RoomColumn).color }}>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: (resource as RoomColumn).color }} />
+                  {label}
+                </span>
+              ),
+            }}
+            resources={roomColumns}
+            resourceIdAccessor={(r: object) => (r as RoomColumn).id}
+            resourceTitleAccessor={(r: object) => (r as RoomColumn).name}
             culture={calendarI18n.culture}
             messages={calendarI18n.messages}
+            // Side-by-side columns for simultaneous appointments instead of stacking them
+            dayLayoutAlgorithm="no-overlap"
             step={15}
             timeslots={2}
             min={new Date(0, 0, 0, 7, 0)}
@@ -586,6 +737,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             popup
             scrollToTime={new Date(0, 0, 0, 8, 0)}
           />
+          </div>
+          </div>
         </div>
 
         {/* Create Dialog */}
@@ -594,7 +747,9 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
           onOpenChange={setCreateDialogOpen}
           vets={vets}
           services={services}
+          rooms={rooms}
           presetStart={presetStart}
+          presetRoomId={presetRoomId}
           onSaved={handleAppointmentSaved}
         />
 
@@ -605,6 +760,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services }: Ap
             onOpenChange={setEditDialogOpen}
             vets={vets}
             services={services}
+            rooms={rooms}
             appointment={editingAppointment}
             onSaved={handleAppointmentSaved}
           />

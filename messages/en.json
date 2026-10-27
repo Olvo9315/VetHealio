@@ -946,5 +946,30 @@
       "presvet": "Antibiotic prescription reporting to MAPA (RD 666/2023)",
       "knowledgeBase": "Clinic protocols, dosages and internal guides"
     }
+  },
+  "rooms": {
+    "title": "Rooms",
+    "hint": "Rooms appointments are booked into. Each has its own colour in the calendar.",
+    "namePlaceholder": "E.g. Consulting room 1, Theatre",
+    "add": "Add",
+    "delete": "Delete",
+    "deleteConfirm": "Delete “{name}”?",
+    "deleted": "Room deleted",
+    "archived": "The room has appointments: it was archived",
+    "archivedTitle": "Archived",
+    "restore": "Restore",
+    "none": "No rooms yet",
+    "saved": "Saved",
+    "errorSave": "Could not save",
+    "room": "Room",
+    "noRoom": "No room",
+    "allRooms": "All rooms",
+    "selectRooms": "Rooms",
+    "allVets": "All vets",
+    "busy": "{room} is busy: {items}",
+    "vetBusy": "{vet} has another appointment: {items}",
+    "conflictRoom": "Conflict: room {room} is busy at this time",
+    "bookAnyway": "Save anyway",
+    "maxVisible": "Up to 3 rooms fit on screen; scroll for more"
   }
 }

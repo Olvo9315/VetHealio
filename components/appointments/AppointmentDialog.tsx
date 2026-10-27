@@ -10,6 +10,8 @@ import {
   updateAppointment,
   searchPetsForAppointment,
   createAppointmentWithNewPatient,
+  checkAvailability,
+  type BusySlot,
 } from "@/lib/actions/appointments";
 import { findExistingPatients } from "@/lib/actions/patients";
 import type { AppointmentFull } from "@/lib/actions/appointments";
@@ -39,6 +41,7 @@ import { Search, PawPrint, Loader2, AlertCircle, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { translateMessage } from "@/lib/i18n-messages";
+import type { Room } from "@/lib/actions/rooms";
 
 // ---- Schema ----
 const schema = z.object({
@@ -68,6 +71,10 @@ interface AppointmentDialogProps {
   appointment?: AppointmentFull;
   presetStart?: Date;
   presetPet?: PetResult;
+  // Bookable rooms; when the clinic has any, choosing one is required
+  rooms?: Room[];
+  // Pre-selected room (e.g. clicking a slot in a room column)
+  presetRoomId?: string;
   onSaved: (appointment: AppointmentFull) => void;
 }
 
@@ -83,6 +90,8 @@ export function AppointmentDialog({
   appointment,
   presetStart,
   presetPet,
+  rooms = [],
+  presetRoomId,
   onSaved,
 }: AppointmentDialogProps) {
   const isEdit = !!appointment;
@@ -105,6 +114,10 @@ export function AppointmentDialog({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
   const [serviceError, setServiceError] = useState<string | undefined>();
+  const tr = useTranslations("rooms");
+  const [roomId, setRoomId] = useState<string>(appointment?.roomId ?? presetRoomId ?? "");
+  const [roomError, setRoomError] = useState<string | undefined>();
+  const [busy, setBusy] = useState<{ vet: BusySlot[]; room: BusySlot[] }>({ vet: [], room: [] });
 
   // ── Mode toggle ──
   const [mode, setMode] = useState<"existing" | "primary">("existing");
@@ -181,7 +194,11 @@ export function AppointmentDialog({
       });
       setSelectedService(apt.service ? { id: apt.service.id, name: apt.service.name, price: null } : null);
       setServiceError(undefined);
+      setRoomId(apt.roomId ?? "");
+      setRoomError(undefined);
     } else {
+      setRoomId(presetRoomId ?? "");
+      setRoomError(undefined);
       const now = new Date();
       form.reset({
         title: "",
@@ -292,6 +309,32 @@ export function AppointmentDialog({
   const watchStart = form.watch("startTime");
   const watchEnd = form.watch("endTime");
 
+  const selectedRoom = rooms.find((r) => r.id === roomId);
+  const vetName = vets.find((v) => v.id === watchVetId)?.name ?? "";
+  const hasConflict = busy.vet.length > 0 || busy.room.length > 0;
+  const timeFmt = (d: Date) => format(new Date(d), "HH:mm");
+  const busyText = (slots: BusySlot[]) => slots.map((b) => `${timeFmt(b.startTime)}–${timeFmt(b.endTime)} ${b.title}`).join("; ");
+
+  // Live check: is the vet or the room already booked at this time?
+  useEffect(() => {
+    if (!open || !watchStart || !watchEnd) { setBusy({ vet: [], room: [] }); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkAvailability({
+          startTime: new Date(watchStart).toISOString(),
+          endTime: new Date(watchEnd).toISOString(),
+          veterinarianId: watchVetId || undefined,
+          roomId: roomId || null,
+          excludeId: appointment?.id,
+        });
+        setBusy(result);
+      } catch {
+        setBusy({ vet: [], room: [] });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [open, watchStart, watchEnd, watchVetId, roomId, appointment?.id]);
+
   // Auto-fill title — existing mode
   useEffect(() => {
     if (mode === "existing" && selectedPet && selectedService && !isEdit) {
@@ -333,6 +376,11 @@ export function AppointmentDialog({
       return;
     }
     setServiceError(undefined);
+    if (rooms.length > 0 && !roomId) {
+      setRoomError(tv("required"));
+      return;
+    }
+    setRoomError(undefined);
 
     // Convert datetime-local strings (no timezone) to UTC ISO strings so the
     // server action produces the same Date regardless of the server's timezone.
@@ -340,6 +388,7 @@ export function AppointmentDialog({
       ...data,
       startTime: new Date(data.startTime).toISOString(),
       endTime: new Date(data.endTime).toISOString(),
+      roomId: roomId || null,
     };
 
     if (mode === "existing") {
@@ -745,6 +794,47 @@ export function AppointmentDialog({
             )}
           </div>
 
+          {/* ── Room ── */}
+          {rooms.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>{tr("room")} *</Label>
+              <Select value={roomId} onValueChange={(v) => { setRoomId(v ?? ""); setRoomError(undefined); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={tc("select")}>
+                    {selectedRoom ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedRoom.color }} />
+                        {selectedRoom.name}
+                      </span>
+                    ) : tc("select")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.color }} />
+                        {r.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roomError && <p className="text-xs text-destructive">{roomError}</p>}
+            </div>
+          )}
+
+          {/* ── Availability (vet / room) ── */}
+          {hasConflict && (
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/20 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                {busy.vet.length > 0 && <p>{tr("vetBusy", { vet: vetName, items: busyText(busy.vet) })}</p>}
+                {busy.room.length > 0 && <p>{tr("busy", { room: selectedRoom?.name ?? "", items: busyText(busy.room) })}</p>}
+              </div>
+            </div>
+          )}
+
           {/* ── Title ── */}
           <div className="space-y-1.5">
             <Label htmlFor="title">{t("titleLabel")}</Label>
@@ -799,7 +889,7 @@ export function AppointmentDialog({
             </Button>
             <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? tc("save") : t("create")}
+              {hasConflict ? tr("bookAnyway") : isEdit ? tc("save") : t("create")}
             </Button>
           </div>
         </form>
