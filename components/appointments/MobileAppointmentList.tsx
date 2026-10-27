@@ -10,7 +10,7 @@ import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
 import Link from "next/link";
@@ -38,6 +38,13 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
   // Tap on the pet name: quick pet card in a bottom sheet, closes back to the list
   const tp = useTranslations("petInfo");
   const [petPreview, setPetPreview] = useState<{ id: string; name: string } | null>(null);
+
+  function serviceLabel(apt: AppointmentFull) {
+    if (!apt.service) return undefined;
+    const svc = services.find((x) => x.id === apt.service!.id);
+    const parent = svc?.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
+    return parent ? `${parent.name} › ${svc!.name}` : svc?.name ?? apt.service.name;
+  }
 
   const dayAppointments = appointments
     .filter((a) => isSameDay(new Date(a.startTime), date))
@@ -180,8 +187,13 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
                       {apt.pet.name}
                     </span>
                   </p>
-                  <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
-                    {cfgLabel(t, typeCfg)} · {t("withDoctor", { name: apt.veterinarian.name })}
+                  {/* Full "Category › Sub-service" (wraps instead of being cut off) */}
+                  <p className="text-xs text-foreground/80 leading-snug">
+                    {serviceLabel(apt) ?? cfgLabel(t, typeCfg)}
+                  </p>
+                  <p className={cn("text-xs truncate flex items-center gap-1", hasConflict ? "text-red-500" : "text-muted-foreground")}>
+                    <Stethoscope className="w-3 h-3 shrink-0" />
+                    {apt.veterinarian.name}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {apt.pet.owner.firstName} {apt.pet.owner.lastName}

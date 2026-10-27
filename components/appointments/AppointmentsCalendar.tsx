@@ -111,8 +111,16 @@ function AppointmentCard({
   const tp = useTranslations("petInfo");
   const typeCfg = getTypeCfgForAppointment(apt);
   const statusCfg = statusConfig[apt.status];
-  // Hovering the pet name expands the pet summary inside this card
-  const [showPet, setShowPet] = useState(false);
+  // Hovering the pet name opens the pet summary as its own popup beside the appointment tooltip
+  const [petPopup, setPetPopup] = useState<{ top: number; side: "left" | "right" } | null>(null);
+  function openPetPopup(e: React.MouseEvent<HTMLElement>) {
+    const box = e.currentTarget.closest<HTMLElement>("[data-apt-tooltip]");
+    if (!box) return;
+    const boxRect = box.getBoundingClientRect();
+    const nameRect = e.currentTarget.getBoundingClientRect();
+    const side = boxRect.right + 8 + 272 > window.innerWidth ? "left" : "right";
+    setPetPopup({ top: nameRect.top - boxRect.top - 12, side });
+  }
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
   return (
@@ -128,8 +136,9 @@ function AppointmentCard({
           <p
             className="font-semibold text-sm leading-tight cursor-help underline decoration-dotted underline-offset-2 w-fit"
             style={{ color: typeCfg.color }}
-            title={showPet ? undefined : tp("hoverHint")}
-            onMouseEnter={() => setShowPet(true)}
+            title={petPopup ? undefined : tp("hoverHint")}
+            onMouseEnter={openPetPopup}
+            onMouseLeave={() => setPetPopup(null)}
           >
             {apt.pet.name}
           </p>
@@ -145,7 +154,18 @@ function AppointmentCard({
         </span>
       </div>
 
-      {showPet && <PetQuickInfo petId={apt.petId} className="rounded-lg bg-muted/50 p-2" />}
+      {petPopup && (
+        <div
+          className={cn(
+            "absolute z-10 w-64 rounded-xl border border-border bg-popover shadow-xl p-3 pointer-events-none",
+            petPopup.side === "right" ? "left-full ml-2" : "right-full mr-2"
+          )}
+          style={{ top: Math.max(0, petPopup.top) }}
+        >
+          <p className="text-sm font-semibold mb-1.5" style={{ color: typeCfg.color }}>{apt.pet.name}</p>
+          <PetQuickInfo petId={apt.petId} />
+        </div>
+      )}
 
       {/* Time */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -374,40 +394,40 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   const monthSummaryRef = useRef(monthSummary);
   monthSummaryRef.current = monthSummary;
 
-  // Month cell header: number of appointments and split per vet on the left, the date on the right.
+  // Month cell header: the date, then the number of appointments and the split per vet.
   // Absence bars go right below it, so the two never overlap.
   const MonthDateHeader = useMemo(
     () =>
       function MonthHeader({ date: day, label, onDrillDown }: { date: Date; label: string; onDrillDown: () => void }) {
         const sum = monthSummaryRef.current.get(format(day, "yyyy-MM-dd"));
         return (
-          <div className="flex items-start justify-between gap-1 px-1 pt-0.5 text-left">
-            <div className="min-w-0 space-y-px">
-              {sum && (
-                <>
-                  <p className="text-xs font-semibold leading-tight text-foreground whitespace-nowrap">
-                    {tRef.current("monthCount", { count: sum.total })}
-                    {sum.conflicts > 0 && (
-                      <span className="ml-1 text-[10px] text-red-600" title={tRef.current("monthConflicts", { count: sum.conflicts })}>
-                        ⚠{sum.conflicts}
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex flex-wrap gap-x-2">
-                    {sum.byVet.map((v) => (
-                      <span key={v.id} className="flex items-center gap-1 text-[10px] leading-tight text-muted-foreground min-w-0">
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: v.color }} />
-                        <span className="truncate max-w-[90px]">{v.name}</span>
-                        <span className="font-semibold text-foreground">{v.count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
+          <div className="px-1 pt-0.5">
+            <div className="text-right">
+              <button type="button" className="rbc-button-link" onClick={onDrillDown}>
+                {label}
+              </button>
             </div>
-            <button type="button" className="rbc-button-link shrink-0" onClick={onDrillDown}>
-              {label}
-            </button>
+            {sum && (
+              <div className="mt-1 mb-1.5 flex flex-col items-center text-center gap-0.5">
+                <p className="text-sm font-semibold leading-tight text-foreground whitespace-nowrap">
+                  {tRef.current("monthLabel", { count: sum.total })}
+                  {sum.conflicts > 0 && (
+                    <span className="ml-1.5 text-xs text-red-600" title={tRef.current("monthConflicts", { count: sum.conflicts })}>
+                      ⚠{sum.conflicts}
+                    </span>
+                  )}
+                </p>
+                <div className="flex flex-wrap justify-center gap-x-2.5">
+                  {sum.byVet.map((v) => (
+                    <span key={v.id} className="flex items-center gap-1 text-xs leading-tight text-muted-foreground min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: v.color }} />
+                      <span className="truncate max-w-[110px]">{v.name}</span>
+                      <span className="font-semibold text-foreground">{v.count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       },
@@ -595,6 +615,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
         const zoomLevel = zoomRef.current;
         // Day view and the largest zoom have room for the service
         const showService = !!apt.service && (viewRef.current === Views.DAY || zoomLevel === "large");
+        // Day view columns are wide: at − and ○ put service and room on the right so everything fits
+        const sideLayout = viewRef.current === Views.DAY && zoomLevel !== "large";
         const durationMin = Math.round(
           (event.end.getTime() - event.start.getTime()) / 60000
         );
@@ -618,6 +640,29 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                     <span className="truncate font-semibold text-xs leading-none">{apt.pet.name}</span>
                   </div>
                 ) : (
+                  sideLayout ? (
+                  <div className="h-full flex gap-3 overflow-hidden">
+                    <div className="min-w-0 flex-1 flex flex-col gap-px">
+                      <div className="flex items-center gap-1 overflow-hidden">
+                        {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                        <span className="font-semibold text-[11px] leading-tight truncate">{apt.pet.name}</span>
+                      </div>
+                      <span className="text-[10px] leading-tight truncate opacity-80">{apt.veterinarian.name}</span>
+                    </div>
+                    <div className="min-w-0 max-w-[60%] flex flex-col items-end gap-px text-right">
+                      {apt.service && (
+                        <span className="text-[10px] leading-tight truncate max-w-full font-medium">
+                          {serviceLabelRef.current(apt.service.id) ?? apt.service.name}
+                        </span>
+                      )}
+                      {apt.room && (
+                        <span className="text-[10px] leading-tight truncate max-w-full font-semibold" style={{ color: apt.room.color }}>
+                          ● {apt.room.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  ) : (
                   <div className="h-full flex flex-col justify-start gap-px overflow-hidden">
                     <div className="flex items-center gap-1 overflow-hidden">
                       {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
@@ -650,6 +695,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                       </span>
                     )}
                   </div>
+                  )
                 )}
               </div>
             </TooltipPrimitive.Trigger>
@@ -661,16 +707,18 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                 avoidCollisions
                 collisionPadding={12}
                 className={cn(
-                  "z-[9999] rounded-xl border bg-popover shadow-xl overflow-hidden",
+                  // not overflow-hidden: the pet popup sits outside this box
+                  "z-[9999] relative rounded-xl border bg-popover shadow-xl",
                   hasConflict ? "border-red-300" : "border-border",
                   others.length > 0 ? "w-72" : "w-64",
                   "data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
                   "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
                 )}
+                data-apt-tooltip=""
               >
                 {/* Conflict warning banner */}
                 {hasConflict && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-t-[11px] bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     <p className="text-xs font-medium text-red-600 dark:text-red-400">
                       {hasRoomConflict && apt.room

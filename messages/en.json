@@ -203,10 +203,10 @@
     "newShort": "New",
     "noneThisDay": "No appointments this day",
     "withDoctor": "Dr. {name}",
-    "monthCount": "{count, plural, one {# appointment} other {# appointments}}",
     "monthConflicts": "{count, plural, one {# conflict} other {# conflicts}}",
     "leaveVacation": "On holiday: {name}",
-    "leaveAbsent": "Away: {name}"
+    "leaveAbsent": "Away: {name}",
+    "monthLabel": "Appointments: {count}"
   },
   "medicalRecords": {
     "title": "Medical Records",

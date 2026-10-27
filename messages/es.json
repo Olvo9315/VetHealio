@@ -203,10 +203,10 @@
     "newShort": "Nueva",
     "noneThisDay": "Sin citas este día",
     "withDoctor": "Dr. {name}",
-    "monthCount": "{count, plural, one {# cita} other {# citas}}",
     "monthConflicts": "{count, plural, one {# conflicto} other {# conflictos}}",
     "leaveVacation": "Vacaciones: {name}",
-    "leaveAbsent": "Ausente: {name}"
+    "leaveAbsent": "Ausente: {name}",
+    "monthLabel": "Citas: {count}"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
