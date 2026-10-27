@@ -202,7 +202,11 @@
     "todayPrefix": "Today · ",
     "newShort": "New",
     "noneThisDay": "No appointments this day",
-    "withDoctor": "Dr. {name}"
+    "withDoctor": "Dr. {name}",
+    "monthCount": "{count, plural, one {# appointment} other {# appointments}}",
+    "monthConflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+    "leaveVacation": "On holiday: {name}",
+    "leaveAbsent": "Away: {name}"
   },
   "medicalRecords": {
     "title": "Medical Records",
@@ -971,5 +975,17 @@
     "conflictRoom": "Conflict: room {room} is busy at this time",
     "bookAnyway": "Save anyway",
     "maxVisible": "Up to 3 rooms fit on screen; scroll for more"
+  },
+  "petInfo": {
+    "loading": "Loading…",
+    "notFound": "Patient not found",
+    "age": "Age",
+    "neutered": "Spayed / neutered",
+    "yes": "Yes",
+    "no": "No",
+    "noVaccinations": "No vaccinations recorded",
+    "back": "Back",
+    "openCard": "Open record",
+    "hoverHint": "Hover to see the pet card"
   }
 }

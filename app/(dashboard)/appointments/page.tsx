@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
 import { startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { TopBar } from "@/components/layout/TopBar";
-import { getAppointments, getVeterinarians } from "@/lib/actions/appointments";
+import { getAppointments, getCalendarLeaves, getVeterinarians } from "@/lib/actions/appointments";
 import { getServicesFlat } from "@/lib/actions/services";
 import { getRooms } from "@/lib/actions/rooms";
 import { AppointmentsCalendar } from "@/components/appointments/AppointmentsCalendar";
@@ -16,11 +16,12 @@ export default async function AppointmentsPage() {
   const from = startOfMonth(addMonths(new Date(), -1));
   const to = endOfMonth(addMonths(new Date(), 1));
 
-  const [appointments, vets, services, rooms] = await Promise.all([
+  const [appointments, vets, services, rooms, leaves] = await Promise.all([
     getAppointments(from, to),
     getVeterinarians(),
     getServicesFlat(),
     getRooms(),
+    getCalendarLeaves(from, to),
   ]);
 
   return (
@@ -29,7 +30,7 @@ export default async function AppointmentsPage() {
       <div className="flex-1 p-4 md:p-6 flex flex-col min-h-0">
         {/* Desktop calendar */}
         <div className="hidden md:flex flex-col flex-1 min-h-0">
-          <AppointmentsCalendar initialAppointments={appointments} vets={vets} services={services} rooms={rooms} />
+          <AppointmentsCalendar initialAppointments={appointments} vets={vets} services={services} rooms={rooms} leaves={leaves} />
         </div>
         {/* Mobile day list */}
         <div className="md:hidden">

@@ -382,3 +382,83 @@ export async function checkAvailability(input: {
   ]);
   return { vet, room };
 }
+
+export type CalendarLeave = {
+  id: string;
+  userId: string;
+  name: string;
+  type: "VACATION" | "UNPAID_LEAVE" | "AGREEMENT" | "SICK_LEAVE";
+  startDate: Date;
+  endDate: Date;
+};
+
+// Approved absences shown in the calendar. Only the type is exposed, never the reason.
+export async function getCalendarLeaves(from: Date, to: Date): Promise<CalendarLeave[]> {
+  await requireUserId();
+  const leaves = await prisma.leaveRequest.findMany({
+    where: { status: "APPROVED", startDate: { lte: to }, endDate: { gte: from } },
+    select: {
+      id: true,
+      type: true,
+      startDate: true,
+      endDate: true,
+      staffProfile: { select: { userId: true, user: { select: { name: true } } } },
+    },
+    orderBy: { startDate: "asc" },
+  });
+  return leaves.map((l) => ({
+    id: l.id,
+    userId: l.staffProfile.userId,
+    name: l.staffProfile.user.name,
+    type: l.type,
+    startDate: l.startDate,
+    endDate: l.endDate,
+  }));
+}
+
+export type PetQuickInfo = {
+  id: string;
+  name: string;
+  species: Species;
+  breed: string | null;
+  gender: "MALE" | "FEMALE" | null;
+  birthDate: Date | null;
+  weight: number | null;
+  sterilized: boolean | null;
+  microchipNumber: string | null;
+  vaccinations: { vaccineName: string; dateAdministered: Date; nextDueDate: Date | null }[];
+};
+
+// Short pet summary for the hover card in the calendar / tap card on mobile
+export async function getPetQuickInfo(petId: string): Promise<PetQuickInfo | null> {
+  await requireUserId();
+  const pet = await prisma.pet.findUnique({
+    where: { id: petId },
+    select: {
+      id: true,
+      name: true,
+      species: true,
+      breed: true,
+      gender: true,
+      birthDate: true,
+      weight: true,
+      sterilized: true,
+      microchipNumber: true,
+      vaccinations: {
+        select: { vaccineName: true, dateAdministered: true, nextDueDate: true },
+        orderBy: { dateAdministered: "desc" },
+        take: 30,
+      },
+    },
+  });
+  if (!pet) return null;
+  // Latest shot of each vaccine only
+  const seen = new Set<string>();
+  const vaccinations = pet.vaccinations.filter((v) => {
+    const key = v.vaccineName.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { ...pet, gender: pet.gender as PetQuickInfo["gender"], vaccinations };
+}

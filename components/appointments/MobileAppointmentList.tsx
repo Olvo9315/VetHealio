@@ -9,10 +9,13 @@ import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
+import Link from "next/link";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PetQuickInfo } from "@/components/patients/PetQuickInfo";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -32,6 +35,9 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingApt, setEditingApt] = useState<AppointmentFull | null>(null);
+  // Tap on the pet name: quick pet card in a bottom sheet, closes back to the list
+  const tp = useTranslations("petInfo");
+  const [petPreview, setPetPreview] = useState<{ id: string; name: string } | null>(null);
 
   const dayAppointments = appointments
     .filter((a) => isSameDay(new Date(a.startTime), date))
@@ -161,7 +167,19 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{apt.pet.name}</p>
+                  <p className="font-medium text-sm truncate">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="underline decoration-dotted underline-offset-2"
+                      onClick={(e) => { e.stopPropagation(); setPetPreview({ id: apt.petId, name: apt.pet.name }); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.stopPropagation(); e.preventDefault(); setPetPreview({ id: apt.petId, name: apt.pet.name }); }
+                      }}
+                    >
+                      {apt.pet.name}
+                    </span>
+                  </p>
                   <p className={cn("text-xs truncate", hasConflict ? "text-red-500" : "text-muted-foreground")}>
                     {cfgLabel(t, typeCfg)} · {t("withDoctor", { name: apt.veterinarian.name })}
                   </p>
@@ -186,6 +204,27 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
           })}
         </div>
       )}
+
+      {/* Pet quick card */}
+      <Sheet open={!!petPreview} onOpenChange={(v) => { if (!v) setPetPreview(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{petPreview?.name}</SheetTitle>
+          </SheetHeader>
+          {petPreview && <PetQuickInfo petId={petPreview.id} className="px-4" />}
+          <div className="flex gap-2 px-4 pb-4">
+            <Button variant="outline" className="flex-1" onClick={() => setPetPreview(null)}>
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              {tp("back")}
+            </Button>
+            {petPreview && (
+              <Link href={`/patients/${petPreview.id}`} className={cn(buttonVariants({ variant: "ghost" }), "flex-1")}>
+                {tp("openCard")}
+              </Link>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Detail Sheet */}
       {selectedApt && (

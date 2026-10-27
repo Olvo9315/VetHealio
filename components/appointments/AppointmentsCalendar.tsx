@@ -7,13 +7,14 @@ import {
   Views,
   type View,
   type SlotInfo,
+  type DateHeaderProps,
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { format, parse, startOfWeek, getDay, addMonths, addWeeks } from "date-fns";
+import { format, parse, startOfWeek, getDay, addMonths, addWeeks, addDays, startOfDay } from "date-fns";
 import { useDateLocale } from "@/lib/date-locale";
 import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
-import type { AppointmentFull } from "@/lib/actions/appointments";
+import type { AppointmentFull, CalendarLeave } from "@/lib/actions/appointments";
 import { updateAppointmentTime } from "@/lib/actions/appointments";
 import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig, cfgLabel } from "./AppointmentConfig";
 import { useTranslations } from "next-intl";
@@ -28,6 +29,7 @@ import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, Doo
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Room } from "@/lib/actions/rooms";
+import { PetQuickInfo } from "@/components/patients/PetQuickInfo";
 
 const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
@@ -50,6 +52,29 @@ type CalEvent = {
   resourceId: string;
 };
 
+// Approved staff absence drawn as an all-day bar (month and week views)
+type LeaveEvent = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: true;
+  leave: CalendarLeave;
+};
+type CalItem = CalEvent | LeaveEvent;
+const isLeave = (e: object): e is LeaveEvent => "leave" in e;
+const LEAVE_STYLE = {
+  vacation: { backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" },
+  absent: { backgroundColor: "#F3F4F6", color: "#374151", border: "1px solid #9CA3AF" },
+};
+// Per-vet dots in the month summary
+const VET_COLORS = ["#1D9E75", "#2563EB", "#9333EA", "#DB2777", "#EA580C", "#0891B2", "#65A30D", "#B91C1C"];
+
+type Zoom = "compact" | "normal" | "large";
+// Calendar hours shown in week/day views
+const DAY_START_HOUR = 7;
+const DAY_END_HOUR = 21;
+
 type RoomColumn = { id: string; name: string; color: string };
 const NO_ROOM = "none";
 // Day view shows at most this many room columns per screen; more scroll horizontally
@@ -63,6 +88,7 @@ interface AppointmentsCalendarProps {
   vets: Vet[];
   services: ServiceFlat[];
   rooms: Room[];
+  leaves?: CalendarLeave[];
 }
 
 
@@ -82,8 +108,11 @@ function AppointmentCard({
   roomConflict?: boolean;
 }) {
   const t = useTranslations("appointments");
+  const tp = useTranslations("petInfo");
   const typeCfg = getTypeCfgForAppointment(apt);
   const statusCfg = statusConfig[apt.status];
+  // Hovering the pet name expands the pet summary inside this card
+  const [showPet, setShowPet] = useState(false);
   const durationMin = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
   return (
@@ -97,8 +126,10 @@ function AppointmentCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p
-            className="font-semibold text-sm leading-tight"
+            className="font-semibold text-sm leading-tight cursor-help underline decoration-dotted underline-offset-2 w-fit"
             style={{ color: typeCfg.color }}
+            title={showPet ? undefined : tp("hoverHint")}
+            onMouseEnter={() => setShowPet(true)}
           >
             {apt.pet.name}
           </p>
@@ -113,6 +144,8 @@ function AppointmentCard({
           {cfgLabel(t, typeCfg)}
         </span>
       </div>
+
+      {showPet && <PetQuickInfo petId={apt.petId} className="rounded-lg bg-muted/50 p-2" />}
 
       {/* Time */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -163,7 +196,7 @@ function AppointmentCard({
   );
 }
 
-export function AppointmentsCalendar({ initialAppointments, vets, services, rooms }: AppointmentsCalendarProps) {
+export function AppointmentsCalendar({ initialAppointments, vets, services, rooms, leaves = [] }: AppointmentsCalendarProps) {
   const dateLocale = useDateLocale();
   const calendarI18n = useCalendarI18n();
   const t = useTranslations("appointments");
@@ -213,7 +246,10 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
-  const [zoom, setZoom] = useState<"compact" | "normal" | "large">("compact");
+  const [zoom, setZoom] = useState<Zoom>("normal");
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const calendarBoxRef = useRef<HTMLDivElement>(null);
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoicePresetApt, setInvoicePresetApt] = useState<AppointmentOption | undefined>();
@@ -225,6 +261,14 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   viewRef.current = view;
   const roomsRef = useRef(rooms);
   roomsRef.current = rooms;
+  // "Category › Sub-service" label, since a sub-service name alone ("General") says little
+  const serviceLabelRef = useRef<(id: string) => string | undefined>(() => undefined);
+  serviceLabelRef.current = (id: string) => {
+    const svc = services.find((x) => x.id === id);
+    if (!svc) return undefined;
+    const parent = svc.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
+    return parent ? `${parent.name} › ${svc.name}` : svc.name;
+  };
   const roomColumnsRef = useRef<RoomColumn[] | undefined>(undefined);
   const appointmentsRef = useRef(appointments);
   appointmentsRef.current = appointments;
@@ -283,6 +327,108 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   }, [view, rooms, roomFilter, visibleAppointments, date, tr]);
   roomColumnsRef.current = roomColumns;
 
+  const leaveEvents = useMemo<LeaveEvent[]>(
+    () =>
+      leaves
+        .filter((l) => vetFilter === "ALL" || l.userId === vetFilter)
+        .map((l) => ({
+          id: `leave-${l.id}`,
+          title: l.name,
+          start: startOfDay(new Date(l.startDate)),
+          // all-day events end exclusively
+          end: addDays(startOfDay(new Date(l.endDate)), 1),
+          allDay: true as const,
+          leave: l,
+        })),
+    [leaves, vetFilter]
+  );
+
+  // Month view draws absences as bars and appointments as a per-day summary;
+  // week/day views show absences in the all-day row (not in per-room columns)
+  const calendarEvents = useMemo<CalItem[]>(() => {
+    if (view === Views.MONTH) return leaveEvents;
+    if (roomColumns) return events;
+    return [...leaveEvents, ...events];
+  }, [view, leaveEvents, events, roomColumns]);
+
+  type DaySummary = { total: number; conflicts: number; byVet: { id: string; name: string; color: string; count: number }[] };
+  const monthSummary = useMemo(() => {
+    const map = new Map<string, DaySummary>();
+    for (const a of visibleAppointments) {
+      if (a.status === "CANCELLED" || a.status === "NO_SHOW") continue;
+      const key = format(new Date(a.startTime), "yyyy-MM-dd");
+      const day = map.get(key) ?? { total: 0, conflicts: 0, byVet: [] };
+      day.total++;
+      if (conflictIds.has(a.id)) day.conflicts++;
+      let vet = day.byVet.find((v) => v.id === a.veterinarianId);
+      if (!vet) {
+        const idx = vets.findIndex((v) => v.id === a.veterinarianId);
+        vet = { id: a.veterinarianId, name: a.veterinarian.name, color: VET_COLORS[(idx < 0 ? 0 : idx) % VET_COLORS.length], count: 0 };
+        day.byVet.push(vet);
+      }
+      vet.count++;
+      map.set(key, day);
+    }
+    return map;
+  }, [visibleAppointments, conflictIds, vets]);
+  const monthSummaryRef = useRef(monthSummary);
+  monthSummaryRef.current = monthSummary;
+
+  // Month cell header: number of appointments and split per vet on the left, the date on the right.
+  // Absence bars go right below it, so the two never overlap.
+  const MonthDateHeader = useMemo(
+    () =>
+      function MonthHeader({ date: day, label, onDrillDown }: { date: Date; label: string; onDrillDown: () => void }) {
+        const sum = monthSummaryRef.current.get(format(day, "yyyy-MM-dd"));
+        return (
+          <div className="flex items-start justify-between gap-1 px-1 pt-0.5 text-left">
+            <div className="min-w-0 space-y-px">
+              {sum && (
+                <>
+                  <p className="text-xs font-semibold leading-tight text-foreground whitespace-nowrap">
+                    {tRef.current("monthCount", { count: sum.total })}
+                    {sum.conflicts > 0 && (
+                      <span className="ml-1 text-[10px] text-red-600" title={tRef.current("monthConflicts", { count: sum.conflicts })}>
+                        ⚠{sum.conflicts}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-x-2">
+                    {sum.byVet.map((v) => (
+                      <span key={v.id} className="flex items-center gap-1 text-[10px] leading-tight text-muted-foreground min-w-0">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: v.color }} />
+                        <span className="truncate max-w-[90px]">{v.name}</span>
+                        <span className="font-semibold text-foreground">{v.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button type="button" className="rbc-button-link shrink-0" onClick={onDrillDown}>
+              {label}
+            </button>
+          </div>
+        );
+      },
+    []
+  );
+
+  // Keep the current time in the middle of the screen (week/day views, any zoom)
+  useEffect(() => {
+    if (view === Views.MONTH) return;
+    const timer = setTimeout(() => {
+      const content = calendarBoxRef.current?.querySelector<HTMLElement>(".rbc-time-content");
+      if (!content) return;
+      const now = new Date();
+      const total = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+      const minutes = Math.min(Math.max((now.getHours() - DAY_START_HOUR) * 60 + now.getMinutes(), 0), total);
+      const y = (content.scrollHeight * minutes) / total;
+      content.scrollTop = Math.max(0, y - content.clientHeight / 2);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [view, zoom, date, roomColumns]);
+
   function navigate(direction: "prev" | "next" | "today") {
     if (direction === "today") { setDate(new Date()); return; }
     const dir = direction === "next" ? 1 : -1;
@@ -304,13 +450,19 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   }
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
+    if (viewRef.current === Views.MONTH) {
+      setDate(slotInfo.start as Date);
+      setView(Views.DAY);
+      return;
+    }
     setPresetStart(slotInfo.start as Date);
     const rid = slotInfo.resourceId as string | undefined;
     setPresetRoomId(rid && rid !== NO_ROOM ? rid : undefined);
     setCreateDialogOpen(true);
   }, []);
 
-  const handleSelectEvent = useCallback((event: CalEvent) => {
+  const handleSelectEvent = useCallback((event: CalItem) => {
+    if (isLeave(event)) return;
     setSelectedAppointment(event.resource);
     setDetailOpen(true);
   }, []);
@@ -407,7 +559,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   }
 
   const eventPropGetter = useCallback(
-    (event: CalEvent) => {
+    (event: CalItem) => {
+      if (isLeave(event)) return { style: event.leave.type === "VACATION" ? LEAVE_STYLE.vacation : LEAVE_STYLE.absent };
       const style = getEventStyleForAppointment(event.resource, event.resource.status);
       if (conflictIds.has(event.id)) {
         return {
@@ -427,8 +580,21 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   // Memoized per-view to avoid remounting events on unrelated state changes
   const EventComponent = useMemo(
     () =>
-      function Evt({ event }: { event: CalEvent }) {
+      function Evt({ event: item }: { event: CalItem }) {
+        if (isLeave(item)) {
+          const key = item.leave.type === "VACATION" ? "leaveVacation" : "leaveAbsent";
+          return (
+            <span className="block truncate text-[11px] font-semibold leading-tight">
+              {item.leave.type === "VACATION" ? "🌴 " : ""}
+              {tRef.current(key, { name: item.leave.name })}
+            </span>
+          );
+        }
+        const event = item;
         const apt = event.resource;
+        const zoomLevel = zoomRef.current;
+        // Day view and the largest zoom have room for the service
+        const showService = !!apt.service && (viewRef.current === Views.DAY || zoomLevel === "large");
         const durationMin = Math.round(
           (event.end.getTime() - event.start.getTime()) / 60000
         );
@@ -458,11 +624,22 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                       <span className="font-semibold text-[11px] leading-tight truncate">
                         {apt.pet.name}
                       </span>
+                      {/* Compact zoom: room on the same line, right-aligned */}
+                      {zoomLevel === "compact" && apt.room && (
+                        <span className="ml-auto pl-1 text-[10px] font-semibold leading-tight truncate shrink" style={{ color: apt.room.color }}>
+                          {apt.room.name}
+                        </span>
+                      )}
                     </div>
+                    {showService && (
+                      <span className="text-[10px] leading-tight truncate font-medium">
+                        {serviceLabelRef.current(apt.service!.id) ?? apt.service!.name}
+                      </span>
+                    )}
                     <span className="text-[10px] leading-tight truncate opacity-80">
                       {apt.veterinarian.name}
                     </span>
-                    {apt.room && (
+                    {zoomLevel !== "compact" && apt.room && (
                       <span className="text-[10px] leading-tight truncate font-semibold" style={{ color: apt.room.color }}>
                         ● {apt.room.name}
                       </span>
@@ -677,7 +854,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             // Room columns in day view: the room name is the header, no need to repeat the date per column
             "[&_.rbc-row-resource+.rbc-time-header-cell-single-day]:hidden",
             "[&_.rbc-month-view]:border-none [&_.rbc-month-view]:flex-1",
-            "[&_.rbc-month-row]:border-border [&_.rbc-month-row]:min-h-[100px]",
+            "[&_.rbc-month-row]:border-border",
+            "[&_.rbc-date-cell]:text-right [&_.rbc-date-cell]:pr-0",
             "[&_.rbc-day-bg]:border-border [&_.rbc-day-bg.rbc-today]:bg-primary/5",
             "[&_.rbc-time-view]:border-none",
             "[&_.rbc-time-header]:border-border",
@@ -690,12 +868,13 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             "[&_.rbc-toolbar]:hidden",
             "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-time-view_.rbc-event-label]:hidden",
             "[&_.rbc-selected]:ring-2 [&_.rbc-selected]:ring-primary",
-            zoom === "compact" && "[&_.rbc-timeslot-group]:min-h-[28px]",
+            zoom === "compact" && "[&_.rbc-timeslot-group]:min-h-[36px]",
             zoom === "normal"  && "[&_.rbc-timeslot-group]:min-h-[48px]",
             zoom === "large"   && "[&_.rbc-timeslot-group]:min-h-[72px]",
             isPending && "opacity-70 pointer-events-none"
           )}
           style={{ height: "calc(100vh - 260px)", minHeight: 400 }}
+          ref={calendarBoxRef}
         >
           <div className="h-full overflow-x-auto">
           <div
@@ -704,7 +883,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
           >
           <DnDCalendar
             localizer={localizer}
-            events={events}
+            events={calendarEvents}
             view={view}
             date={date}
             onNavigate={setDate}
@@ -718,8 +897,11 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEventResize={handleEventResize as any}
             eventPropGetter={eventPropGetter as (event: object) => { style: React.CSSProperties }}
+            draggableAccessor={(e: object) => !isLeave(e)}
+            resizableAccessor={(e: object) => !isLeave(e)}
             components={{
               event: EventComponent as (props: { event: object }) => JSX.Element,
+              month: { dateHeader: MonthDateHeader as unknown as React.ComponentType<DateHeaderProps> },
               resourceHeader: ({ label, resource }: { label: React.ReactNode; resource: object }) => (
                 <span className="flex items-center justify-center gap-1.5 text-xs font-semibold py-1" style={{ color: (resource as RoomColumn).color }}>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: (resource as RoomColumn).color }} />
@@ -736,10 +918,9 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             dayLayoutAlgorithm="no-overlap"
             step={15}
             timeslots={2}
-            min={new Date(0, 0, 0, 7, 0)}
-            max={new Date(0, 0, 0, 21, 0)}
+            min={new Date(0, 0, 0, DAY_START_HOUR, 0)}
+            max={new Date(0, 0, 0, DAY_END_HOUR, 0)}
             popup
-            scrollToTime={new Date(0, 0, 0, 8, 0)}
           />
           </div>
           </div>

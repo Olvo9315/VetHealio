@@ -202,7 +202,11 @@
     "todayPrefix": "Hoy · ",
     "newShort": "Nueva",
     "noneThisDay": "Sin citas este día",
-    "withDoctor": "Dr. {name}"
+    "withDoctor": "Dr. {name}",
+    "monthCount": "{count, plural, one {# cita} other {# citas}}",
+    "monthConflicts": "{count, plural, one {# conflicto} other {# conflictos}}",
+    "leaveVacation": "Vacaciones: {name}",
+    "leaveAbsent": "Ausente: {name}"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
@@ -971,5 +975,17 @@
     "conflictRoom": "Conflicto: la sala {room} está ocupada a esta hora",
     "bookAnyway": "Guardar igualmente",
     "maxVisible": "Se muestran hasta 3 salas a la vez; desplaza para ver más"
+  },
+  "petInfo": {
+    "loading": "Cargando…",
+    "notFound": "Paciente no encontrado",
+    "age": "Edad",
+    "neutered": "Esterilizado / castrado",
+    "yes": "Sí",
+    "no": "No",
+    "noVaccinations": "Sin vacunas registradas",
+    "back": "Volver",
+    "openCard": "Abrir ficha",
+    "hoverHint": "Pasa el cursor para ver la ficha"
   }
 }

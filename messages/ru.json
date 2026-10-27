@@ -202,7 +202,11 @@
     "todayPrefix": "Сегодня · ",
     "newShort": "Новая",
     "noneThisDay": "Нет записей в этот день",
-    "withDoctor": "Др. {name}"
+    "withDoctor": "Др. {name}",
+    "monthCount": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
+    "monthConflicts": "{count, plural, one {# конфликт} few {# конфликта} many {# конфликтов} other {# конфликта}}",
+    "leaveVacation": "Отпуск: {name}",
+    "leaveAbsent": "Нет на месте: {name}"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -971,5 +975,17 @@
     "conflictRoom": "Конфликт: кабинет «{room}» занят в это время",
     "bookAnyway": "Записать всё равно",
     "maxVisible": "На экране до 3 кабинетов, остальные — прокруткой"
+  },
+  "petInfo": {
+    "loading": "Загрузка…",
+    "notFound": "Пациент не найден",
+    "age": "Возраст",
+    "neutered": "Стерилизация / кастрация",
+    "yes": "Да",
+    "no": "Нет",
+    "noVaccinations": "Вакцинаций нет",
+    "back": "Назад",
+    "openCard": "Открыть карточку",
+    "hoverHint": "Наведите, чтобы увидеть карточку"
   }
 }
