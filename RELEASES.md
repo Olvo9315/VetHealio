@@ -45,6 +45,8 @@ npm run clinic -- deploy veteridaria v0.3.0           # тест клиники
 npm run clinic -- deploy veteridaria v0.3.0 --prod    # прод клиники
 npm run clinic -- deploy all v0.3.0 --prod            # все клиники (кроме демо)
 npm run clinic -- new <slug> "<Название>" <email>     # новая клиника целиком
+npm run clinic -- catalog all --dry-run              # что добавит стандартный каталог услуг
+npm run clinic -- catalog all                        # добавить недостающие услуги (свои не трогает)
 ```
 
 `new` создаёт проект Vercel, секреты, две базы Neon (боевую и тестовую), применяет миграции,
