@@ -6,7 +6,9 @@ import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
 import { categoryLabel, unitLabel } from "@/lib/inventory-labels";
 import type { InventoryItem } from "@/lib/actions/inventory";
-import { adjustStock, deleteInventoryItem, getStockStatus, getExpiryStatus } from "@/lib/actions/inventory";
+import { adjustStock, deleteInventoryItem } from "@/lib/actions/inventory";
+// Plain helpers: importing them via the "use server" actions file would turn them into server calls
+import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
 import { toast } from "sonner";
 import {
   Sheet,

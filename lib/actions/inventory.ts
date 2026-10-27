@@ -8,7 +8,6 @@ import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
 import { assertModule } from "@/lib/license";
 import { requirePermission } from "@/lib/permissions";
 export type { StockStatus, ExpiryStatus } from "@/lib/utils/inventoryHelpers";
-export { getStockStatus, getExpiryStatus };
 
 // ---- Types ----
 
