@@ -45,9 +45,32 @@ const updateStatusSchema = z.object({
   status: z.nativeEnum(AppointmentStatus),
 });
 
+// Sub-services have no color of their own: the calendar uses the nearest category color
 const serviceInclude = {
-  select: { id: true, name: true, color: true, translations: true },
+  select: {
+    id: true,
+    name: true,
+    color: true,
+    translations: true,
+    parent: { select: { color: true, parent: { select: { color: true } } } },
+  },
 };
+
+type ServiceWithParents = {
+  color: string | null;
+  parent?: { color: string | null; parent?: { color: string | null } | null } | null;
+};
+
+async function getAppointmentLocalizer() {
+  const localize = await getServiceRelationLocalizer();
+  return function <T extends { service?: unknown }>(record: T): T {
+    const out = localize(record as T & { service?: { name: string } | null });
+    const service = out.service as (ServiceWithParents & Record<string, unknown>) | null | undefined;
+    if (!service) return out;
+    const { parent, ...rest } = service;
+    return { ...out, service: { ...rest, color: service.color ?? parent?.color ?? parent?.parent?.color ?? null } };
+  };
+}
 
 // ---- Queries ----
 
@@ -70,7 +93,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
     },
     orderBy: { startTime: "asc" },
   })) as unknown as AppointmentFull[];
-  const localize = await getServiceRelationLocalizer();
+  const localize = await getAppointmentLocalizer();
   return rows.map(localize);
 }
 
@@ -90,7 +113,7 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       service: serviceInclude,
     },
   })) as unknown as AppointmentFull | null;
-  return row && (await getServiceRelationLocalizer())(row);
+  return row && (await getAppointmentLocalizer())(row);
 }
 
 export async function getVeterinarians() {
@@ -163,7 +186,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
   });
 
   revalidatePath("/appointments");
-  return { appointment: (await getServiceRelationLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) };
 }
 
 export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date) {
@@ -211,7 +234,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
   });
 
   revalidatePath("/appointments");
-  return { appointment: (await getServiceRelationLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) };
 }
 
 export async function deleteAppointment(id: string) {
@@ -306,5 +329,5 @@ export async function createAppointmentWithNewPatient(
 
   revalidatePath("/appointments");
   revalidatePath("/patients");
-  return { appointment: (await getServiceRelationLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) };
 }
