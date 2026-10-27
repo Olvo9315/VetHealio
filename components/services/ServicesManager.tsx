@@ -7,25 +7,31 @@ import { ServicesTreeNode } from "./ServicesTreeNode";
 import { ServiceDialog } from "./ServiceDialog";
 import { Button } from "@/components/ui/button";
 import { Plus, Scissors } from "lucide-react";
+import { ServicesProvider, type DataLocale } from "./ServicesContext";
 
 interface ServicesManagerProps {
   initialTree: ServiceNode[];
+  dataLocale: DataLocale;
+  canManage: boolean;
 }
 
-export function ServicesManager({ initialTree }: ServicesManagerProps) {
+export function ServicesManager({ initialTree, dataLocale, canManage }: ServicesManagerProps) {
   const t = useTranslations("services");
   const [addRootOpen, setAddRootOpen] = useState(false);
 
   return (
+    <ServicesProvider value={{ dataLocale, canManage }}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {t("categoriesCount", { count: initialTree.length })}
         </p>
-        <Button size="sm" onClick={() => setAddRootOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t("newRoot")}
-        </Button>
+        {canManage && (
+          <Button size="sm" onClick={() => setAddRootOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t("newRoot")}
+          </Button>
+        )}
       </div>
 
       {initialTree.length === 0 ? (
@@ -48,5 +54,6 @@ export function ServicesManager({ initialTree }: ServicesManagerProps) {
         depth={0}
       />
     </div>
+    </ServicesProvider>
   );
 }

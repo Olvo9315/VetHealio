@@ -521,7 +521,7 @@
     "fullTime": "Full time",
     "partTime": "Part time",
     "contractor": "Contractor",
-    "canManageStaff": "Can manage staff",
+    "canManageStaff": "Head vet: manages staff, services and prices, voids invoices and deletes records",
     "annualLeaveDays": "Annual leave days",
     "emergencyContact": "Emergency contact",
     "emergencyName": "Emergency name",
@@ -694,7 +694,11 @@
     "isActive": "Active",
     "parentCategory": "Parent category",
     "root": "(Root)",
-    "categoriesCount": "{count, plural, one {# category} other {# categories}}"
+    "categoriesCount": "{count, plural, one {# category} other {# categories}}",
+    "officialName": "Official name ({language})",
+    "officialNameHint": "This is how it appears on invoices and documents.",
+    "translate": "Translation",
+    "translationsHint": "Optional: the name staff using the interface in another language will see."
   },
   "pwa": {
     "installTitle": "Install VetHealio",
@@ -773,7 +777,10 @@
     "invalidNif": "Invalid NIF/CIF",
     "invalidEmail": "Invalid email",
     "invalidIban": "Invalid IBAN",
-    "invalidValue": "Invalid value"
+    "invalidValue": "Invalid value",
+    "sectionLanguage": "Data language",
+    "dataLocale": "Clinic's official language",
+    "dataLocaleHint": "Language of service names, invoices, prescriptions and documents. Each staff member can still use the interface in their own language."
   },
   "validation": {
     "required": "Required",
@@ -908,35 +915,5 @@
       "presvet": "Antibiotic prescription reporting to MAPA (RD 666/2023)",
       "knowledgeBase": "Clinic protocols, dosages and internal guides"
     }
-  },
-  "serviceCatalog": {
-    "bloodTest": "Blood test",
-    "bloodTest_general": "General",
-    "bloodTest_presurgical": "Pre-surgical",
-    "nailTrim": "Nail trim",
-    "spay": "Spay",
-    "spay_cat": "Cat spay (OHE)",
-    "spay_dog": "Dog spay (OHE)",
-    "spay_dog_0_10": "0–10 kg",
-    "spay_dog_11_20": "11–20 kg",
-    "spay_dog_21_30": "21–30 kg",
-    "neuter": "Neutering",
-    "neuter_cat": "Cat",
-    "neuter_dog": "Dog",
-    "neuter_dog_0_10": "0–10 kg",
-    "neuter_dog_11_20": "11–20 kg",
-    "neuter_dog_21_40": "21–40 kg",
-    "consultation": "Consultation",
-    "consultation_general": "General",
-    "consultation_followUp": "Follow-up",
-    "consultation_specialist": "Specialist",
-    "ultrasound": "Ultrasound",
-    "ultrasound_clinic": "In-clinic",
-    "ultrasound_external": "External service",
-    "urinalysis": "Urinalysis",
-    "dipstickSediment": "Dipstick + sediment",
-    "cytology": "Cytology",
-    "cytology_ear": "Ear",
-    "cytology_skinTumor": "Skin / tumor"
   }
 }

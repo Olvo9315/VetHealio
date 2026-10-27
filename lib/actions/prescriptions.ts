@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/permissions";
 
 const prescriptionItemSchema = z.object({
   medicationName: z.string().min(1).max(150),
@@ -69,6 +70,7 @@ export async function getPrescriptionsByPet(petId: string): Promise<Prescription
 }
 
 export async function createPrescription(data: z.infer<typeof prescriptionSchema>) {
+  await requirePermission("prescription.write");
   const parsed = prescriptionSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -98,6 +100,7 @@ export async function createPrescription(data: z.infer<typeof prescriptionSchema
 }
 
 export async function updatePrescription(id: string, data: z.infer<typeof prescriptionSchema>) {
+  await requirePermission("prescription.write");
   const parsed = prescriptionSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -129,6 +132,7 @@ export async function updatePrescription(id: string, data: z.infer<typeof prescr
 }
 
 export async function deletePrescription(id: string) {
+  await requirePermission("medical.delete");
   await prisma.prescription.delete({ where: { id } });
   revalidatePath("/patients");
   return { ok: true };

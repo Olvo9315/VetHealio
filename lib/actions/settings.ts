@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
+import { getActor, hasPermission, requireUserId } from "@/lib/permissions";
 
 // ---- Types ----
 
@@ -44,6 +45,8 @@ const preferencesSchema = z.object({
 // ---- Queries ----
 
 export async function getUserById(id: string): Promise<UserProfile | null> {
+  const actor = await getActor();
+  if (!actor || (actor.id !== id && !hasPermission(actor, "staff.manage"))) return null;
   const user = await prisma.user.findUnique({
     where: { id },
     select: {
@@ -65,6 +68,8 @@ export async function getUserById(id: string): Promise<UserProfile | null> {
 // ---- Mutations ----
 
 export async function updateProfile(userId: string, data: z.infer<typeof profileSchema>) {
+  // Never trust the id sent by the client
+  userId = await requireUserId();
   const parsed = profileSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -85,6 +90,8 @@ export async function updateProfile(userId: string, data: z.infer<typeof profile
 }
 
 export async function changePassword(userId: string, data: z.infer<typeof passwordSchema>) {
+  // Never trust the id sent by the client
+  userId = await requireUserId();
   const parsed = passwordSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -105,6 +112,8 @@ export async function changePassword(userId: string, data: z.infer<typeof passwo
 }
 
 export async function updatePreferences(userId: string, data: z.infer<typeof preferencesSchema>) {
+  // Never trust the id sent by the client
+  userId = await requireUserId();
   const parsed = preferencesSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 

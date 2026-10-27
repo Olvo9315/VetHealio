@@ -102,7 +102,7 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
           if (svc) {
             onUpdate(item.id, {
               serviceId: svc.id,
-              description: svc.name,
+              description: svc.officialName ?? svc.name,
               unitPrice: item.unitPrice === 0 && svc.price != null ? svc.price : item.unitPrice,
             });
           } else {
@@ -243,7 +243,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
     if (apt.service) {
       setItems([{
         id: nextId(),
-        description: apt.service.name,
+        description: apt.service.officialName ?? apt.service.name,
         quantity: 1,
         unitPrice: apt.service.price ?? 0,
         type: "SERVICE",
@@ -463,7 +463,7 @@ export function InvoiceDialog({ open, onOpenChange, invoice, services, presetApp
         if (quickAddRowId) {
           updateItem(quickAddRowId, {
             serviceId: svc.id,
-            description: svc.name,
+            description: svc.officialName ?? svc.name,
           });
           if (svc.price != null) {
             setItems((prev) =>

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Role } from "@prisma/client";
 import { parseLicense } from "@/lib/license";
+import { readTranslations } from "@/lib/service-i18n";
 
 const optional = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -36,6 +37,7 @@ const clinicSchema = z.object({
     .refine((v) => v === "" || /^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(v), "invalidIban")
     .optional(),
   defaultTaxRate: z.coerce.number().min(0).max(100),
+  dataLocale: z.enum(["es", "ru", "en"]),
   invoiceFooter: optional(500),
 });
 
@@ -52,16 +54,20 @@ export async function updateClinicSettings(data: ClinicFormData) {
   const parsed = clinicSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
-  const { name, country, defaultTaxRate, ...rest } = parsed.data;
+  const { name, country, defaultTaxRate, dataLocale, ...rest } = parsed.data;
   const nullable = Object.fromEntries(
     Object.entries(rest).map(([k, v]) => [k, v ? v : null])
   );
 
+  const previous = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { dataLocale: true } });
   await prisma.clinicSettings.upsert({
     where: { id: "default" },
-    create: { id: "default", name, country, defaultTaxRate, ...nullable },
-    update: { name, country, defaultTaxRate, ...nullable },
+    create: { id: "default", name, country, defaultTaxRate, dataLocale, ...nullable },
+    update: { name, country, defaultTaxRate, dataLocale, ...nullable },
   });
+  if (previous && previous.dataLocale !== dataLocale) {
+    await switchServiceLanguage(previous.dataLocale, dataLocale);
+  }
 
   revalidatePath("/", "layout");
   return { success: true };
@@ -79,4 +85,20 @@ export async function updateLicenseKey(key: string) {
   });
   revalidatePath("/", "layout");
   return { success: true };
+}
+
+// When the clinic's data language changes, a service whose translation exists in the new
+// language gets it as its official name, and the old official name becomes a translation.
+// Services without that translation keep their current name.
+async function switchServiceLanguage(from: string, to: string) {
+  const services = await prisma.service.findMany({ select: { id: true, name: true, translations: true } });
+  for (const s of services) {
+    const translations = readTranslations(s.translations) as Record<string, string>;
+    const target = translations[to];
+    if (!target) continue;
+    const next = { ...translations, [from]: s.name };
+    delete next[to];
+    await prisma.service.update({ where: { id: s.id }, data: { name: target, translations: next } });
+  }
+  revalidatePath("/", "layout");
 }

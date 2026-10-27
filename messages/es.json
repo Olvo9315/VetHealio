@@ -521,7 +521,7 @@
     "fullTime": "Tiempo completo",
     "partTime": "Tiempo parcial",
     "contractor": "Contratista",
-    "canManageStaff": "Puede gestionar personal",
+    "canManageStaff": "Médico jefe: gestiona personal, servicios y precios, anula facturas y borra historiales",
     "annualLeaveDays": "Días de vacaciones anuales",
     "emergencyContact": "Contacto de emergencia",
     "emergencyName": "Nombre de emergencia",
@@ -694,7 +694,11 @@
     "isActive": "Activo",
     "parentCategory": "Categoría padre",
     "root": "(Raíz)",
-    "categoriesCount": "{count, plural, one {# categoría} other {# categorías}}"
+    "categoriesCount": "{count, plural, one {# categoría} other {# categorías}}",
+    "officialName": "Nombre oficial ({language})",
+    "officialNameHint": "Así aparecerá en facturas y documentos.",
+    "translate": "Traducción",
+    "translationsHint": "Opcional: nombre que verá el personal que usa la interfaz en otro idioma."
   },
   "pwa": {
     "installTitle": "Instalar VetHealio",
@@ -773,7 +777,10 @@
     "invalidNif": "NIF/CIF no válido",
     "invalidEmail": "Correo no válido",
     "invalidIban": "IBAN no válido",
-    "invalidValue": "Valor no válido"
+    "invalidValue": "Valor no válido",
+    "sectionLanguage": "Idioma de los datos",
+    "dataLocale": "Idioma oficial de la clínica",
+    "dataLocaleHint": "Idioma de los nombres de servicios, facturas, recetas y documentos. Cada empleado puede usar la interfaz en su propio idioma."
   },
   "validation": {
     "required": "Obligatorio",
@@ -908,35 +915,5 @@
       "presvet": "Comunicación de recetas de antibióticos al MAPA (RD 666/2023)",
       "knowledgeBase": "Protocolos, dosis y guías internas de la clínica"
     }
-  },
-  "serviceCatalog": {
-    "bloodTest": "Analítica de sangre",
-    "bloodTest_general": "General",
-    "bloodTest_presurgical": "Prequirúrgica",
-    "nailTrim": "Cortar uñas",
-    "spay": "Esterilización",
-    "spay_cat": "OHT gata",
-    "spay_dog": "OHT perra",
-    "spay_dog_0_10": "0 - 10 kg",
-    "spay_dog_11_20": "11 - 20 kg",
-    "spay_dog_21_30": "21 - 30 kg",
-    "neuter": "Castración",
-    "neuter_cat": "Gato",
-    "neuter_dog": "Perro",
-    "neuter_dog_0_10": "0 - 10 kg",
-    "neuter_dog_11_20": "11 - 20 kg",
-    "neuter_dog_21_40": "21 - 40 kg",
-    "consultation": "Consulta",
-    "consultation_general": "General",
-    "consultation_followUp": "Seguimiento",
-    "consultation_specialist": "Especialista",
-    "ultrasound": "Ecografía",
-    "ultrasound_clinic": "Clínica",
-    "ultrasound_external": "Servicio externo",
-    "urinalysis": "Analítica de orina",
-    "dipstickSediment": "Tira + sedimento",
-    "cytology": "Citología",
-    "cytology_ear": "Auricular",
-    "cytology_skinTumor": "Piel / tumor"
   }
 }

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { deleteService } from "@/lib/actions/services";
 import type { ServiceNode } from "@/lib/actions/services";
 import { ServiceDialog } from "./ServiceDialog";
+import { useServicesContext } from "./ServicesContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
@@ -19,6 +20,7 @@ interface ServicesTreeNodeProps {
 
 export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
   const t = useTranslations("services");
+  const { canManage } = useServicesContext();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(true);
@@ -82,7 +84,8 @@ export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
           </Badge>
         )}
 
-        {/* Actions (visible on hover) */}
+        {/* Actions (visible on hover) — only for catalog managers */}
+        {canManage && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {canAddChild && (
             <Button
@@ -115,6 +118,7 @@ export function ServicesTreeNode({ node, depth }: ServicesTreeNodeProps) {
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
+        )}
       </div>
 
       {/* Children */}

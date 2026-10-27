@@ -521,7 +521,7 @@
     "fullTime": "Полная занятость",
     "partTime": "Частичная занятость",
     "contractor": "Подрядчик",
-    "canManageStaff": "Может управлять персоналом",
+    "canManageStaff": "Главный врач: управляет персоналом, услугами и ценами, отменяет счета и удаляет медзаписи",
     "annualLeaveDays": "Дней отпуска в год",
     "emergencyContact": "Экстренный контакт",
     "emergencyName": "Имя для экстренной связи",
@@ -694,7 +694,11 @@
     "isActive": "Активна",
     "parentCategory": "Родительская категория",
     "root": "(Корень)",
-    "categoriesCount": "{count, plural, one {# категория} few {# категории} many {# категорий} other {# категории}}"
+    "categoriesCount": "{count, plural, one {# категория} few {# категории} many {# категорий} other {# категории}}",
+    "officialName": "Официальное название ({language})",
+    "officialNameHint": "Так услуга будет указана в счетах и документах.",
+    "translate": "Перевод",
+    "translationsHint": "Необязательно: так услугу увидят сотрудники с интерфейсом на другом языке."
   },
   "pwa": {
     "installTitle": "Установить VetHealio",
@@ -773,7 +777,10 @@
     "invalidNif": "Неверный NIF/CIF",
     "invalidEmail": "Неверный email",
     "invalidIban": "Неверный IBAN",
-    "invalidValue": "Неверное значение"
+    "invalidValue": "Неверное значение",
+    "sectionLanguage": "Язык данных",
+    "dataLocale": "Официальный язык клиники",
+    "dataLocaleHint": "На нём хранятся названия услуг и составляются счета, рецепты и документы. Интерфейс каждый сотрудник может выбрать свой."
   },
   "validation": {
     "required": "Обязательное поле",
@@ -908,35 +915,5 @@
       "presvet": "Передача рецептов на антибиотики в MAPA (RD 666/2023)",
       "knowledgeBase": "Протоколы, дозировки и внутренние инструкции клиники"
     }
-  },
-  "serviceCatalog": {
-    "bloodTest": "Анализ крови",
-    "bloodTest_general": "Общий",
-    "bloodTest_presurgical": "Предоперационный",
-    "nailTrim": "Стрижка когтей",
-    "spay": "Стерилизация",
-    "spay_cat": "ОГЭ кошки",
-    "spay_dog": "ОГЭ собаки",
-    "spay_dog_0_10": "0–10 кг",
-    "spay_dog_11_20": "11–20 кг",
-    "spay_dog_21_30": "21–30 кг",
-    "neuter": "Кастрация",
-    "neuter_cat": "Кот",
-    "neuter_dog": "Пёс",
-    "neuter_dog_0_10": "0–10 кг",
-    "neuter_dog_11_20": "11–20 кг",
-    "neuter_dog_21_40": "21–40 кг",
-    "consultation": "Консультация",
-    "consultation_general": "Общая",
-    "consultation_followUp": "Повторный приём",
-    "consultation_specialist": "Специалист",
-    "ultrasound": "УЗИ",
-    "ultrasound_clinic": "В клинике",
-    "ultrasound_external": "Внешний специалист",
-    "urinalysis": "Анализ мочи",
-    "dipstickSediment": "Тест-полоска + осадок",
-    "cytology": "Цитология",
-    "cytology_ear": "Ушная",
-    "cytology_skinTumor": "Кожа / опухоль"
   }
 }

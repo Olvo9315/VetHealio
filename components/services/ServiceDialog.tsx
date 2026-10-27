@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Languages } from "lucide-react";
+import { LANGUAGE_NAMES, useServicesContext, type DataLocale } from "./ServicesContext";
 
 const PRESET_COLORS = [
   "#1D9E75", "#1D4ED8", "#15803D", "#B91C1C", "#7C3AED",
@@ -38,23 +40,29 @@ export function ServiceDialog({
   const tc = useTranslations("common");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [name, setName] = useState(editNode?.name ?? "");
+  const { dataLocale } = useServicesContext();
+  // Languages other than the clinic's official one can get a display translation
+  const otherLocales = (Object.keys(LANGUAGE_NAMES) as DataLocale[]).filter((l) => l !== dataLocale);
+  const initialName = editNode?.officialName ?? editNode?.name ?? "";
+  const initialTranslations = () => ({ ...(editNode?.translations ?? {}) }) as Partial<Record<DataLocale, string>>;
+
+  const [name, setName] = useState(initialName);
+  const [translations, setTranslations] = useState(initialTranslations);
+  const [showTranslations, setShowTranslations] = useState(false);
   const [price, setPrice] = useState(editNode?.price != null ? String(editNode.price) : "");
   const [color, setColor] = useState(editNode?.color ?? PRESET_COLORS[0]);
 
-  useEffect(() => {
-    if (open) {
-      setName(editNode?.name ?? "");
-      setPrice(editNode?.price != null ? String(editNode.price) : "");
-      setColor(editNode?.color ?? PRESET_COLORS[0]);
-    }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
   function reset() {
-    setName(editNode?.name ?? "");
+    setName(initialName);
+    setTranslations(initialTranslations());
+    setShowTranslations(otherLocales.some((l) => editNode?.translations?.[l]));
     setPrice(editNode?.price != null ? String(editNode.price) : "");
     setColor(editNode?.color ?? PRESET_COLORS[0]);
   }
+
+  useEffect(() => {
+    if (open) reset();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +71,7 @@ export function ServiceDialog({
       price: price.trim() === "" ? null : Number(price),
       color: depth === 0 ? color : null,
       parentId: parentId ?? null,
+      translations: Object.fromEntries(otherLocales.map((l) => [l, translations[l]?.trim() ?? ""])),
     };
     startTransition(async () => {
       const result = editNode
@@ -85,15 +94,44 @@ export function ServiceDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <Label>{t("name")} *</Label>
-            <Input
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("name")}
-              autoFocus
-            />
+            <Label>{t("officialName", { language: LANGUAGE_NAMES[dataLocale] })} *</Label>
+            <div className="flex gap-2">
+              <Input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("name")}
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant={showTranslations ? "secondary" : "outline"}
+                size="icon"
+                className="shrink-0"
+                title={t("translate")}
+                aria-label={t("translate")}
+                onClick={() => setShowTranslations((v) => !v)}
+              >
+                <Languages className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("officialNameHint")}</p>
           </div>
+          {showTranslations && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">{t("translationsHint")}</p>
+              {otherLocales.map((l) => (
+                <div key={l} className="space-y-1">
+                  <Label className="text-xs">{LANGUAGE_NAMES[l]}</Label>
+                  <Input
+                    value={translations[l] ?? ""}
+                    onChange={(e) => setTranslations((prev) => ({ ...prev, [l]: e.target.value }))}
+                    placeholder={name}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
           <div className="space-y-1">
             <Label>{t("price")}</Label>
             <Input

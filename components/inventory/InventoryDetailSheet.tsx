@@ -34,6 +34,7 @@ import {
   Euro,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
@@ -72,6 +73,8 @@ export function InventoryDetailSheet({
   onEdit,
 }: InventoryDetailSheetProps) {
   const dateLocale = useDateLocale();
+  const canEdit = useCan("inventory.manage");
+  const canDelete = useCan("inventory.manage");
   const t = useTranslations("inventory");
   const tc = useTranslations("common");
   const [isAdjusting, startAdjust] = useTransition();
@@ -294,10 +297,13 @@ export function InventoryDetailSheet({
 
         {/* Actions */}
         <div className="pt-4 border-t border-border space-y-2">
+          {canEdit && (
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
             {t("edit")}
           </Button>
+          )}
+          {canDelete && (
           <Button
             variant="outline"
             className="w-full text-destructive hover:bg-destructive/10"
@@ -307,6 +313,7 @@ export function InventoryDetailSheet({
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
             {tc("delete")}
           </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

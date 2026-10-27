@@ -5,7 +5,7 @@ import pg from "pg";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { databaseUrl } from "../lib/database-url";
-import { SERVICE_CATALOG, type CatalogEntry } from "./service-catalog";
+import { LOCALES, SERVICE_CATALOG, type CatalogEntry, type Locale } from "./service-catalog";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -18,12 +18,15 @@ async function main() {
   // Seed clinic identity + first admin (idempotent). Configure per clinic via env:
   //   SEED_CLINIC_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_FIRST_NAME, SEED_ADMIN_LAST_NAME,
   //   SEED_ADMIN_PASSWORD (omit to generate a random one, printed once)
+  //   SEED_CLINIC_LOCALE (es | ru | en): language of official data, default es
   const clinicName = process.env.SEED_CLINIC_NAME?.trim();
-  await prisma.clinicSettings.upsert({
+  const seedLocale = process.env.SEED_CLINIC_LOCALE as Locale | undefined;
+  const clinic = await prisma.clinicSettings.upsert({
     where: { id: "default" },
-    create: { id: "default", ...(clinicName ? { name: clinicName } : {}) },
-    update: clinicName ? { name: clinicName } : {},
+    create: { id: "default", ...(clinicName ? { name: clinicName } : {}), ...(seedLocale ? { dataLocale: seedLocale } : {}) },
+    update: { ...(clinicName ? { name: clinicName } : {}), ...(seedLocale ? { dataLocale: seedLocale } : {}) },
   });
+  const dataLocale = (LOCALES as string[]).includes(clinic.dataLocale) ? (clinic.dataLocale as Locale) : "es";
   console.log(`Clinic: ${clinicName ?? "(unchanged)"}`);
 
   const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@vethealio.com").trim().toLowerCase();
@@ -70,8 +73,10 @@ async function main() {
     const createLevel = async (entries: CatalogEntry[], parentId: string | null) => {
       for (let sortOrder = 0; sortOrder < entries.length; sortOrder++) {
         const entry = entries[sortOrder];
+        // Official name in the clinic language; the other languages become translations
+        const translations = Object.fromEntries(LOCALES.filter((l) => l !== dataLocale).map((l) => [l, entry.labels[l]]));
         const service = await prisma.service.create({
-          data: { name: entry.name, i18nKey: entry.key, color: entry.color ?? null, price: null, parentId, sortOrder },
+          data: { name: entry.labels[dataLocale], translations, color: entry.color ?? null, price: null, parentId, sortOrder },
         });
         created++;
         if (entry.children) await createLevel(entry.children, service.id);

@@ -295,14 +295,14 @@ export function AppointmentDialog({
   // Auto-fill title — existing mode
   useEffect(() => {
     if (mode === "existing" && selectedPet && selectedService && !isEdit) {
-      form.setValue("title", `${selectedService.name} — ${selectedPet.name}`);
+      form.setValue("title", `${selectedService.officialName ?? selectedService.name} — ${selectedPet.name}`);
     }
   }, [selectedPet, selectedService, mode, isEdit, form]);
 
   // Auto-fill title — primary mode
   useEffect(() => {
     if (mode === "primary" && primaryPetName && selectedService && !isEdit) {
-      form.setValue("title", `${selectedService.name} — ${primaryPetName}`);
+      form.setValue("title", `${selectedService.officialName ?? selectedService.name} — ${primaryPetName}`);
     }
   }, [primaryPetName, selectedService, mode, isEdit, form]);
 

@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { getDateLocale } from "@/lib/date-locale";
 import { getServiceRelationLocalizer } from "@/lib/service-i18n";
+import { requirePermission } from "@/lib/permissions";
 import type {
   InvoiceStatus,
   PaymentMethod,
@@ -71,7 +72,7 @@ export type AppointmentOption = {
   title: string;
   startTime: Date;
   type: AppointmentType | null;
-  service: { id: string; name: string; price: number | null } | null;
+  service: { id: string; name: string; officialName?: string; price: number | null } | null;
   pet: { name: string; owner: { firstName: string; lastName: string } };
 };
 
@@ -133,7 +134,7 @@ const fullInclude = {
       total: true,
       type: true,
       serviceId: true,
-      service: { select: { name: true, i18nKey: true } },
+      service: { select: { name: true, translations: true } },
     },
   },
 } as const;
@@ -250,7 +251,7 @@ export async function searchAppointmentsWithoutInvoice(
       title: true,
       startTime: true,
       type: true,
-      service: { select: { id: true, name: true, price: true, i18nKey: true } },
+      service: { select: { id: true, name: true, price: true, translations: true } },
       pet: {
         select: {
           name: true,
@@ -279,6 +280,7 @@ function buildItems(items: z.infer<typeof invoiceItemSchema>[]) {
 }
 
 export async function createInvoice(data: InvoiceFormData) {
+  await requirePermission("invoice.write");
   const parsed = invoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -313,6 +315,7 @@ export async function createInvoice(data: InvoiceFormData) {
 }
 
 export async function createDirectInvoice(data: DirectInvoiceFormData) {
+  await requirePermission("invoice.write");
   const parsed = directInvoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -334,6 +337,7 @@ export async function createDirectInvoice(data: DirectInvoiceFormData) {
 }
 
 export async function updateInvoice(id: string, data: InvoiceFormData) {
+  await requirePermission("invoice.write");
   const parsed = invoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -368,6 +372,7 @@ export async function updateInvoiceStatus(
   status: InvoiceStatus,
   paymentMethod?: PaymentMethod
 ) {
+  await requirePermission(status === "CANCELLED" ? "invoice.void" : "invoice.write");
   const invoice = await prisma.invoice.update({
     where: { id },
     data: {
@@ -383,6 +388,7 @@ export async function updateInvoiceStatus(
 }
 
 export async function deleteInvoice(id: string) {
+  await requirePermission("invoice.void");
   await prisma.invoice.delete({ where: { id } });
   revalidatePath("/finances");
   return { success: true };

@@ -23,7 +23,7 @@ export type AppointmentFull = {
   petId: string;
   veterinarianId: string;
   serviceId: string | null;
-  service: { id: string; name: string; color: string | null } | null;
+  service: { id: string; name: string; officialName?: string; color: string | null } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
   veterinarian: { id: string; name: string };
 };
@@ -46,7 +46,7 @@ const updateStatusSchema = z.object({
 });
 
 const serviceInclude = {
-  select: { id: true, name: true, color: true, i18nKey: true },
+  select: { id: true, name: true, color: true, translations: true },
 };
 
 // ---- Queries ----

@@ -21,6 +21,7 @@ import { getVeterinarians } from "@/lib/actions/appointments";
 import { format } from "date-fns";
 import { Calendar, DollarSign, Clock, Plus, Receipt } from "lucide-react";
 import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 type Tab = "medical" | "vaccinations" | "appointments" | "prescriptions" | "finances";
 
@@ -36,6 +37,9 @@ interface PetDetailTabsProps {
 
 export function PetDetailTabs({ pet }: PetDetailTabsProps) {
   const t = useTranslations("patients");
+  const canMedical = useCan("medical.write");
+  const canPrescribe = useCan("prescription.write");
+  const canInvoice = useCan("invoice.write");
   const ta = useTranslations("appointments");
   const tf = useTranslations("finances");
   const tm = useTranslations("medicalRecords");
@@ -212,6 +216,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         {activeTab === "medical" && (
           <div>
             <div className="flex justify-end mb-3">
+              {canMedical && (
               <Button
                 size="sm"
                 className="bg-primary text-primary-foreground h-8 text-xs"
@@ -220,6 +225,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {tm("new")}
               </Button>
+              )}
             </div>
             <MedicalTimeline
               records={medicalRecords}
@@ -232,6 +238,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         {activeTab === "vaccinations" && (
           <div>
             <div className="flex justify-end mb-3">
+              {canMedical && (
               <Button
                 size="sm"
                 className="bg-primary text-primary-foreground h-8 text-xs"
@@ -240,6 +247,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {t("newVaccination")}
               </Button>
+              )}
             </div>
             <VaccinationsList vaccinations={vaccinations} />
           </div>
@@ -298,6 +306,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         {activeTab === "prescriptions" && (
           <div>
             <div className="flex justify-end mb-3">
+              {canPrescribe && (
               <Button
                 size="sm"
                 className="bg-primary text-primary-foreground h-8 text-xs"
@@ -306,6 +315,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {tp("new")}
               </Button>
+              )}
             </div>
             <PrescriptionsList
               prescriptions={prescriptions}
@@ -318,6 +328,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         {activeTab === "finances" && (
           <div>
             <div className="flex justify-end mb-3">
+              {canInvoice && (
               <Button
                 size="sm"
                 className="bg-primary text-primary-foreground h-8 text-xs"
@@ -326,6 +337,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {tf("newInvoice")}
               </Button>
+              )}
             </div>
             {invoices.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">

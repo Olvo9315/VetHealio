@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { adjustStock } from "@/lib/actions/inventory";
 import { toast } from "sonner";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
@@ -98,6 +99,7 @@ interface InventoryTableProps {
 export function InventoryTable({ initialItems, categories }: InventoryTableProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("inventory");
+  const canManage = useCan("inventory.manage");
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -231,10 +233,12 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
             <Download className="w-4 h-4 mr-1.5" />
             CSV
           </Button>
+          {canManage && (
           <Button className="bg-primary text-primary-foreground" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             {t("new")}
           </Button>
+          )}
         </div>
       </div>
 

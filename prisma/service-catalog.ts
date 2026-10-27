@@ -1,80 +1,122 @@
-// Default service catalog for a new clinic: names in Spanish (stored), translated in the UI
-// through i18nKey ("serviceCatalog" namespace). No prices — each clinic sets its own.
+// Default service catalog for a new clinic. The official name is the label in the clinic's
+// data language; the other labels become display translations. No prices — each clinic sets its own.
+export type Locale = "es" | "ru" | "en";
+export const LOCALES: Locale[] = ["es", "ru", "en"];
+
 export type CatalogEntry = {
-  key: string;
-  name: string;
+  labels: Record<Locale, string>;
   color?: string;
   children?: CatalogEntry[];
 };
 
-const dogWeights = (prefix: string, ranges: [string, string][]): CatalogEntry[] =>
-  ranges.map(([suffix, label]) => ({ key: `${prefix}_${suffix}`, name: label }));
-
 export const SERVICE_CATALOG: CatalogEntry[] = [
   {
-    key: "bloodTest",
-    name: "Analítica de sangre",
+    labels: { es: "Analítica de sangre", ru: "Анализ крови", en: "Blood test" },
     color: "#1D4ED8",
     children: [
-      { key: "bloodTest_general", name: "General" },
-      { key: "bloodTest_presurgical", name: "Prequirúrgica" },
+      {
+        labels: { es: "General", ru: "Общий", en: "General" },
+      },
+      {
+        labels: { es: "Prequirúrgica", ru: "Предоперационный", en: "Pre-surgical" },
+      },
     ],
   },
-  { key: "nailTrim", name: "Cortar uñas", color: "#D97706" },
   {
-    key: "spay",
-    name: "Esterilización",
+    labels: { es: "Cortar uñas", ru: "Стрижка когтей", en: "Nail trim" },
+    color: "#D97706",
+  },
+  {
+    labels: { es: "Esterilización", ru: "Стерилизация", en: "Spay" },
     color: "#B91C1C",
     children: [
-      { key: "spay_cat", name: "OHT gata" },
       {
-        key: "spay_dog",
-        name: "OHT perra",
-        children: dogWeights("spay_dog", [["0_10", "0 - 10 kg"], ["11_20", "11 - 20 kg"], ["21_30", "21 - 30 kg"]]),
+        labels: { es: "OHT gata", ru: "ОГЭ кошки", en: "Cat spay (OHE)" },
+      },
+      {
+        labels: { es: "OHT perra", ru: "ОГЭ собаки", en: "Dog spay (OHE)" },
+        children: [
+          {
+            labels: { es: "0 - 10 kg", ru: "0–10 кг", en: "0–10 kg" },
+          },
+          {
+            labels: { es: "11 - 20 kg", ru: "11–20 кг", en: "11–20 kg" },
+          },
+          {
+            labels: { es: "21 - 30 kg", ru: "21–30 кг", en: "21–30 kg" },
+          },
+        ],
       },
     ],
   },
   {
-    key: "neuter",
-    name: "Castración",
+    labels: { es: "Castración", ru: "Кастрация", en: "Neutering" },
     color: "#7C3AED",
     children: [
-      { key: "neuter_cat", name: "Gato" },
       {
-        key: "neuter_dog",
-        name: "Perro",
-        children: dogWeights("neuter_dog", [["0_10", "0 - 10 kg"], ["11_20", "11 - 20 kg"], ["21_40", "21 - 40 kg"]]),
+        labels: { es: "Gato", ru: "Кот", en: "Cat" },
+      },
+      {
+        labels: { es: "Perro", ru: "Пёс", en: "Dog" },
+        children: [
+          {
+            labels: { es: "0 - 10 kg", ru: "0–10 кг", en: "0–10 kg" },
+          },
+          {
+            labels: { es: "11 - 20 kg", ru: "11–20 кг", en: "11–20 kg" },
+          },
+          {
+            labels: { es: "21 - 40 kg", ru: "21–40 кг", en: "21–40 kg" },
+          },
+        ],
       },
     ],
   },
   {
-    key: "consultation",
-    name: "Consulta",
+    labels: { es: "Consulta", ru: "Консультация", en: "Consultation" },
     color: "#15803D",
     children: [
-      { key: "consultation_general", name: "General" },
-      { key: "consultation_followUp", name: "Seguimiento" },
-      { key: "consultation_specialist", name: "Especialista" },
+      {
+        labels: { es: "General", ru: "Общая", en: "General" },
+      },
+      {
+        labels: { es: "Seguimiento", ru: "Повторный приём", en: "Follow-up" },
+      },
+      {
+        labels: { es: "Especialista", ru: "Специалист", en: "Specialist" },
+      },
     ],
   },
   {
-    key: "ultrasound",
-    name: "Ecografía",
+    labels: { es: "Ecografía", ru: "УЗИ", en: "Ultrasound" },
     color: "#0F766E",
     children: [
-      { key: "ultrasound_clinic", name: "Clínica" },
-      { key: "ultrasound_external", name: "Servicio externo" },
+      {
+        labels: { es: "Clínica", ru: "В клинике", en: "In-clinic" },
+      },
+      {
+        labels: { es: "Servicio externo", ru: "Внешний специалист", en: "External service" },
+      },
     ],
   },
-  { key: "urinalysis", name: "Analítica de orina", color: "#6B7280" },
-  { key: "dipstickSediment", name: "Tira + sedimento", color: "#0891B2" },
   {
-    key: "cytology",
-    name: "Citología",
+    labels: { es: "Analítica de orina", ru: "Анализ мочи", en: "Urinalysis" },
+    color: "#6B7280",
+  },
+  {
+    labels: { es: "Tira + sedimento", ru: "Тест-полоска + осадок", en: "Dipstick + sediment" },
+    color: "#0891B2",
+  },
+  {
+    labels: { es: "Citología", ru: "Цитология", en: "Cytology" },
     color: "#BE185D",
     children: [
-      { key: "cytology_ear", name: "Auricular" },
-      { key: "cytology_skinTumor", name: "Piel / tumor" },
+      {
+        labels: { es: "Auricular", ru: "Ушная", en: "Ear" },
+      },
+      {
+        labels: { es: "Piel / tumor", ru: "Кожа / опухоль", en: "Skin / tumor" },
+      },
     ],
   },
 ];

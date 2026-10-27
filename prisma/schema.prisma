@@ -449,9 +449,10 @@ model InvoiceItem {
 
 model Service {
   id        String    @id @default(cuid())
+  // Official name, in the clinic's data language (used on invoices and documents)
   name      String
-  // Key in the "serviceCatalog" i18n namespace for built-in catalog entries; cleared when renamed
-  i18nKey   String?
+  // Optional display names for other UI languages: { "ru": "...", "en": "..." }
+  translations Json?
   price     Float?
   color     String?
   isActive  Boolean   @default(true)
@@ -502,6 +503,8 @@ model ClinicSettings {
   invoiceFooter      String?
   // Signed module license (see lib/license.ts)
   licenseKey         String?
+  // Language of official data (service names, invoices, documents): es | ru | en
+  dataLocale         String   @default("es")
   updatedAt          DateTime @updatedAt
 }
 

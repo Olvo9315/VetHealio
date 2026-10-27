@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn, formatInvoiceId } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 const statusConfig = {
   PENDING:   { label: "pending",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",  Icon: Clock },
@@ -83,6 +84,8 @@ export function InvoiceDetailSheet({
   const dateLocale = useDateLocale();
   const t = useTranslations("finances");
   const tc = useTranslations("common");
+  const canWrite = useCan("invoice.write");
+  const canVoid = useCan("invoice.void");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
@@ -225,7 +228,7 @@ export function InvoiceDetailSheet({
           </div>
 
           {/* Mark as paid */}
-          {invoice.status === "PENDING" && (
+          {canWrite && invoice.status === "PENDING" && (
             <>
               <Separator />
               <div className="space-y-2">
@@ -262,13 +265,13 @@ export function InvoiceDetailSheet({
 
         {/* Footer actions */}
         <div className="pt-4 border-t border-border space-y-2">
-          {invoice.status === "PENDING" && (
+          {canWrite && invoice.status === "PENDING" && (
             <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
               {t("editInvoice")}
             </Button>
           )}
-          {invoice.status === "PENDING" && (
+          {canVoid && invoice.status === "PENDING" && (
             <Button
               variant="outline"
               className="w-full text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
@@ -279,6 +282,7 @@ export function InvoiceDetailSheet({
               {t("cancelInvoice")}
             </Button>
           )}
+          {canVoid && (
           <Button
             variant="outline"
             className="w-full text-destructive hover:bg-destructive/10"
@@ -288,6 +292,7 @@ export function InvoiceDetailSheet({
             {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
             {tc("delete")}
           </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

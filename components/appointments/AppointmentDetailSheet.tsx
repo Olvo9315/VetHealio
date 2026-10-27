@@ -40,6 +40,7 @@ import {
   Pill,
 } from "lucide-react";
 import { cn, formatAppointmentId } from "@/lib/utils";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -63,6 +64,8 @@ export function AppointmentDetailSheet({
   onCreatePrescription,
 }: AppointmentDetailSheetProps) {
   const dateLocale = useDateLocale();
+  const canInvoice = useCan("invoice.write");
+  const canPrescribe = useCan("prescription.write");
   const t = useTranslations("appointments");
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
@@ -222,13 +225,13 @@ export function AppointmentDetailSheet({
 
         {/* Actions */}
         <div className="pt-4 border-t border-border space-y-2">
-          {onCreateInvoice && (
+          {onCreateInvoice && canInvoice && (
             <Button className="w-full" variant="outline" onClick={onCreateInvoice}>
               <Receipt className="w-4 h-4 mr-2" />
               {t("createInvoice")}
             </Button>
           )}
-          {onCreatePrescription && (
+          {onCreatePrescription && canPrescribe && (
             <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
               <Pill className="w-4 h-4 mr-2" />
               {t("createPrescription")}
