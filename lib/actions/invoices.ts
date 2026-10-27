@@ -308,7 +308,15 @@ export async function createInvoice(data: InvoiceFormData) {
     return { invoice: await localizeInvoice(invoice as unknown as InvoiceFull) };
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "invoiceExists" };
+      // Let the UI offer to open the existing invoice instead
+      const existing = await prisma.invoice.findUnique({
+        where: { appointmentId: parsed.data.appointmentId },
+        include: fullInclude,
+      });
+      return {
+        error: "invoiceExists" as const,
+        existing: existing ? await localizeInvoice(existing as unknown as InvoiceFull) : null,
+      };
     }
     throw e;
   }

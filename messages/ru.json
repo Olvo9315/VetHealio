@@ -355,7 +355,10 @@
     "totalIssued": "Всего выставлено",
     "confirmedPayments": "Подтверждённые оплаты",
     "appointmentNotFound": "Запись не найдена",
-    "invoiceExists": "У этой записи уже есть счёт"
+    "invoiceExists": "У этой записи уже есть счёт",
+    "invoiceExistsPending": "Счёт ещё не оплачен — его можно открыть и отредактировать.",
+    "invoiceExistsPaid": "Этот счёт уже оплачен, редактировать его нельзя.",
+    "invoiceExistsCancelled": "Этот счёт отменён."
   },
   "inventory": {
     "title": "Склад",

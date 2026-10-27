@@ -355,7 +355,10 @@
     "totalIssued": "Total issued",
     "confirmedPayments": "Confirmed payments",
     "appointmentNotFound": "Appointment not found",
-    "invoiceExists": "This appointment already has an invoice"
+    "invoiceExists": "This appointment already has an invoice",
+    "invoiceExistsPending": "It has not been paid yet: you can open and edit it.",
+    "invoiceExistsPaid": "That invoice is already paid and cannot be edited.",
+    "invoiceExistsCancelled": "That invoice is cancelled."
   },
   "inventory": {
     "title": "Inventory",

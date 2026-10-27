@@ -355,7 +355,10 @@
     "totalIssued": "Total emitidas",
     "confirmedPayments": "Pagos confirmados",
     "appointmentNotFound": "Cita no encontrada",
-    "invoiceExists": "Esta cita ya tiene una factura asociada"
+    "invoiceExists": "Esta cita ya tiene una factura asociada",
+    "invoiceExistsPending": "La factura aún no está pagada: puedes abrirla y editarla.",
+    "invoiceExistsPaid": "La factura ya está pagada y no se puede editar.",
+    "invoiceExistsCancelled": "La factura está anulada."
   },
   "inventory": {
     "title": "Inventario",
