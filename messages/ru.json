@@ -206,7 +206,10 @@
     "monthConflicts": "{count, plural, one {# конфликт} few {# конфликта} many {# конфликтов} other {# конфликта}}",
     "leaveVacation": "Отпуск: {name}",
     "leaveAbsent": "Нет на месте: {name}",
-    "monthLabel": "Записи: {count}"
+    "monthLabel": "Записи: {count}",
+    "addService": "Добавить услугу",
+    "removeService": "Убрать услугу",
+    "services": "Услуги"
   },
   "medicalRecords": {
     "title": "Медицинские карты",

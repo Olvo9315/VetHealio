@@ -73,6 +73,8 @@ export type AppointmentOption = {
   startTime: Date;
   type: AppointmentType | null;
   service: { id: string; name: string; officialName?: string; price: number | null } | null;
+  // Further services of the appointment: each becomes its own invoice line
+  extraServices?: { id: string; name: string; officialName?: string; price: number | null }[];
   pet: { name: string; owner: { firstName: string; lastName: string } };
 };
 
@@ -252,6 +254,10 @@ export async function searchAppointmentsWithoutInvoice(
       startTime: true,
       type: true,
       service: { select: { id: true, name: true, price: true, translations: true } },
+      extraServices: {
+        orderBy: { sortOrder: "asc" },
+        select: { service: { select: { id: true, name: true, price: true, translations: true } } },
+      },
       pet: {
         select: {
           name: true,
@@ -261,9 +267,12 @@ export async function searchAppointmentsWithoutInvoice(
     },
     orderBy: { startTime: "desc" },
     take: 10,
-  })) as unknown as AppointmentOption[];
+  })) as unknown as (Omit<AppointmentOption, "extraServices"> & { extraServices: { service: { id: string; name: string; price: number | null } }[] })[];
   const localize = await getServiceRelationLocalizer();
-  return options.map(localize);
+  return options.map((o) => ({
+    ...localize(o),
+    extraServices: o.extraServices.map((row) => localize({ service: row.service }).service!),
+  }));
 }
 
 // ---- Mutations ----

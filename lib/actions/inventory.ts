@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addDays } from "date-fns";
-import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
+import { getStockStatus } from "@/lib/utils/inventoryHelpers";
 import { assertModule } from "@/lib/license";
 import { requirePermission } from "@/lib/permissions";
 export type { StockStatus, ExpiryStatus } from "@/lib/utils/inventoryHelpers";

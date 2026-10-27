@@ -206,7 +206,10 @@
     "monthConflicts": "{count, plural, one {# conflicto} other {# conflictos}}",
     "leaveVacation": "Vacaciones: {name}",
     "leaveAbsent": "Ausente: {name}",
-    "monthLabel": "Citas: {count}"
+    "monthLabel": "Citas: {count}",
+    "addService": "Añadir servicio",
+    "removeService": "Quitar servicio",
+    "services": "Servicios"
   },
   "medicalRecords": {
     "title": "Historiales médicos",

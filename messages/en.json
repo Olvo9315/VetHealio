@@ -206,7 +206,10 @@
     "monthConflicts": "{count, plural, one {# conflict} other {# conflicts}}",
     "leaveVacation": "On holiday: {name}",
     "leaveAbsent": "Away: {name}",
-    "monthLabel": "Appointments: {count}"
+    "monthLabel": "Appointments: {count}",
+    "addService": "Add service",
+    "removeService": "Remove service",
+    "services": "Services"
   },
   "medicalRecords": {
     "title": "Medical Records",

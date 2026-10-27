@@ -121,6 +121,7 @@ export async function deleteService(id: string) {
 
   const inUse =
     (await prisma.appointment.count({ where: { serviceId: id } })) +
+    (await prisma.appointmentService.count({ where: { serviceId: id } })) +
     (await prisma.invoiceItem.count({ where: { serviceId: id } }));
   if (inUse > 0) return { error: "in_use" };
 

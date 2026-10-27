@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { cn, formatAppointmentId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
+import type { ServiceFlat } from "@/lib/actions/services";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -51,6 +52,8 @@ interface AppointmentDetailSheetProps {
   onEdit: () => void;
   onCreateInvoice?: () => void;
   onCreatePrescription?: () => void;
+  // Catalog, to show "Category › Sub-service" instead of a bare sub-service name
+  services?: ServiceFlat[];
 }
 
 export function AppointmentDetailSheet({
@@ -62,12 +65,18 @@ export function AppointmentDetailSheet({
   onEdit,
   onCreateInvoice,
   onCreatePrescription,
+  services = [],
 }: AppointmentDetailSheetProps) {
   const dateLocale = useDateLocale();
   const canInvoice = useCan("invoice.write");
   const canPrescribe = useCan("prescription.write");
   const t = useTranslations("appointments");
   const tr = useTranslations("rooms");
+  function servicePath(id: string, fallback: string) {
+    const svc = services.find((x) => x.id === id);
+    const parent = svc?.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
+    return parent ? `${parent.name} › ${svc!.name}` : fallback;
+  }
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
@@ -206,6 +215,23 @@ export function AppointmentDetailSheet({
             </p>
             <p className="text-sm font-medium">{appointment.veterinarian.name}</p>
           </div>
+
+          {/* Services (main + extra) */}
+          {appointment.service && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {t("services")}
+              </p>
+              <ul className="text-sm space-y-0.5">
+                {[appointment.service, ...(appointment.extraServices ?? [])].map((s) => (
+                  <li key={s.id} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color ?? "#9CA3AF" }} />
+                    {servicePath(s.id, s.name)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Room */}
           {appointment.room && (

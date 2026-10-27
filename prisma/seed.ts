@@ -58,6 +58,7 @@ async function main() {
   if (process.env.SEED_RESET_SERVICES === "1") {
     const used =
       (await prisma.appointment.count({ where: { serviceId: { not: null } } })) +
+      (await prisma.appointmentService.count()) +
       (await prisma.invoiceItem.count({ where: { serviceId: { not: null } } }));
     if (used > 0) throw new Error(`Cannot reset services: ${used} appointments/invoice items use them`);
     // Children first (parent relation is Restrict)

@@ -25,6 +25,8 @@ export type AppointmentFull = {
   veterinarianId: string;
   serviceId: string | null;
   service: { id: string; name: string; officialName?: string; color: string | null } | null;
+  // Further services after the main one, in order (optional: older callers don't load them)
+  extraServices?: { id: string; name: string; officialName?: string; color: string | null }[];
   roomId: string | null;
   room: { id: string; name: string; color: string } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
@@ -39,6 +41,7 @@ const appointmentSchema = z.object({
   veterinarianId: z.string().min(1),
   serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   roomId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  extraServiceIds: z.array(z.string().cuid()).max(10).optional(),
   type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
@@ -62,6 +65,17 @@ const serviceInclude = {
   },
 };
 
+const extraServicesInclude = {
+  select: { service: serviceInclude },
+  orderBy: { sortOrder: "asc" as const },
+};
+
+// Nested create for the extra services, keeping their order and dropping duplicates of the main one
+function extraServicesCreate(ids: string[] | undefined, mainId: string | null | undefined) {
+  const unique = Array.from(new Set((ids ?? []).filter((id) => id && id !== mainId)));
+  return unique.map((serviceId, sortOrder) => ({ serviceId, sortOrder }));
+}
+
 type ServiceWithParents = {
   color: string | null;
   parent?: { color: string | null; parent?: { color: string | null } | null } | null;
@@ -72,10 +86,19 @@ async function getAppointmentLocalizer() {
   return function <T extends { service?: unknown }>(record: T): T {
     const out = localize(record as T & { service?: { name: string } | null });
     const service = out.service as (ServiceWithParents & Record<string, unknown>) | null | undefined;
-    if (!service) return out;
-    const { parent, ...rest } = service;
-    return { ...out, service: { ...rest, color: service.color ?? parent?.color ?? parent?.parent?.color ?? null } };
+    const extras = (out as { extraServices?: { service: unknown }[] }).extraServices;
+    const result = {
+      ...out,
+      ...(extras ? { extraServices: extras.map((row) => flatten(localize({ service: row.service as { name: string } }).service)) } : {}),
+    } as T;
+    if (!service) return result;
+    return { ...result, service: flatten(service) };
   };
+  function flatten(service: unknown) {
+    const s = service as ServiceWithParents & Record<string, unknown>;
+    const { parent, ...rest } = s;
+    return { ...rest, color: s.color ?? parent?.color ?? parent?.parent?.color ?? null };
+  }
 }
 
 // ---- Queries ----
@@ -96,6 +119,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      extraServices: extraServicesInclude,
       room: roomInclude,
     },
     orderBy: { startTime: "asc" },
@@ -118,6 +142,7 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      extraServices: extraServicesInclude,
       room: roomInclude,
     },
   })) as unknown as AppointmentFull | null;
@@ -175,6 +200,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       petId: parsed.data.petId,
       veterinarianId: parsed.data.veterinarianId,
       serviceId: parsed.data.serviceId ?? null,
+      extraServices: { create: extraServicesCreate(parsed.data.extraServiceIds, parsed.data.serviceId) },
       roomId: parsed.data.roomId ?? null,
       type: parsed.data.type ?? null,
       startTime,
@@ -191,12 +217,13 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      extraServices: extraServicesInclude,
       room: roomInclude,
     },
   });
 
   revalidatePath("/appointments");
-  return { appointment: (await getAppointmentLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) as unknown as AppointmentFull };
 }
 
 // Drag & drop / resize in the calendar; in the per-room day view a drop can also move rooms
@@ -222,6 +249,13 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
 }
 
 export async function updateAppointment(id: string, data: Partial<z.infer<typeof appointmentSchema>>) {
+  const extraIds = "extraServiceIds" in data ? z.array(z.string().cuid()).max(10).parse(data.extraServiceIds ?? []) : undefined;
+  // Main service for de-duplication: the new one if it is being changed, otherwise the stored one
+  const mainId = !extraIds
+    ? null
+    : "serviceId" in data
+      ? data.serviceId ?? null
+      : (await prisma.appointment.findUnique({ where: { id }, select: { serviceId: true } }))?.serviceId ?? null;
   const appointment = await prisma.appointment.update({
     where: { id },
     data: {
@@ -230,6 +264,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       ...(data.veterinarianId ? { veterinarianId: data.veterinarianId } : {}),
       ...("serviceId" in data ? { serviceId: data.serviceId ?? null } : {}),
       ...("roomId" in data ? { roomId: data.roomId ?? null } : {}),
+      ...(extraIds ? { extraServices: { deleteMany: {}, create: extraServicesCreate(extraIds, mainId) } } : {}),
       ...(data.type ? { type: data.type } : {}),
       ...(data.startTime ? { startTime: new Date(data.startTime) } : {}),
       ...(data.endTime ? { endTime: new Date(data.endTime) } : {}),
@@ -244,12 +279,13 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       },
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
+      extraServices: extraServicesInclude,
       room: roomInclude,
     },
   });
 
   revalidatePath("/appointments");
-  return { appointment: (await getAppointmentLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) as unknown as AppointmentFull };
 }
 
 export async function deleteAppointment(id: string) {
@@ -274,6 +310,7 @@ const appointmentBaseSchema = z.object({
   veterinarianId: z.string().min(1),
   serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   roomId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
+  extraServiceIds: z.array(z.string().cuid()).max(10).optional(),
   type: z.nativeEnum(AppointmentType).optional(),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
@@ -324,6 +361,7 @@ export async function createAppointmentWithNewPatient(
         petId: resolvedPetId,
         veterinarianId: parsedAppt.data.veterinarianId,
         serviceId: parsedAppt.data.serviceId ?? null,
+        extraServices: { create: extraServicesCreate(parsedAppt.data.extraServiceIds, parsedAppt.data.serviceId) },
         roomId: parsedAppt.data.roomId ?? null,
         type: parsedAppt.data.type ?? null,
         startTime,
@@ -340,6 +378,7 @@ export async function createAppointmentWithNewPatient(
         },
         veterinarian: { select: { id: true, name: true } },
         service: serviceInclude,
+        extraServices: extraServicesInclude,
         room: roomInclude,
       },
     });
@@ -347,7 +386,7 @@ export async function createAppointmentWithNewPatient(
 
   revalidatePath("/appointments");
   revalidatePath("/patients");
-  return { appointment: (await getAppointmentLocalizer())(appointment) };
+  return { appointment: (await getAppointmentLocalizer())(appointment) as unknown as AppointmentFull };
 }
 
 export type BusySlot = { id: string; title: string; startTime: Date; endTime: Date };

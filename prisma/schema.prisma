@@ -313,8 +313,10 @@ model Appointment {
   pet            Pet      @relation(fields: [petId], references: [id])
   veterinarianId String
   veterinarian   User     @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  // First (main) service: drives the calendar colour; further services are in extraServices
   serviceId      String?
   service        Service? @relation(fields: [serviceId], references: [id])
+  extraServices  AppointmentService[]
   roomId         String?
   room           Room?    @relation(fields: [roomId], references: [id])
   invoice        Invoice?
@@ -324,6 +326,18 @@ model Appointment {
   @@index([petId])
   @@index([veterinarianId])
   @@index([roomId, startTime])
+}
+
+// Additional services of an appointment (the first one is Appointment.serviceId)
+model AppointmentService {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  sortOrder     Int         @default(0)
+
+  @@index([appointmentId])
 }
 
 model MedicalRecord {
@@ -467,6 +481,7 @@ model Service {
   updatedAt DateTime  @updatedAt
 
   appointments Appointment[]
+  appointmentExtras AppointmentService[]
   invoiceItems InvoiceItem[]
 }
 

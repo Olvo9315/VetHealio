@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, PawPrint, Loader2, AlertCircle, Check } from "lucide-react";
+import { Search, PawPrint, Loader2, AlertCircle, Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { translateMessage } from "@/lib/i18n-messages";
@@ -111,6 +111,12 @@ export function AppointmentDialog({
   const [selectedService, setSelectedService] = useState<SelectedService | null>(
     appointment?.service ? { id: appointment.service.id, name: appointment.service.name, price: null } : null
   );
+  // Further services after the main one (like invoice lines); all of them go to the invoice later
+  const [extraServices, setExtraServices] = useState<(SelectedService | null)[]>(
+    () => (appointment?.extraServices ?? []).map((s) => ({ id: s.id, name: s.name, officialName: s.officialName, price: null }))
+  );
+  // Which picker the quick-add dialog fills: -1 = main service, n = extra row n
+  const [quickAddTarget, setQuickAddTarget] = useState(-1);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
   const [serviceError, setServiceError] = useState<string | undefined>();
@@ -193,10 +199,12 @@ export function AppointmentDialog({
         owner: apt.pet.owner,
       });
       setSelectedService(apt.service ? { id: apt.service.id, name: apt.service.name, price: null } : null);
+      setExtraServices((apt.extraServices ?? []).map((s) => ({ id: s.id, name: s.name, officialName: s.officialName, price: null })));
       setServiceError(undefined);
       setRoomId(apt.roomId ?? "");
       setRoomError(undefined);
     } else {
+      setExtraServices([]);
       setRoomId(presetRoomId ?? "");
       setRoomError(undefined);
       const now = new Date();
@@ -389,6 +397,7 @@ export function AppointmentDialog({
       startTime: new Date(data.startTime).toISOString(),
       endTime: new Date(data.endTime).toISOString(),
       roomId: roomId || null,
+      extraServiceIds: extraServices.filter((s): s is SelectedService => !!s).map((s) => s.id),
     };
 
     if (mode === "existing") {
@@ -764,9 +773,43 @@ export function AppointmentDialog({
               services={localServices}
               value={selectedService?.id ?? null}
               onChange={(svc) => { setSelectedService(svc); setServiceError(undefined); }}
-              onAddNew={() => setQuickAddOpen(true)}
+              onAddNew={() => { setQuickAddTarget(-1); setQuickAddOpen(true); }}
               error={serviceError}
             />
+            {extraServices.map((svc, idx) => (
+              <div key={idx} className="flex items-start gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <ServicePicker
+                    services={localServices}
+                    value={svc?.id ?? null}
+                    onChange={(next) => setExtraServices((prev) => prev.map((s, i) => (i === idx ? next : s)))}
+                    onAddNew={() => { setQuickAddTarget(idx); setQuickAddOpen(true); }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={t("removeService")}
+                  onClick={() => setExtraServices((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            {extraServices.length < 10 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-primary"
+                onClick={() => setExtraServices((prev) => [...prev, null])}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                {t("addService")}
+              </Button>
+            )}
           </div>
 
           {/* ── Veterinarian ── */}
@@ -911,8 +954,12 @@ export function AppointmentDialog({
           parentId: null,
         };
         setLocalServices((prev) => [...prev, flat]);
-        setSelectedService(svc);
-        setServiceError(undefined);
+        if (quickAddTarget >= 0) {
+          setExtraServices((prev) => prev.map((s, i) => (i === quickAddTarget ? svc : s)));
+        } else {
+          setSelectedService(svc);
+          setServiceError(undefined);
+        }
       }}
     />
     </>

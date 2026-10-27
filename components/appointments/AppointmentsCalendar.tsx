@@ -156,6 +156,11 @@ function AppointmentCard({
           <p className="text-xs opacity-70 leading-tight" style={{ color: typeCfg.color }}>
             {apt.title}
           </p>
+          {!!apt.extraServices?.length && (
+            <p className="text-[11px] leading-tight text-muted-foreground mt-0.5">
+              + {apt.extraServices.map((s) => s.name).join(", ")}
+            </p>
+          )}
         </div>
         <span
           className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
@@ -577,15 +582,17 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
 
   function handleCreateInvoiceFromDetail() {
     if (!selectedAppointment) return;
-    const svc = selectedAppointment.service
-      ? { ...selectedAppointment.service, price: services.find((s) => s.id === selectedAppointment.service!.id)?.price ?? null }
-      : null;
+    const withPrice = (s: { id: string; name: string; officialName?: string }) => ({
+      ...s,
+      price: services.find((x) => x.id === s.id)?.price ?? null,
+    });
     setInvoicePresetApt({
       id: selectedAppointment.id,
       title: selectedAppointment.title,
       startTime: selectedAppointment.startTime,
       type: selectedAppointment.type,
-      service: svc,
+      service: selectedAppointment.service ? withPrice(selectedAppointment.service) : null,
+      extraServices: (selectedAppointment.extraServices ?? []).map(withPrice),
       pet: selectedAppointment.pet,
     });
     setDetailOpen(false);
@@ -667,6 +674,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                       {apt.service && (
                         <span className="text-[10px] leading-tight truncate max-w-full font-medium">
                           {serviceLabelRef.current(apt.service.id) ?? apt.service.name}
+                          {!!apt.extraServices?.length && ` +${apt.extraServices.length}`}
                         </span>
                       )}
                       {apt.room && (
@@ -693,6 +701,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                     {showService && (
                       <span className="text-[10px] leading-tight truncate font-medium">
                         {serviceLabelRef.current(apt.service!.id) ?? apt.service!.name}
+                        {!!apt.extraServices?.length && ` +${apt.extraServices.length}`}
                       </span>
                     )}
                     <span className="text-[10px] leading-tight truncate opacity-80">
@@ -1020,6 +1029,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
         {selectedAppointment && (
           <AppointmentDetailSheet
             open={detailOpen}
+            services={services}
             onOpenChange={setDetailOpen}
             appointment={selectedAppointment}
             onUpdated={handleAppointmentUpdated}

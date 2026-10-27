@@ -261,15 +261,17 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
     setAppointmentId(apt.id);
     setAptQuery("");
     setAptResults([]);
-    if (apt.service) {
-      setItems([{
+    // One invoice line per appointment service (main one first)
+    const aptServices = [...(apt.service ? [apt.service] : []), ...(apt.extraServices ?? [])];
+    if (aptServices.length) {
+      setItems(aptServices.map((svc) => ({
         id: nextId(),
-        description: officialServicePath(apt.service.id, apt.service.officialName ?? apt.service.name),
+        description: officialServicePath(svc.id, svc.officialName ?? svc.name),
         quantity: 1,
-        unitPrice: apt.service.price ?? 0,
-        type: "SERVICE",
-        serviceId: apt.service.id,
-      }]);
+        unitPrice: svc.price ?? localServices.find((s) => s.id === svc.id)?.price ?? 0,
+        type: "SERVICE" as const,
+        serviceId: svc.id,
+      })));
     }
   }
 

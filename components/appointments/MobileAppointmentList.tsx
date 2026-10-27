@@ -189,6 +189,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
                   {/* Full "Category › Sub-service" (wraps instead of being cut off) */}
                   <p className="text-xs text-foreground/80 leading-snug">
                     {serviceLabel(apt) ?? cfgLabel(t, typeCfg)}
+                    {!!apt.extraServices?.length && `, ${apt.extraServices.map((s) => s.name).join(", ")}`}
                   </p>
                   <p className={cn("text-xs truncate flex items-center gap-1", hasConflict ? "text-red-500" : "text-muted-foreground")}>
                     <Stethoscope className="w-3 h-3 shrink-0" />
@@ -223,6 +224,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
       {selectedApt && (
         <AppointmentDetailSheet
           open={detailOpen}
+          services={services}
           onOpenChange={setDetailOpen}
           appointment={selectedApt}
           onUpdated={handleUpdated}
