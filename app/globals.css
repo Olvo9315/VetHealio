@@ -294,11 +294,14 @@
     padding-bottom: 1.5rem;
   }
 }
-/* The page itself scrolls on phones: no pull-to-refresh reload while scrolling the calendar up */
+/* The page itself scrolls on phones. Pull-to-refresh stays for the page (at the very top, pull
+   further down), but scrolling the calendar grid up to its start must not reload the page */
+.vh-cal-phone-h .rbc-time-content {
+  overscroll-behavior-y: contain;
+}
 @media (max-width: 767px), (orientation: landscape) and (max-height: 500px) {
-  html,
   body {
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: auto;
   }
 }
 
