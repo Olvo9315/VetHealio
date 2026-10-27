@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } fr
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
 import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
+import { servicePath } from "@/lib/service-path";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -38,9 +39,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
 
   function serviceLabel(apt: AppointmentFull) {
     if (!apt.service) return undefined;
-    const svc = services.find((x) => x.id === apt.service!.id);
-    const parent = svc?.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
-    return parent ? `${parent.name} › ${svc!.name}` : svc?.name ?? apt.service.name;
+    return servicePath(services, apt.service.id, apt.service.name);
   }
 
   const dayAppointments = appointments
@@ -189,7 +188,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
                   {/* Full "Category › Sub-service" (wraps instead of being cut off) */}
                   <p className="text-xs text-foreground/80 leading-snug">
                     {serviceLabel(apt) ?? cfgLabel(t, typeCfg)}
-                    {!!apt.extraServices?.length && `, ${apt.extraServices.map((s) => s.name).join(", ")}`}
+                    {!!apt.extraServices?.length && `, ${apt.extraServices.map((s) => servicePath(services, s.id, s.name)).join(", ")}`}
                   </p>
                   <p className={cn("text-xs truncate flex items-center gap-1", hasConflict ? "text-red-500" : "text-muted-foreground")}>
                     <Stethoscope className="w-3 h-3 shrink-0" />

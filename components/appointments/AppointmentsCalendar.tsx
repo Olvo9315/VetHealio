@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import type { Room } from "@/lib/actions/rooms";
 import { PetQuickInfo } from "@/components/patients/PetQuickInfo";
 import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
+import { servicePath } from "@/lib/service-path";
 
 const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
@@ -101,6 +102,7 @@ function AppointmentCard({
   conflict = false,
   roomConflict = false,
   onPetClick,
+  serviceLabel = (_id, fallback) => fallback,
 }: {
   apt: AppointmentFull;
   startTime: Date;
@@ -109,6 +111,7 @@ function AppointmentCard({
   conflict?: boolean;
   roomConflict?: boolean;
   onPetClick?: (pet: PetPreview) => void;
+  serviceLabel?: (id: string, fallback: string) => string;
 }) {
   const t = useTranslations("appointments");
   const tp = useTranslations("petInfo");
@@ -158,7 +161,7 @@ function AppointmentCard({
           </p>
           {!!apt.extraServices?.length && (
             <p className="text-[11px] leading-tight text-muted-foreground mt-0.5">
-              + {apt.extraServices.map((s) => s.name).join(", ")}
+              + {apt.extraServices.map((s) => serviceLabel(s.id, s.name)).join(", ")}
             </p>
           )}
         </div>
@@ -300,14 +303,11 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   viewRef.current = view;
   const roomsRef = useRef(rooms);
   roomsRef.current = rooms;
-  // "Category › Sub-service" label, since a sub-service name alone ("General") says little
+  // Full "Category › … › Sub-service" label, since a sub-service name alone ("21 - 30 kg") says little
   const serviceLabelRef = useRef<(id: string) => string | undefined>(() => undefined);
-  serviceLabelRef.current = (id: string) => {
-    const svc = services.find((x) => x.id === id);
-    if (!svc) return undefined;
-    const parent = svc.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
-    return parent ? `${parent.name} › ${svc.name}` : svc.name;
-  };
+  serviceLabelRef.current = (id: string) =>
+    services.some((x) => x.id === id) ? servicePath(services, id, "") : undefined;
+  const labelServiceRef = useRef((id: string, fallback: string) => serviceLabelRef.current(id) ?? fallback);
   const roomColumnsRef = useRef<RoomColumn[] | undefined>(undefined);
   const appointmentsRef = useRef(appointments);
   appointmentsRef.current = appointments;
@@ -768,7 +768,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                 )}
 
                 {/* Current appointment (highlighted) */}
-                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight roomConflict={hasRoomConflict} onPetClick={openPetRef.current} />
+                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight roomConflict={hasRoomConflict} onPetClick={openPetRef.current} serviceLabel={labelServiceRef.current} />
 
                 {/* Other overlapping appointments */}
                 {others.map((oa) => (
@@ -779,6 +779,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                     endTime={new Date(oa.endTime)}
                     conflict={conflictIdsRef.current.has(oa.id)}
                     onPetClick={openPetRef.current}
+                    serviceLabel={labelServiceRef.current}
                   />
                 ))}
 

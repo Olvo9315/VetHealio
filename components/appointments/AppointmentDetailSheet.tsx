@@ -42,6 +42,7 @@ import {
 import { cn, formatAppointmentId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import type { ServiceFlat } from "@/lib/actions/services";
+import { servicePath } from "@/lib/service-path";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -72,11 +73,6 @@ export function AppointmentDetailSheet({
   const canPrescribe = useCan("prescription.write");
   const t = useTranslations("appointments");
   const tr = useTranslations("rooms");
-  function servicePath(id: string, fallback: string) {
-    const svc = services.find((x) => x.id === id);
-    const parent = svc?.parentId ? services.find((x) => x.id === svc.parentId) : undefined;
-    return parent ? `${parent.name} › ${svc!.name}` : fallback;
-  }
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
@@ -226,7 +222,7 @@ export function AppointmentDetailSheet({
                 {[appointment.service, ...(appointment.extraServices ?? [])].map((s) => (
                   <li key={s.id} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color ?? "#9CA3AF" }} />
-                    {servicePath(s.id, s.name)}
+                    {servicePath(services, s.id, s.name)}
                   </li>
                 ))}
               </ul>
