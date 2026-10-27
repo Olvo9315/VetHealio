@@ -742,7 +742,11 @@
     "installTitle": "Instalar VetHealio",
     "installDesc": "Acceso rápido desde tu pantalla de inicio",
     "install": "Instalar",
-    "later": "Ahora no"
+    "later": "Ahora no",
+    "cardTitle": "Aplicación",
+    "installed": "Ya está instalada en este dispositivo",
+    "iosHint": "En iPhone/iPad: pulsa Compartir en Safari y luego «Añadir a pantalla de inicio».",
+    "unavailableHint": "Este navegador no ofrece la instalación ahora. Ábrela en Chrome o Edge (o en Safari en iPhone)."
   },
   "offline": {
     "title": "Sin conexión",
