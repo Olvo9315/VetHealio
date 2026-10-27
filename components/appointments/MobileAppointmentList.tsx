@@ -9,13 +9,11 @@ import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
-import Link from "next/link";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { PetQuickInfo } from "@/components/patients/PetQuickInfo";
+import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
 
 type Vet = { id: string; name: string; role: string };
 
@@ -36,8 +34,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
   const [createOpen, setCreateOpen] = useState(false);
   const [editingApt, setEditingApt] = useState<AppointmentFull | null>(null);
   // Tap on the pet name: quick pet card in a bottom sheet, closes back to the list
-  const tp = useTranslations("petInfo");
-  const [petPreview, setPetPreview] = useState<{ id: string; name: string } | null>(null);
+  const [petPreview, setPetPreview] = useState<PetPreview | null>(null);
 
   function serviceLabel(apt: AppointmentFull) {
     if (!apt.service) return undefined;
@@ -149,14 +146,16 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
           <p className="text-sm">{t("noneThisDay")}</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {dayAppointments.map((apt) => {
+        // Re-keyed per day so the cards slide in from top to bottom each time the day changes
+        <div key={date.toDateString()} className="space-y-2 vh-list-in">
+          {dayAppointments.map((apt, index) => {
             const typeCfg = getTypeCfgForAppointment(apt);
             const stCfg = statusConfig[apt.status];
             const hasConflict = conflictIds.has(apt.id);
             return (
               <button
                 key={apt.id}
+                style={{ "--i": index } as React.CSSProperties}
                 className={cn(
                   "w-full flex items-start gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 transition-colors text-left",
                   hasConflict ? "border-red-400 dark:border-red-600" : "border-border"
@@ -218,25 +217,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
       )}
 
       {/* Pet quick card */}
-      <Sheet open={!!petPreview} onOpenChange={(v) => { if (!v) setPetPreview(null); }}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{petPreview?.name}</SheetTitle>
-          </SheetHeader>
-          {petPreview && <PetQuickInfo petId={petPreview.id} className="px-4" />}
-          <div className="flex gap-2 px-4 pb-4">
-            <Button variant="outline" className="flex-1" onClick={() => setPetPreview(null)}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              {tp("back")}
-            </Button>
-            {petPreview && (
-              <Link href={`/patients/${petPreview.id}`} className={cn(buttonVariants({ variant: "ghost" }), "flex-1")}>
-                {tp("openCard")}
-              </Link>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      <PetQuickSheet pet={petPreview} onClose={() => setPetPreview(null)} />
 
       {/* Detail Sheet */}
       {selectedApt && (

@@ -121,7 +121,7 @@ export function InvoiceDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col">
-        <SheetHeader className="pb-4">
+        <SheetHeader className="px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Receipt className="w-5 h-5 text-primary" />
@@ -140,7 +140,7 @@ export function InvoiceDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-5 px-5 pb-4">
           {/* Patient */}
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("patient")}</p>
@@ -264,7 +264,7 @@ export function InvoiceDetailSheet({
         </div>
 
         {/* Footer actions */}
-        <div className="pt-4 border-t border-border space-y-2">
+        <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
           {canWrite && invoice.status === "PENDING" && (
             <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />

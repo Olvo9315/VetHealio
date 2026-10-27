@@ -100,7 +100,7 @@ export function AppointmentDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
-        <SheetHeader className="pb-4">
+        <SheetHeader className="px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
             <div
               className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
@@ -118,7 +118,7 @@ export function AppointmentDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5">
+        <div className="flex-1 overflow-y-auto space-y-5 px-5 pb-4">
           {/* Date & time */}
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -238,7 +238,7 @@ export function AppointmentDetailSheet({
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-border space-y-2">
+        <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
           {onCreateInvoice && canInvoice && (
             <Button className="w-full" variant="outline" onClick={onCreateInvoice}>
               <Receipt className="w-4 h-4 mr-2" />

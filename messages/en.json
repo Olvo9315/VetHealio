@@ -985,7 +985,7 @@
     "no": "No",
     "noVaccinations": "No vaccinations recorded",
     "back": "Back",
-    "openCard": "Open record",
-    "hoverHint": "Hover to see the pet card"
+    "openCard": "View record",
+    "hoverHint": "Hover for details, click to open the record"
   }
 }

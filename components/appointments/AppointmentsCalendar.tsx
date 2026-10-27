@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Room } from "@/lib/actions/rooms";
 import { PetQuickInfo } from "@/components/patients/PetQuickInfo";
+import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
 
 const locales = calendarLocales;
 const localizer = dateFnsLocalizer({
@@ -99,6 +100,7 @@ function AppointmentCard({
   highlight = false,
   conflict = false,
   roomConflict = false,
+  onPetClick,
 }: {
   apt: AppointmentFull;
   startTime: Date;
@@ -106,6 +108,7 @@ function AppointmentCard({
   highlight?: boolean;
   conflict?: boolean;
   roomConflict?: boolean;
+  onPetClick?: (pet: PetPreview) => void;
 }) {
   const t = useTranslations("appointments");
   const tp = useTranslations("petInfo");
@@ -134,11 +137,19 @@ function AppointmentCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p
-            className="font-semibold text-sm leading-tight cursor-help underline decoration-dotted underline-offset-2 w-fit"
+            className="font-semibold text-sm leading-tight cursor-pointer underline decoration-dotted underline-offset-2 w-fit"
             style={{ color: typeCfg.color }}
             title={petPopup ? undefined : tp("hoverHint")}
             onMouseEnter={openPetPopup}
             onMouseLeave={() => setPetPopup(null)}
+            // The tooltip is portalled, but React events still bubble to the calendar event:
+            // stop them so the click doesn't also open the appointment or start a drag
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setPetPopup(null);
+              onPetClick?.({ id: apt.petId, name: apt.pet.name });
+            }}
           >
             {apt.pet.name}
           </p>
@@ -157,7 +168,7 @@ function AppointmentCard({
       {petPopup && (
         <div
           className={cn(
-            "absolute z-10 w-64 rounded-xl border border-border bg-popover shadow-xl p-3 pointer-events-none",
+            "absolute z-10 w-64 rounded-xl border border-border bg-popover shadow-xl p-3 pointer-events-none vh-pop-in",
             petPopup.side === "right" ? "left-full ml-2" : "right-full mr-2"
           )}
           style={{ top: Math.max(0, petPopup.top) }}
@@ -270,6 +281,9 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const calendarBoxRef = useRef<HTMLDivElement>(null);
+  // Click on a pet name in the hover card: pet card panel with "Back" / "Open record"
+  const [petPreview, setPetPreview] = useState<PetPreview | null>(null);
+  const openPetRef = useRef(setPetPreview);
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoicePresetApt, setInvoicePresetApt] = useState<AppointmentOption | undefined>();
@@ -745,7 +759,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                 )}
 
                 {/* Current appointment (highlighted) */}
-                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight roomConflict={hasRoomConflict} />
+                <AppointmentCard apt={apt} startTime={event.start} endTime={event.end} highlight roomConflict={hasRoomConflict} onPetClick={openPetRef.current} />
 
                 {/* Other overlapping appointments */}
                 {others.map((oa) => (
@@ -755,6 +769,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                     startTime={new Date(oa.startTime)}
                     endTime={new Date(oa.endTime)}
                     conflict={conflictIdsRef.current.has(oa.id)}
+                    onPetClick={openPetRef.current}
                   />
                 ))}
 
@@ -973,6 +988,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
           </div>
           </div>
         </div>
+
+        <PetQuickSheet pet={petPreview} onClose={() => setPetPreview(null)} side="right" />
 
         {/* Create Dialog */}
         <AppointmentDialog

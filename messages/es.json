@@ -985,7 +985,7 @@
     "no": "No",
     "noVaccinations": "Sin vacunas registradas",
     "back": "Volver",
-    "openCard": "Abrir ficha",
-    "hoverHint": "Pasa el cursor para ver la ficha"
+    "openCard": "Ver ficha",
+    "hoverHint": "Pasa el cursor para ver los datos; haz clic para abrir la ficha"
   }
 }

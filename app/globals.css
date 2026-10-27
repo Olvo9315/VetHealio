@@ -124,3 +124,137 @@
     touch-action: manipulation;
   }
 }
+
+/*
+ * Open/close animations for overlays.
+ * The shadcn components in components/ui use Tailwind v4 animation classes
+ * (data-open:animate-in, data-starting-style:…) that Tailwind 3 never generates,
+ * so these rules provide the motion in plain CSS, keyed on the attributes that
+ * Base UI (data-starting-style / data-ending-style) and Radix (data-state) set.
+ * Short and eased: removes the abruptness without feeling slow.
+ */
+:root {
+  --vh-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --vh-dur: 200ms;
+}
+
+/* Backdrops */
+[data-slot="dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  transition: opacity var(--vh-dur) ease-out;
+}
+[data-slot="dialog-overlay"][data-starting-style],
+[data-slot="dialog-overlay"][data-ending-style],
+[data-slot="sheet-overlay"][data-starting-style],
+[data-slot="sheet-overlay"][data-ending-style] {
+  opacity: 0;
+}
+
+/* Centered dialogs: fade + slight zoom */
+[data-slot="dialog-content"] {
+  transition: opacity var(--vh-dur) var(--vh-ease-out), scale var(--vh-dur) var(--vh-ease-out);
+}
+[data-slot="dialog-content"][data-starting-style],
+[data-slot="dialog-content"][data-ending-style] {
+  opacity: 0;
+  scale: 0.96;
+}
+
+/* Side / bottom panels: slide in from their edge */
+[data-slot="sheet-content"] {
+  transition: opacity 280ms var(--vh-ease-out), translate 280ms var(--vh-ease-out);
+}
+[data-slot="sheet-content"][data-starting-style],
+[data-slot="sheet-content"][data-ending-style] {
+  opacity: 0;
+}
+[data-slot="sheet-content"][data-side="right"][data-starting-style],
+[data-slot="sheet-content"][data-side="right"][data-ending-style] {
+  translate: 2.5rem 0;
+}
+[data-slot="sheet-content"][data-side="left"][data-starting-style],
+[data-slot="sheet-content"][data-side="left"][data-ending-style] {
+  translate: -2.5rem 0;
+}
+[data-slot="sheet-content"][data-side="bottom"][data-starting-style],
+[data-slot="sheet-content"][data-side="bottom"][data-ending-style] {
+  translate: 0 2.5rem;
+}
+[data-slot="sheet-content"][data-side="top"][data-starting-style],
+[data-slot="sheet-content"][data-side="top"][data-ending-style] {
+  translate: 0 -2.5rem;
+}
+
+/* Menus, selects, popovers, tooltips (Base UI) */
+[data-slot="popover-content"],
+[data-slot="select-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="tooltip-content"] {
+  transform-origin: var(--transform-origin, center);
+  transition: opacity 160ms var(--vh-ease-out), scale 160ms var(--vh-ease-out);
+}
+[data-slot="popover-content"][data-starting-style],
+[data-slot="popover-content"][data-ending-style],
+[data-slot="select-content"][data-starting-style],
+[data-slot="select-content"][data-ending-style],
+[data-slot="dropdown-menu-content"][data-starting-style],
+[data-slot="dropdown-menu-content"][data-ending-style],
+[data-slot="dropdown-menu-sub-content"][data-starting-style],
+[data-slot="dropdown-menu-sub-content"][data-ending-style],
+[data-slot="tooltip-content"][data-starting-style],
+[data-slot="tooltip-content"][data-ending-style] {
+  opacity: 0;
+  scale: 0.97;
+}
+
+/* Calendar hover card (Radix tooltip) and the pet card beside it */
+@keyframes vh-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes vh-pop-out {
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+[data-apt-tooltip] {
+  transform-origin: var(--radix-tooltip-content-transform-origin, center);
+}
+[data-apt-tooltip][data-state="delayed-open"],
+[data-apt-tooltip][data-state="instant-open"],
+.vh-pop-in {
+  animation: vh-pop-in 170ms var(--vh-ease-out);
+}
+[data-apt-tooltip][data-state="closed"] {
+  animation: vh-pop-out 110ms ease-in forwards;
+}
+
+/* Lists that appear item by item from top to bottom (set --i on each child) */
+@keyframes vh-list-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.vh-list-in > * {
+  animation: vh-list-in 260ms var(--vh-ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}
