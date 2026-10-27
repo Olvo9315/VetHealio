@@ -225,6 +225,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
   viewRef.current = view;
   const roomsRef = useRef(rooms);
   roomsRef.current = rooms;
+  const roomColumnsRef = useRef<RoomColumn[] | undefined>(undefined);
   const appointmentsRef = useRef(appointments);
   appointmentsRef.current = appointments;
 
@@ -280,6 +281,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
     if (unassigned) cols.push({ id: NO_ROOM, name: tr("noRoom"), color: "#6B7280" });
     return cols.length ? cols : undefined;
   }, [view, rooms, roomFilter, visibleAppointments, date, tr]);
+  roomColumnsRef.current = roomColumns;
 
   function navigate(direction: "prev" | "next" | "today") {
     if (direction === "today") { setDate(new Date()); return; }
@@ -318,7 +320,9 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
       const startDate = new Date(start);
       const endDate = new Date(end);
       // Dropping into another room column also moves the appointment to that room
-      const newRoom = resourceId === undefined ? undefined : resourceId === NO_ROOM ? null : String(resourceId);
+      // (only in the per-room day view: in week/month views react-big-calendar passes an empty resourceId)
+      const column = roomColumnsRef.current?.find((c) => c.id === resourceId);
+      const newRoom = !column || column.id === (event.resource.roomId ?? NO_ROOM) ? undefined : column.id === NO_ROOM ? null : column.id;
       const roomObj = newRoom ? roomsRef.current.find((r) => r.id === newRoom) ?? null : null;
       setAppointments((prev) =>
         prev.map((a) =>

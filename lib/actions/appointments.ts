@@ -201,6 +201,8 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
 
 // Drag & drop / resize in the calendar; in the per-room day view a drop can also move rooms
 export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date, roomId?: string | null) {
+  // Ignore anything that is not an existing room rather than failing the whole move
+  if (roomId && !(await prisma.room.findUnique({ where: { id: roomId }, select: { id: true } }))) roomId = undefined;
   await prisma.appointment.update({
     where: { id },
     data: { startTime, endTime, ...(roomId !== undefined ? { roomId } : {}) },
