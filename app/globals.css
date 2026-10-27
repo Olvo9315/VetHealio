@@ -258,3 +258,32 @@
     transition-duration: 1ms !important;
   }
 }
+
+/* Phone week view: seven narrow day columns, so small text and tight padding
+   to keep pet names and the whole working day readable on one screen */
+.vh-cal-phone-week .rbc-time-gutter .rbc-label {
+  font-size: 9px;
+  padding: 0 3px;
+}
+.vh-cal-phone-week .rbc-header {
+  padding: 0;
+}
+.vh-cal-phone-week .rbc-event {
+  padding: 1px 2px !important;
+}
+.vh-cal-phone-week .rbc-event-content * {
+  font-size: 9px !important;
+  line-height: 1.1 !important;
+}
+.vh-cal-phone-week .rbc-event-content svg {
+  width: 8px;
+  height: 8px;
+}
+/* Absences row: no empty band when nobody is away */
+.vh-cal-phone-week .rbc-allday-cell,
+.vh-cal-phone-week .rbc-allday-cell .rbc-row {
+  min-height: 4px;
+}
+.vh-cal-phone-week .rbc-allday-cell .rbc-row-bg {
+  min-height: 0;
+}

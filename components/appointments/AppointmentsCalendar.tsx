@@ -317,10 +317,29 @@ export function AppointmentsCalendar({
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentFull | null>(null);
-  const [zoom, setZoom] = useState<Zoom>("normal");
+  // Phones start fully zoomed out so the whole working day fits on one screen
+  const [zoom, setZoom] = useState<Zoom>(mobile ? "compact" : "normal");
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const calendarBoxRef = useRef<HTMLDivElement>(null);
+  // Pinch-zooming with two fingers must not count as a tap on a slot or an appointment.
+  // Set as soon as a second finger touches down, cleared when a new gesture starts with one.
+  const multiTouchRef = useRef(false);
+  useEffect(() => {
+    const box = calendarBoxRef.current;
+    if (!box) return;
+    const onTouch = (e: TouchEvent) => {
+      if (e.touches.length > 1) multiTouchRef.current = true;
+      else if (e.type === "touchstart") multiTouchRef.current = false;
+    };
+    const opts = { capture: true, passive: true };
+    box.addEventListener("touchstart", onTouch, opts);
+    box.addEventListener("touchmove", onTouch, opts);
+    return () => {
+      box.removeEventListener("touchstart", onTouch, opts);
+      box.removeEventListener("touchmove", onTouch, opts);
+    };
+  }, []);
   // Click on a pet name in the hover card: pet card panel with "Back" / "Open record"
   const [petPreview, setPetPreview] = useState<PetPreview | null>(null);
   const openPetRef = useRef(setPetPreview);
@@ -542,6 +561,7 @@ export function AppointmentsCalendar({
   }
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
+    if (multiTouchRef.current) return;
     if (viewRef.current === Views.MONTH) {
       openDayRef.current(slotInfo.start as Date);
       return;
@@ -553,7 +573,7 @@ export function AppointmentsCalendar({
   }, []);
 
   const handleSelectEvent = useCallback((event: CalItem) => {
-    if (isLeave(event)) return;
+    if (isLeave(event) || multiTouchRef.current) return;
     setSelectedAppointment(event.resource);
     setDetailOpen(true);
   }, []);
@@ -997,9 +1017,11 @@ export function AppointmentsCalendar({
             "[&_.rbc-toolbar]:hidden",
             "[&_.rbc-event]:ring-0 [&_.rbc-event]:outline-none [&_.rbc-time-view_.rbc-event-label]:hidden",
             "[&_.rbc-selected]:ring-2 [&_.rbc-selected]:ring-primary",
-            zoom === "compact" && "[&_.rbc-timeslot-group]:min-h-[36px]",
-            zoom === "normal"  && "[&_.rbc-timeslot-group]:min-h-[48px]",
-            zoom === "large"   && "[&_.rbc-timeslot-group]:min-h-[72px]",
+            // Phone week: seven narrow columns, so smaller rows and text (see .vh-cal-phone-week)
+            mobile && view === Views.WEEK && "vh-cal-phone-week",
+            mobile && view === Views.WEEK
+              ? zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[18px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[28px]" : "[&_.rbc-timeslot-group]:min-h-[48px]"
+              : zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[36px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[48px]" : "[&_.rbc-timeslot-group]:min-h-[72px]",
             isPending && "opacity-70 pointer-events-none"
           )}
           style={mobile ? { height: "calc(100dvh - 330px)", minHeight: 340 } : { height: "calc(100vh - 260px)", minHeight: 400 }}
@@ -1033,6 +1055,17 @@ export function AppointmentsCalendar({
             components={{
               event: EventComponent as (props: { event: object }) => JSX.Element,
               month: { dateHeader: MonthDateHeader as unknown as React.ComponentType<DateHeaderProps> },
+              // Phone week: short "lu 26" instead of a truncated "26 lun"
+              ...(mobile && {
+                week: {
+                  header: ({ date: day }: { date: Date }) => (
+                    <span className="text-[10px] whitespace-nowrap">
+                      {format(day, "EEEEEE", { locale: dateLocale })}{" "}
+                      <span className="font-semibold text-foreground">{format(day, "d")}</span>
+                    </span>
+                  ),
+                },
+              }),
               resourceHeader: ({ label, resource }: { label: React.ReactNode; resource: object }) => (
                 <span className="flex items-center justify-center gap-1.5 text-xs font-semibold py-1" style={{ color: (resource as RoomColumn).color }}>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: (resource as RoomColumn).color }} />
