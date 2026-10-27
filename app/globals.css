@@ -287,3 +287,30 @@
 .vh-cal-phone-week .rbc-allday-cell .rbc-row-bg {
   min-height: 0;
 }
+
+/* Phone held sideways: little height, so the bottom menu folds away to a handle */
+@media (orientation: landscape) and (max-height: 500px) {
+  .vh-main {
+    padding-bottom: 1.5rem;
+  }
+}
+/* The page itself scrolls on phones: no pull-to-refresh reload while scrolling the calendar up */
+@media (max-width: 767px), (orientation: landscape) and (max-height: 500px) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* Week/month calendar on a phone: below the toolbar upright; sideways the page scrolls
+   past the toolbar and the calendar takes the whole screen */
+.vh-cal-phone-h {
+  height: calc(100dvh - 330px);
+  min-height: 340px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .vh-cal-phone-h {
+    height: calc(100dvh - 8px);
+    min-height: 0;
+  }
+}

@@ -37,11 +37,12 @@ export default async function DashboardLayout({
 
   return (
     <PermissionsProvider permissions={permissions}>
-    <div className="flex h-screen overflow-hidden bg-background">
+    {/* Phones scroll the whole page (not an inner box) so the browser can tuck its address bar away */}
+    <div className="flex min-h-dvh md:h-screen md:overflow-hidden bg-background">
       <Sidebar showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
         {process.env.STAGING_DATABASE_URL && <StagingBanner />}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main className="flex-1 md:overflow-y-auto pb-16 md:pb-0 vh-main">
           {children}
         </main>
       </div>

@@ -1022,9 +1022,10 @@ export function AppointmentsCalendar({
             mobile && view === Views.WEEK
               ? zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[18px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[28px]" : "[&_.rbc-timeslot-group]:min-h-[48px]"
               : zoom === "compact" ? "[&_.rbc-timeslot-group]:min-h-[36px]" : zoom === "normal" ? "[&_.rbc-timeslot-group]:min-h-[48px]" : "[&_.rbc-timeslot-group]:min-h-[72px]",
+            mobile && "vh-cal-phone-h",
             isPending && "opacity-70 pointer-events-none"
           )}
-          style={mobile ? { height: "calc(100dvh - 330px)", minHeight: 340 } : { height: "calc(100vh - 260px)", minHeight: 400 }}
+          style={mobile ? undefined : { height: "calc(100vh - 260px)", minHeight: 400 }}
           ref={calendarBoxRef}
         >
           <div className="h-full overflow-x-auto">

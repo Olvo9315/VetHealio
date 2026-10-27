@@ -11,7 +11,9 @@
     "logout": "Cerrar sesión",
     "staff": "Personal",
     "collapse": "Colapsar",
-    "more": "Más"
+    "more": "Más",
+    "showMenu": "Mostrar menú",
+    "hideMenu": "Ocultar menú"
   },
   "auth": {
     "login": "Iniciar sesión",
