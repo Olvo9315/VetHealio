@@ -908,5 +908,35 @@
       "presvet": "Antibiotic prescription reporting to MAPA (RD 666/2023)",
       "knowledgeBase": "Clinic protocols, dosages and internal guides"
     }
+  },
+  "serviceCatalog": {
+    "bloodTest": "Blood test",
+    "bloodTest_general": "General",
+    "bloodTest_presurgical": "Pre-surgical",
+    "nailTrim": "Nail trim",
+    "spay": "Spay",
+    "spay_cat": "Cat spay (OHE)",
+    "spay_dog": "Dog spay (OHE)",
+    "spay_dog_0_10": "0–10 kg",
+    "spay_dog_11_20": "11–20 kg",
+    "spay_dog_21_30": "21–30 kg",
+    "neuter": "Neutering",
+    "neuter_cat": "Cat",
+    "neuter_dog": "Dog",
+    "neuter_dog_0_10": "0–10 kg",
+    "neuter_dog_11_20": "11–20 kg",
+    "neuter_dog_21_40": "21–40 kg",
+    "consultation": "Consultation",
+    "consultation_general": "General",
+    "consultation_followUp": "Follow-up",
+    "consultation_specialist": "Specialist",
+    "ultrasound": "Ultrasound",
+    "ultrasound_clinic": "In-clinic",
+    "ultrasound_external": "External service",
+    "urinalysis": "Urinalysis",
+    "dipstickSediment": "Dipstick + sediment",
+    "cytology": "Cytology",
+    "cytology_ear": "Ear",
+    "cytology_skinTumor": "Skin / tumor"
   }
 }

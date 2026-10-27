@@ -5,6 +5,7 @@ import pg from "pg";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { databaseUrl } from "../lib/database-url";
+import { SERVICE_CATALOG, type CatalogEntry } from "./service-catalog";
 
 config({ path: ".env.local" });
 config({ path: ".env" });
@@ -49,33 +50,35 @@ async function main() {
     console.log(`Admin ${email} already exists — skipping`);
   }
 
-  // Seed services (idempotent)
+  // Seed the default service catalog (idempotent). SEED_RESET_SERVICES=1 first removes the
+  // existing services, refusing if any are already used by appointments or invoices.
+  if (process.env.SEED_RESET_SERVICES === "1") {
+    const used =
+      (await prisma.appointment.count({ where: { serviceId: { not: null } } })) +
+      (await prisma.invoiceItem.count({ where: { serviceId: { not: null } } }));
+    if (used > 0) throw new Error(`Cannot reset services: ${used} appointments/invoice items use them`);
+    // Children first (parent relation is Restrict)
+    for (let depth = 0; depth < 3; depth++) {
+      await prisma.service.deleteMany({ where: { children: { none: {} } } });
+    }
+    console.log("Existing services removed");
+  }
+
   const serviceCount = await prisma.service.count();
   if (serviceCount === 0) {
-    const roots = await prisma.service.createManyAndReturn({
-      data: [
-        { name: "Consulta",            price: 35,   color: "#15803D", sortOrder: 0 },
-        { name: "Analítica de sangre", price: 45,   color: "#1D4ED8", sortOrder: 1 },
-        { name: "Ecografía",           price: 55,   color: "#0F766E", sortOrder: 2 },
-        { name: "Esterilización",      price: 180,  color: "#B91C1C", sortOrder: 3 },
-        { name: "Castración",          price: 150,  color: "#7C3AED", sortOrder: 4 },
-        { name: "Cortar uñas",         price: 15,   color: "#D97706", sortOrder: 5 },
-        { name: "Analítica de orina",  price: null, color: "#6B7280", sortOrder: 6 },
-        { name: "Citología",           price: 35,   color: "#BE185D", sortOrder: 7 },
-      ],
-    });
-
-    const urina = roots.find((r) => r.name === "Analítica de orina");
-    if (urina) {
-      await prisma.service.createMany({
-        data: [
-          { name: "Tira reactiva",      price: 12, parentId: urina.id, sortOrder: 0 },
-          { name: "Sedimento urinario", price: 20, parentId: urina.id, sortOrder: 1 },
-        ],
-      });
-    }
-
-    console.log(`Created ${roots.length + 2} services`);
+    let created = 0;
+    const createLevel = async (entries: CatalogEntry[], parentId: string | null) => {
+      for (let sortOrder = 0; sortOrder < entries.length; sortOrder++) {
+        const entry = entries[sortOrder];
+        const service = await prisma.service.create({
+          data: { name: entry.name, i18nKey: entry.key, color: entry.color ?? null, price: null, parentId, sortOrder },
+        });
+        created++;
+        if (entry.children) await createLevel(entry.children, service.id);
+      }
+    };
+    await createLevel(SERVICE_CATALOG, null);
+    console.log(`Created ${created} services`);
   } else {
     console.log(`Services already seeded (${serviceCount} found)`);
   }

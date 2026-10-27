@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { subDays, format, startOfMonth, endOfMonth } from "date-fns";
-import { es } from "date-fns/locale";
 import { Prisma } from "@prisma/client";
+import { getLocale } from "next-intl/server";
+import { getDateLocale } from "@/lib/date-locale";
+import { getServiceRelationLocalizer } from "@/lib/service-i18n";
 import type {
   InvoiceStatus,
   PaymentMethod,
@@ -131,10 +133,15 @@ const fullInclude = {
       total: true,
       type: true,
       serviceId: true,
-      service: { select: { name: true } },
+      service: { select: { name: true, i18nKey: true } },
     },
   },
 } as const;
+
+async function localizeInvoice(invoice: InvoiceFull): Promise<InvoiceFull> {
+  const localize = await getServiceRelationLocalizer();
+  return { ...invoice, items: invoice.items.map(localize) };
+}
 
 // ---- Queries ----
 
@@ -143,7 +150,7 @@ export async function getInvoices(filters?: {
   search?: string;
 }): Promise<InvoiceFull[]> {
   const { status, search } = filters ?? {};
-  return prisma.invoice.findMany({
+  const invoices = (await prisma.invoice.findMany({
     where: {
       ...(status && status !== "ALL" ? { status } : {}),
       ...(search
@@ -160,7 +167,9 @@ export async function getInvoices(filters?: {
     include: fullInclude,
     orderBy: { createdAt: "desc" },
     take: 100,
-  }) as unknown as InvoiceFull[];
+  })) as unknown as InvoiceFull[];
+  const localize = await getServiceRelationLocalizer();
+  return invoices.map((inv) => ({ ...inv, items: inv.items.map(localize) }));
 }
 
 export async function getInvoiceStats(): Promise<InvoiceStats> {
@@ -195,6 +204,7 @@ export async function getRevenueChartData(days: number = 30): Promise<ChartPoint
   const from = subDays(new Date(), days - 1);
   from.setHours(0, 0, 0, 0);
 
+  const dateLocale = getDateLocale(await getLocale());
   const invoices = await prisma.invoice.findMany({
     where: { status: "PAID", paidAt: { gte: from } },
     select: { paidAt: true, totalAmount: true },
@@ -207,7 +217,7 @@ export async function getRevenueChartData(days: number = 30): Promise<ChartPoint
     const amount = invoices
       .filter((inv) => inv.paidAt && format(new Date(inv.paidAt), "yyyy-MM-dd") === dateKey)
       .reduce((sum, inv) => sum + inv.totalAmount, 0);
-    return { date: format(d, "d MMM", { locale: es }), amount };
+    return { date: format(d, "d MMM", { locale: dateLocale }), amount };
   });
 }
 
@@ -216,7 +226,7 @@ export async function searchAppointmentsWithoutInvoice(
   excludeAppointmentId?: string
 ): Promise<AppointmentOption[]> {
   if (!query || query.length < 2) return [];
-  return prisma.appointment.findMany({
+  const options = (await prisma.appointment.findMany({
     where: {
       AND: [
         {
@@ -240,7 +250,7 @@ export async function searchAppointmentsWithoutInvoice(
       title: true,
       startTime: true,
       type: true,
-      service: { select: { id: true, name: true, price: true } },
+      service: { select: { id: true, name: true, price: true, i18nKey: true } },
       pet: {
         select: {
           name: true,
@@ -250,7 +260,9 @@ export async function searchAppointmentsWithoutInvoice(
     },
     orderBy: { startTime: "desc" },
     take: 10,
-  }) as unknown as AppointmentOption[];
+  })) as unknown as AppointmentOption[];
+  const localize = await getServiceRelationLocalizer();
+  return options.map(localize);
 }
 
 // ---- Mutations ----
@@ -291,7 +303,7 @@ export async function createInvoice(data: InvoiceFormData) {
     });
 
     revalidatePath("/finances");
-    return { invoice: invoice as unknown as InvoiceFull };
+    return { invoice: await localizeInvoice(invoice as unknown as InvoiceFull) };
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return { error: "invoiceExists" };
@@ -318,7 +330,7 @@ export async function createDirectInvoice(data: DirectInvoiceFormData) {
 
   revalidatePath("/finances");
   revalidatePath(`/patients/${parsed.data.petId}`);
-  return { invoice: invoice as unknown as InvoiceFull };
+  return { invoice: await localizeInvoice(invoice as unknown as InvoiceFull) };
 }
 
 export async function updateInvoice(id: string, data: InvoiceFormData) {
@@ -348,7 +360,7 @@ export async function updateInvoice(id: string, data: InvoiceFormData) {
   });
 
   revalidatePath("/finances");
-  return { invoice: invoice as unknown as InvoiceFull };
+  return { invoice: await localizeInvoice(invoice as unknown as InvoiceFull) };
 }
 
 export async function updateInvoiceStatus(
@@ -367,7 +379,7 @@ export async function updateInvoiceStatus(
   });
 
   revalidatePath("/finances");
-  return invoice as unknown as InvoiceFull;
+  return localizeInvoice(invoice as unknown as InvoiceFull);
 }
 
 export async function deleteInvoice(id: string) {

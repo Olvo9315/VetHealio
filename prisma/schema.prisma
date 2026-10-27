@@ -450,6 +450,8 @@ model InvoiceItem {
 model Service {
   id        String    @id @default(cuid())
   name      String
+  // Key in the "serviceCatalog" i18n namespace for built-in catalog entries; cleared when renamed
+  i18nKey   String?
   price     Float?
   color     String?
   isActive  Boolean   @default(true)

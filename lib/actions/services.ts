@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getServiceLocalizer } from "@/lib/service-i18n";
 
 export type ServiceFlat = {
   id: string;
@@ -13,6 +14,7 @@ export type ServiceFlat = {
   isActive: boolean;
   sortOrder: number;
   parentId: string | null;
+  i18nKey?: string | null;
 };
 
 export type ServiceNode = ServiceFlat & {
@@ -33,6 +35,9 @@ const serviceSchema = z.object({
 });
 
 export async function getServiceTree(): Promise<ServiceNode[]> {
+  const localize = await getServiceLocalizer();
+  const localizeTree = (nodes: ServiceNode[]): ServiceNode[] =>
+    nodes.map((n) => ({ ...localize(n), children: localizeTree(n.children ?? []) }));
   const roots = await prisma.service.findMany({
     where: { parentId: null, isActive: true },
     orderBy: { sortOrder: "asc" },
@@ -49,15 +54,17 @@ export async function getServiceTree(): Promise<ServiceNode[]> {
       },
     },
   });
-  return roots as unknown as ServiceNode[];
+  return localizeTree(roots as unknown as ServiceNode[]);
 }
 
 export async function getServicesFlat(): Promise<ServiceFlat[]> {
-  return prisma.service.findMany({
+  const localize = await getServiceLocalizer();
+  const services = await prisma.service.findMany({
     where: { isActive: true },
     orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
-    select: { id: true, name: true, price: true, color: true, isActive: true, sortOrder: true, parentId: true },
+    select: { id: true, name: true, price: true, color: true, isActive: true, sortOrder: true, parentId: true, i18nKey: true },
   });
+  return services.map(localize);
 }
 
 export async function createService(data: unknown) {
@@ -84,9 +91,15 @@ export async function updateService(id: string, data: unknown) {
   const parsed = serviceSchema.partial().safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
+  // Catalog services keep their translation key unless the admin actually renames them
+  const { name, ...rest } = parsed.data;
+  const current = await prisma.service.findUnique({ where: { id }, select: { name: true, i18nKey: true } });
+  const shownName = current ? (await getServiceLocalizer())(current).name : undefined;
+  const renamed = name !== undefined && name !== shownName;
+
   const service = await prisma.service.update({
     where: { id },
-    data: parsed.data,
+    data: { ...rest, ...(renamed ? { name, i18nKey: null } : {}) },
   });
 
   revalidatePath("/services");

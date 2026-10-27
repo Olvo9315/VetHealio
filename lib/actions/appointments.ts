@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AppointmentStatus, AppointmentType, Species } from "@prisma/client";
+import { getServiceRelationLocalizer } from "@/lib/service-i18n";
 
 // ---- Types ----
 
@@ -45,13 +46,13 @@ const updateStatusSchema = z.object({
 });
 
 const serviceInclude = {
-  select: { id: true, name: true, color: true },
+  select: { id: true, name: true, color: true, i18nKey: true },
 };
 
 // ---- Queries ----
 
 export async function getAppointments(from: Date, to: Date): Promise<AppointmentFull[]> {
-  return prisma.appointment.findMany({
+  const rows = (await prisma.appointment.findMany({
     where: {
       startTime: { gte: from, lte: to },
     },
@@ -68,11 +69,13 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       service: serviceInclude,
     },
     orderBy: { startTime: "asc" },
-  }) as unknown as AppointmentFull[];
+  })) as unknown as AppointmentFull[];
+  const localize = await getServiceRelationLocalizer();
+  return rows.map(localize);
 }
 
 export async function getAppointmentById(id: string): Promise<AppointmentFull | null> {
-  return prisma.appointment.findUnique({
+  const row = (await prisma.appointment.findUnique({
     where: { id },
     include: {
       pet: {
@@ -86,7 +89,8 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       veterinarian: { select: { id: true, name: true } },
       service: serviceInclude,
     },
-  }) as unknown as AppointmentFull | null;
+  })) as unknown as AppointmentFull | null;
+  return row && (await getServiceRelationLocalizer())(row);
 }
 
 export async function getVeterinarians() {
@@ -159,7 +163,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
   });
 
   revalidatePath("/appointments");
-  return { appointment };
+  return { appointment: (await getServiceRelationLocalizer())(appointment) };
 }
 
 export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date) {
@@ -207,7 +211,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
   });
 
   revalidatePath("/appointments");
-  return { appointment };
+  return { appointment: (await getServiceRelationLocalizer())(appointment) };
 }
 
 export async function deleteAppointment(id: string) {
@@ -302,5 +306,5 @@ export async function createAppointmentWithNewPatient(
 
   revalidatePath("/appointments");
   revalidatePath("/patients");
-  return { appointment };
+  return { appointment: (await getServiceRelationLocalizer())(appointment) };
 }
