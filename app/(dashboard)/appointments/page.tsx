@@ -34,7 +34,7 @@ export default async function AppointmentsPage() {
         </div>
         {/* Mobile day list */}
         <div className="md:hidden">
-          <MobileAppointmentList initialAppointments={appointments} vets={vets} services={services} rooms={rooms} />
+          <MobileAppointmentList initialAppointments={appointments} vets={vets} services={services} rooms={rooms} leaves={leaves} />
         </div>
       </div>
     </div>

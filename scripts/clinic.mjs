@@ -9,6 +9,7 @@
 //   npm run clinic -- deploy <slug|all> <tag> [--prod]
 //   npm run clinic -- new <slug> "<Clinic name>" <admin-email>
 //   npm run clinic -- license <slug> <module,module,...|default> [--expires YYYY-MM-DD]
+//   npm run clinic -- catalog <slug|all> [--dry-run]
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -16,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import pg from "pg";
 import { signLicense } from "./license.mjs";
+import { LOCALES, SERVICE_CATALOG } from "../prisma/service-catalog.ts";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const REGISTRY = path.join(ROOT, "clinics.json");
@@ -222,6 +224,69 @@ async function setLicense(slug, list, expiresAt) {
   }
 }
 
+// Adds the default service catalog to an existing clinic (production + staging DBs) without
+// touching what the clinic already has: an entry is skipped when a service with the same name
+// (official or translated, any case) exists under the same parent; nothing is renamed, deleted
+// or re-priced. New services get no price, like in a new clinic.
+async function addCatalog(slug, dryRun) {
+  if (!slug) throw new Error("Usage: catalog <slug|all> [--dry-run]");
+  for (const clinic of findClinics(slug)) {
+    const targets = [["production", pullEnv(clinic.projectId, "development").DATABASE_URL]];
+    const staging = pullEnv(clinic.projectId, "preview").STAGING_DATABASE_URL;
+    if (staging) targets.push(["staging", staging]);
+
+    for (const [label, url] of targets) {
+      const db = new pg.Client({ connectionString: url });
+      await db.connect();
+      try {
+        const settings = await db.query(`SELECT "dataLocale" FROM "ClinicSettings" WHERE id = 'default'`);
+        const locale = LOCALES.includes(settings.rows[0]?.dataLocale) ? settings.rows[0].dataLocale : "es";
+        const { rows } = await db.query(`SELECT id, name, translations, "parentId", "sortOrder" FROM "Service"`);
+        const norm = (v) => String(v ?? "").trim().toLowerCase();
+        const namesOf = (r) => [r.name, ...Object.values(r.translations ?? {})].map(norm);
+        let added = 0;
+        const lines = [];
+
+        await db.query("BEGIN");
+        const level = async (entries, parentId, depth) => {
+          const siblings = rows.filter((r) => r.parentId === parentId);
+          let nextSort = siblings.reduce((m, r) => Math.max(m, r.sortOrder + 1), 0);
+          for (const entry of entries) {
+            const labels = Object.values(entry.labels).map(norm);
+            let match = siblings.find((r) => namesOf(r).some((n) => labels.includes(n)));
+            if (!match) {
+              const id = "c" + randomBytes(12).toString("hex");
+              const translations = Object.fromEntries(LOCALES.filter((l) => l !== locale).map((l) => [l, entry.labels[l]]));
+              match = { id, name: entry.labels[locale], translations, parentId, sortOrder: nextSort++ };
+              if (!dryRun) {
+                await db.query(
+                  `INSERT INTO "Service" (id, name, translations, color, price, "isActive", "sortOrder", "parentId", "createdAt", "updatedAt")
+                   VALUES ($1, $2, $3, $4, NULL, true, $5, $6, now(), now())`,
+                  [id, match.name, JSON.stringify(translations), entry.color ?? null, match.sortOrder, parentId]
+                );
+              }
+              rows.push(match);
+              added++;
+              lines.push(`${"  ".repeat(depth)}+ ${match.name}`);
+            }
+            if (entry.children) await level(entry.children, match.id, depth + 1);
+          }
+        };
+        await level(SERVICE_CATALOG, null, 0);
+        await db.query(dryRun ? "ROLLBACK" : "COMMIT");
+
+        console.log(`  ${dryRun ? "•" : "✓"} ${clinic.name} (${label}): ${rows.length - added} existing, ${added} ${dryRun ? "would be added" : "added"}`);
+        if (dryRun && lines.length) console.log(lines.map((l) => "      " + l).join("\n"));
+      } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        throw err;
+      } finally {
+        await db.end();
+      }
+    }
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 try {
   if (command === "status") await status();
@@ -231,8 +296,9 @@ try {
     const i = args.indexOf("--expires");
     await setLicense(args[0], args[1], i >= 0 ? args[i + 1] : undefined);
   }
+  else if (command === "catalog") await addCatalog(args[0], args.includes("--dry-run"));
   else {
-    console.log('Usage:\n  npm run clinic -- status\n  npm run clinic -- deploy <slug|all> <tag> [--prod]\n  npm run clinic -- new <slug> "<Clinic name>" <admin-email>\n  npm run clinic -- license <slug> <module,module,...|default> [--expires YYYY-MM-DD]');
+    console.log('Usage:\n  npm run clinic -- status\n  npm run clinic -- deploy <slug|all> <tag> [--prod]\n  npm run clinic -- new <slug> "<Clinic name>" <admin-email>\n  npm run clinic -- license <slug> <module,module,...|default> [--expires YYYY-MM-DD]\n  npm run clinic -- catalog <slug|all> [--dry-run]');
     process.exit(command ? 1 : 0);
   }
 } catch (err) {
