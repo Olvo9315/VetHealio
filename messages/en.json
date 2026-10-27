@@ -11,7 +11,9 @@
     "logout": "Log out",
     "staff": "Staff",
     "collapse": "Collapse",
-    "more": "More"
+    "more": "More",
+    "showMenu": "Show menu",
+    "hideMenu": "Hide menu"
   },
   "auth": {
     "login": "Sign in",
