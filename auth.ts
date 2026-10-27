@@ -22,8 +22,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
+          include: { staffProfile: { select: { isActive: true } } },
         });
         if (!user) return null;
+        // Deactivated staff can no longer sign in
+        if (user.staffProfile && !user.staffProfile.isActive) return null;
 
         const passwordMatch = await bcrypt.compare(
           parsed.data.password,

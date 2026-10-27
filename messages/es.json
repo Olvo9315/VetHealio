@@ -521,7 +521,7 @@
     "fullTime": "Tiempo completo",
     "partTime": "Tiempo parcial",
     "contractor": "Contratista",
-    "canManageStaff": "Médico jefe: gestiona personal, servicios y precios, anula facturas y borra historiales",
+    "canManageStaff": "Médico jefe: da de alta al personal, cambia roles y nombra médicos jefe",
     "annualLeaveDays": "Días de vacaciones anuales",
     "emergencyContact": "Contacto de emergencia",
     "emergencyName": "Nombre de emergencia",
@@ -632,7 +632,35 @@
     "note": "Nota",
     "optional": "Opcional",
     "date": "Fecha",
-    "emailInUse": "Este correo ya está en uso"
+    "emailInUse": "Este correo ya está en uso",
+    "headVet": "Médico jefe",
+    "errors": {
+      "adminOnly": "Solo un administrador puede asignar o quitar el rol de administrador",
+      "cannotChangeSelf": "No puedes cambiar tu propio rol ni desactivarte",
+      "lastAdmin": "La clínica debe tener al menos un administrador activo",
+      "invalidRole": "Rol no válido",
+      "notFound": "Empleado no encontrado"
+    },
+    "auditFields": {
+      "created": "Alta",
+      "role": "Rol",
+      "isActive": "Activo",
+      "canManageStaff": "Médico jefe",
+      "specialization": "Especialización",
+      "licenseNumber": "Número de licencia",
+      "education": "Educación",
+      "salaryAmount": "Salario",
+      "salaryType": "Tipo de salario",
+      "hireDate": "Fecha de contratación",
+      "contractType": "Tipo de contrato",
+      "annualLeaveDays": "Días de vacaciones",
+      "weeklyTemplate": "Horario semanal",
+      "emergencyName": "Contacto de emergencia",
+      "emergencyPhone": "Teléfono de emergencia",
+      "notes": "Notas",
+      "diplomaPath": "Diploma",
+      "contractPath": "Contrato"
+    }
   },
   "prescriptions": {
     "title": "Recetas",

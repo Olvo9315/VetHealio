@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Plus, ChevronRight, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Role } from "@prisma/client";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 type StaffItem = {
   id: string;
@@ -44,7 +45,6 @@ type StaffItem = {
 
 interface StaffListProps {
   staff: StaffItem[];
-  isAdmin: boolean;
 }
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -62,7 +62,8 @@ const SPEC_KEYS = [
   "rehabilitation", "preventiveMedicine",
 ] as const;
 
-export function StaffList({ staff, isAdmin }: StaffListProps) {
+export function StaffList({ staff }: StaffListProps) {
+  const canManage = useCan("staff.manage");
   const t = useTranslations("staff");
   const router = useRouter();
 
@@ -129,7 +130,7 @@ export function StaffList({ staff, isAdmin }: StaffListProps) {
             <SelectItem value="all">{t("all")}</SelectItem>
           </SelectContent>
         </Select>
-        {isAdmin && (
+        {canManage && (
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             {t("new")}

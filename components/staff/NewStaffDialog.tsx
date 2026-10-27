@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useCan } from "@/components/layout/PermissionsProvider";
 
 interface NewStaffDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface NewStaffDialogProps {
 
 export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
   const t = useTranslations("staff");
+  const canAssignAdmin = useCan("staff.assignAdmin");
   const tc = useTranslations("common");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -55,7 +57,7 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
       if (result?.error) {
         if ("fieldErrors" in result.error) setErrors(result.error.fieldErrors as Record<string, string[]>);
         const formErrors = (result.error as { formErrors?: string[] }).formErrors ?? [];
-        toast.error(formErrors.includes("emailInUse") ? t("emailInUse") : t("errorSave"));
+        toast.error(formErrors.includes("emailInUse") ? t("emailInUse") : formErrors.includes("adminOnly") ? t("errors.adminOnly") : t("errorSave"));
         return;
       }
       toast.success(t("saved"));
@@ -106,7 +108,7 @@ export function NewStaffDialog({ open, onOpenChange }: NewStaffDialogProps) {
                 <SelectItem value="VETERINARIAN">{t("roleVeterinarian")}</SelectItem>
                 <SelectItem value="RECEPTIONIST">{t("roleReceptionist")}</SelectItem>
                 <SelectItem value="ASSISTANT">{t("roleAssistant")}</SelectItem>
-                <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>
+                {canAssignAdmin && <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>}
               </SelectContent>
             </Select>
           </div>

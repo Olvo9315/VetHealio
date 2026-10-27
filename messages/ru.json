@@ -521,7 +521,7 @@
     "fullTime": "Полная занятость",
     "partTime": "Частичная занятость",
     "contractor": "Подрядчик",
-    "canManageStaff": "Главный врач: управляет персоналом, услугами и ценами, отменяет счета и удаляет медзаписи",
+    "canManageStaff": "Главный врач: регистрирует персонал, меняет роли и назначает главврачей",
     "annualLeaveDays": "Дней отпуска в год",
     "emergencyContact": "Экстренный контакт",
     "emergencyName": "Имя для экстренной связи",
@@ -632,7 +632,35 @@
     "note": "Заметка",
     "optional": "Необязательно",
     "date": "Дата",
-    "emailInUse": "Этот email уже используется"
+    "emailInUse": "Этот email уже используется",
+    "headVet": "Главный врач",
+    "errors": {
+      "adminOnly": "Назначать и снимать роль администратора может только администратор",
+      "cannotChangeSelf": "Нельзя менять свою роль или деактивировать себя",
+      "lastAdmin": "В клинике должен остаться хотя бы один активный администратор",
+      "invalidRole": "Неверная роль",
+      "notFound": "Сотрудник не найден"
+    },
+    "auditFields": {
+      "created": "Создан",
+      "role": "Роль",
+      "isActive": "Активен",
+      "canManageStaff": "Главный врач",
+      "specialization": "Специализация",
+      "licenseNumber": "Номер лицензии",
+      "education": "Образование",
+      "salaryAmount": "Зарплата",
+      "salaryType": "Тип зарплаты",
+      "hireDate": "Дата найма",
+      "contractType": "Тип договора",
+      "annualLeaveDays": "Дней отпуска",
+      "weeklyTemplate": "Недельный график",
+      "emergencyName": "Контакт на экстренный случай",
+      "emergencyPhone": "Экстренный телефон",
+      "notes": "Заметки",
+      "diplomaPath": "Диплом",
+      "contractPath": "Договор"
+    }
   },
   "prescriptions": {
     "title": "Рецепты",

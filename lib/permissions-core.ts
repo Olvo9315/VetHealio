@@ -6,21 +6,24 @@ export type Actor = { role: Role; isHeadVet: boolean };
 
 export const PERMISSIONS = {
   // Data that ends up on official documents: services and their prices
-  "catalog.manage": ["ADMIN", "HEAD_VET"],
+  "catalog.manage": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
   // Clinic identity (NIF, address, invoice footer, language, logo), licenses, import/export
   "clinic.settings": ["ADMIN"],
+  // Register staff, change roles, appoint head vets (the only difference between vet and head vet)
   "staff.manage": ["ADMIN", "HEAD_VET"],
+  // Create admins or change the role of an admin
+  "staff.assignAdmin": ["ADMIN"],
   // Create invoices, edit pending ones, register payments
   "invoice.write": ["ADMIN", "HEAD_VET", "VETERINARIAN", "RECEPTIONIST"],
   // Cancel or delete invoices (fiscal documents)
-  "invoice.void": ["ADMIN", "HEAD_VET"],
+  "invoice.void": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
   // Medical records and vaccinations (clinical documents)
   "medical.write": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
-  "medical.delete": ["ADMIN", "HEAD_VET"],
+  "medical.delete": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
   // Prescriptions: only veterinarians may prescribe
   "prescription.write": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
   // Inventory items: names, units, costs, suppliers (stock adjustments are open to all staff)
-  "inventory.manage": ["ADMIN", "HEAD_VET"],
+  "inventory.manage": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

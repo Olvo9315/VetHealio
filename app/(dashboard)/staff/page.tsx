@@ -30,7 +30,7 @@ export default async function StaffPage() {
     <div className="flex flex-col min-h-full">
       <TopBar user={session?.user ?? {}} title={t("title")} />
       <div className="flex-1 p-4 md:p-6">
-        <StaffList staff={staff} isAdmin={user.role === "ADMIN"} />
+        <StaffList staff={staff} />
       </div>
     </div>
   );

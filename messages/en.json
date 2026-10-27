@@ -521,7 +521,7 @@
     "fullTime": "Full time",
     "partTime": "Part time",
     "contractor": "Contractor",
-    "canManageStaff": "Head vet: manages staff, services and prices, voids invoices and deletes records",
+    "canManageStaff": "Head vet: registers staff, changes roles and appoints head vets",
     "annualLeaveDays": "Annual leave days",
     "emergencyContact": "Emergency contact",
     "emergencyName": "Emergency name",
@@ -632,7 +632,35 @@
     "note": "Note",
     "optional": "Optional",
     "date": "Date",
-    "emailInUse": "This email is already in use"
+    "emailInUse": "This email is already in use",
+    "headVet": "Head vet",
+    "errors": {
+      "adminOnly": "Only an administrator can grant or remove the administrator role",
+      "cannotChangeSelf": "You cannot change your own role or deactivate yourself",
+      "lastAdmin": "The clinic must keep at least one active administrator",
+      "invalidRole": "Invalid role",
+      "notFound": "Staff member not found"
+    },
+    "auditFields": {
+      "created": "Created",
+      "role": "Role",
+      "isActive": "Active",
+      "canManageStaff": "Head vet",
+      "specialization": "Specialization",
+      "licenseNumber": "License number",
+      "education": "Education",
+      "salaryAmount": "Salary",
+      "salaryType": "Salary type",
+      "hireDate": "Hire date",
+      "contractType": "Contract type",
+      "annualLeaveDays": "Annual leave days",
+      "weeklyTemplate": "Weekly schedule",
+      "emergencyName": "Emergency contact",
+      "emergencyPhone": "Emergency phone",
+      "notes": "Notes",
+      "diplomaPath": "Diploma",
+      "contractPath": "Contract"
+    }
   },
   "prescriptions": {
     "title": "Prescriptions",
