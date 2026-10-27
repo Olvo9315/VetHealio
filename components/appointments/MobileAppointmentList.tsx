@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
+import type { CalendarLeave } from "@/lib/actions/appointments";
+import { Views } from "react-big-calendar";
+import { useCalendarI18n } from "@/lib/calendar-i18n";
+import { AppointmentsCalendar } from "./AppointmentsCalendar";
 import { PetQuickSheet, type PetPreview } from "@/components/patients/PetQuickSheet";
 import { servicePath } from "@/lib/service-path";
 
@@ -23,12 +27,16 @@ interface MobileAppointmentListProps {
   vets: Vet[];
   services: ServiceFlat[];
   rooms: Room[];
+  leaves?: CalendarLeave[];
 }
 
-export function MobileAppointmentList({ initialAppointments, vets, services, rooms }: MobileAppointmentListProps) {
+export function MobileAppointmentList({ initialAppointments, vets, services, rooms, leaves = [] }: MobileAppointmentListProps) {
   const dateLocale = useDateLocale();
   const t = useTranslations("appointments");
   const [date, setDate] = useState(new Date());
+  // Day = the list below; week and month use the desktop calendar in its phone layout
+  const [mode, setMode] = useState<"day" | "week" | "month">("day");
+  const calendarI18n = useCalendarI18n();
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
   const [selectedApt, setSelectedApt] = useState<AppointmentFull | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -84,8 +92,47 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
   // Build week strip (7 days centred on today)
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(subDays(date, 3), i));
 
+  const modeSwitch = (
+    <div className="flex rounded-lg border border-border overflow-hidden self-start">
+      {(["day", "week", "month"] as const).map((m) => (
+        <button
+          key={m}
+          onClick={() => setMode(m)}
+          className={cn(
+            "px-3 py-1.5 text-sm transition-colors",
+            mode === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"
+          )}
+        >
+          {calendarI18n.messages[m]}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode !== "day") {
+    return (
+      <div className="flex flex-col gap-3">
+        {modeSwitch}
+        <AppointmentsCalendar
+          key={mode}
+          mobile
+          initialView={mode === "week" ? Views.WEEK : Views.MONTH}
+          initialAppointments={appointments}
+          vets={vets}
+          services={services}
+          rooms={rooms}
+          leaves={leaves}
+          onAppointmentsChange={setAppointments}
+          onOpenDay={(day) => { setDate(day); setMode("day"); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {modeSwitch}
+
       {/* Week strip */}
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={() => setDate((d) => subDays(d, 7))}>
@@ -128,6 +175,12 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
           {isToday(date) ? t("todayPrefix") : ""}
           {format(date, "EEEE, d MMMM", { locale: dateLocale })}
         </h2>
+        {/* Back to today from any other day */}
+        {!isToday(date) && (
+          <Button variant="outline" size="sm" className="h-8 ml-auto mr-2" onClick={() => setDate(new Date())}>
+            {calendarI18n.messages.today}
+          </Button>
+        )}
         <Button
           size="sm"
           className="bg-primary text-primary-foreground h-8"

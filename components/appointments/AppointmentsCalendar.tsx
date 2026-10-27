@@ -91,6 +91,12 @@ interface AppointmentsCalendarProps {
   services: ServiceFlat[];
   rooms: Room[];
   leaves?: CalendarLeave[];
+  // Phone layout (week/month inside the mobile schedule): compact toolbar, no view switcher
+  // or legend; tapping a day hands it back to the mobile day list via onOpenDay
+  mobile?: boolean;
+  initialView?: View;
+  onOpenDay?: (day: Date) => void;
+  onAppointmentsChange?: (appointments: AppointmentFull[]) => void;
 }
 
 
@@ -235,14 +241,40 @@ function AppointmentCard({
   );
 }
 
-export function AppointmentsCalendar({ initialAppointments, vets, services, rooms, leaves = [] }: AppointmentsCalendarProps) {
+export function AppointmentsCalendar({
+  initialAppointments,
+  vets,
+  services,
+  rooms,
+  leaves = [],
+  mobile = false,
+  initialView,
+  onOpenDay,
+  onAppointmentsChange,
+}: AppointmentsCalendarProps) {
   const dateLocale = useDateLocale();
   const calendarI18n = useCalendarI18n();
   const t = useTranslations("appointments");
   const tRef = useRef(t);
   tRef.current = t;
   const [appointments, setAppointments] = useState<AppointmentFull[]>(initialAppointments);
-  const [view, setView] = useState<View>(Views.WEEK);
+  const onAppointmentsChangeRef = useRef(onAppointmentsChange);
+  onAppointmentsChangeRef.current = onAppointmentsChange;
+  useEffect(() => {
+    onAppointmentsChangeRef.current?.(appointments);
+  }, [appointments]);
+  const [view, setView] = useState<View>(initialView ?? Views.WEEK);
+  const mobileRef = useRef(mobile);
+  mobileRef.current = mobile;
+  // Opening a single day: the mobile list handles it on phones, the day view otherwise
+  const openDayRef = useRef<(day: Date) => void>(() => {});
+  openDayRef.current = (day: Date) => {
+    if (onOpenDay) onOpenDay(day);
+    else {
+      setDate(day);
+      setView(Views.DAY);
+    }
+  };
   const [date, setDate] = useState(new Date());
   const [isPending, startTransition] = useTransition();
 
@@ -419,6 +451,27 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
     () =>
       function MonthHeader({ date: day, label, onDrillDown }: { date: Date; label: string; onDrillDown: () => void }) {
         const sum = monthSummaryRef.current.get(format(day, "yyyy-MM-dd"));
+        if (mobileRef.current) {
+          // Narrow cells: the date, and below it a coloured badge with the number of appointments
+          return (
+            <div className="px-0.5 pt-0.5 flex flex-col items-end gap-0.5">
+              <button type="button" className="rbc-button-link text-xs" onClick={onDrillDown}>
+                {label}
+              </button>
+              {sum && (
+                <span
+                  className={cn(
+                    "self-center rounded-full px-1.5 text-[10px] font-bold leading-4",
+                    sum.conflicts > 0 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-800"
+                  )}
+                  title={tRef.current("monthLabel", { count: sum.total })}
+                >
+                  {sum.total}
+                </span>
+              )}
+            </div>
+          );
+        }
         return (
           <div className="px-1 pt-0.5">
             <div className="text-right">
@@ -490,8 +543,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     if (viewRef.current === Views.MONTH) {
-      setDate(slotInfo.start as Date);
-      setView(Views.DAY);
+      openDayRef.current(slotInfo.start as Date);
       return;
     }
     setPresetStart(slotInfo.start as Date);
@@ -801,7 +853,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
     <TooltipPrimitive.Provider delayDuration={500}>
       <div className="flex flex-col h-full gap-4">
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className={cn("flex flex-col gap-3 justify-between", !mobile && "sm:flex-row items-start sm:items-center")}>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => navigate("prev")}>
               <ChevronLeft className="w-4 h-4" />
@@ -812,7 +864,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             <Button variant="outline" size="icon" onClick={() => navigate("next")}>
               <ChevronRight className="w-4 h-4" />
             </Button>
-            <span className="text-sm font-medium ml-2 capitalize">{navLabel()}</span>
+            <span className={cn("font-medium ml-2 capitalize", mobile ? "text-xs" : "text-sm")}>{navLabel()}</span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -858,6 +910,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             )}
 
             {/* Zoom control */}
+            {view !== Views.MONTH && (
             <div className="flex rounded-lg border border-border overflow-hidden" title={t("zoom")}>
               {(["compact", "normal", "large"] as const).map((z) => (
                 <button
@@ -874,6 +927,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                 </button>
               ))}
             </div>
+            )}
+            {!mobile && (
             <div className="flex rounded-lg border border-border overflow-hidden">
               {[Views.MONTH, Views.WEEK, Views.DAY].map((v) => (
                 <button
@@ -890,17 +945,18 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
                 </button>
               ))}
             </div>
+            )}
             <Button
               className="bg-primary text-primary-foreground"
               onClick={() => { setPresetStart(undefined); setPresetRoomId(undefined); setCreateDialogOpen(true); }}
             >
-              + {t("new")}
+              + {mobile ? t("newShort") : t("new")}
             </Button>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3">
+        <div className={cn("flex flex-wrap gap-3", mobile && "hidden")}>
           {services.filter((s) => s.parentId === null && s.color).length > 0
             ? services
                 .filter((s) => s.parentId === null && s.color)
@@ -946,7 +1002,7 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             zoom === "large"   && "[&_.rbc-timeslot-group]:min-h-[72px]",
             isPending && "opacity-70 pointer-events-none"
           )}
-          style={{ height: "calc(100vh - 260px)", minHeight: 400 }}
+          style={mobile ? { height: "calc(100dvh - 330px)", minHeight: 340 } : { height: "calc(100vh - 260px)", minHeight: 400 }}
           ref={calendarBoxRef}
         >
           <div className="h-full overflow-x-auto">
@@ -961,6 +1017,8 @@ export function AppointmentsCalendar({ initialAppointments, vets, services, room
             date={date}
             onNavigate={setDate}
             onView={setView}
+            // Clicking a date header opens that day (the mobile list on phones)
+            onDrillDown={(day: Date) => openDayRef.current(day)}
             selectable
             resizable
             onSelectSlot={handleSelectSlot}
