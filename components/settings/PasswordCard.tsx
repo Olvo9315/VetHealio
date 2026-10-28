@@ -2,6 +2,7 @@
 
 import { useTransition, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
@@ -101,7 +102,7 @@ export function PasswordCard({ userId }: PasswordCardProps) {
               id="currentPassword"
               type={showCurrent ? "text" : "password"}
               autoComplete="current-password"
-              {...form.register("currentPassword")}
+              {...bindField(form, "currentPassword")}
             />
             <button
               type="button"
@@ -124,7 +125,7 @@ export function PasswordCard({ userId }: PasswordCardProps) {
               id="newPassword"
               type={showNew ? "text" : "password"}
               autoComplete="new-password"
-              {...form.register("newPassword")}
+              {...bindField(form, "newPassword")}
             />
             <button
               type="button"
@@ -146,7 +147,7 @@ export function PasswordCard({ userId }: PasswordCardProps) {
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
-            {...form.register("confirmPassword")}
+            {...bindField(form, "confirmPassword")}
           />
           {form.formState.errors.confirmPassword && (
             <p className="text-xs text-destructive">{getFieldError(form.formState.errors.confirmPassword.message)}</p>

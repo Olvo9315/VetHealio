@@ -398,3 +398,9 @@
 .rbc-show-more {
   background-color: transparent;
 }
+/* Sticky time column of the per-room day view (library: white) */
+.rbc-time-view-resources .rbc-time-header-gutter,
+.rbc-time-view-resources .rbc-time-gutter {
+  background-color: var(--card);
+  border-color: var(--border);
+}

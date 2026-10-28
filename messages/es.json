@@ -212,7 +212,8 @@
     "addService": "Añadir servicio",
     "removeService": "Quitar servicio",
     "services": "Servicios",
-    "touchEditHint": "Arrastra para mover · la barra inferior cambia la duración · toca un hueco para terminar"
+    "touchEditHint": "Arrastra para mover · la barra inferior cambia la duración · toca un hueco para terminar",
+    "createMedicalRecord": "Historial médico"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
@@ -281,7 +282,11 @@
     "searchPlaceholder": "Buscar por paciente, diagnóstico...",
     "newShort": "Nuevo registro",
     "noneFound": "No se encontraron registros",
-    "count": "{count, plural, one {# registro} other {# registros}}"
+    "count": "{count, plural, one {# registro} other {# registros}}",
+    "fromVisit": "Cita",
+    "fillFromVisit": "Rellenar desde una cita",
+    "chooseVisit": "Elegir cita…",
+    "visitHasRecord": "Esta cita ya tiene historial médico"
   },
   "finances": {
     "title": "Finanzas",
@@ -872,7 +877,9 @@
     "batch": "Lote: {batch}",
     "singleDose": "Dosis única",
     "doctor": "Dr. {name}",
-    "register": "Registrar"
+    "register": "Registrar",
+    "deleteConfirm": "¿Eliminar esta vacuna?",
+    "deleted": "Vacuna eliminada"
   },
   "calendar": {
     "today": "Hoy",

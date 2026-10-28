@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Species, Gender } from "@prisma/client";
@@ -314,14 +315,14 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="firstName">{t("firstName")} *</Label>
-                    <Input id="firstName" {...ownerForm.register("firstName")} />
+                    <Input id="firstName" {...bindField(ownerForm, "firstName")} />
                     {ownerForm.formState.errors.firstName && (
                       <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.firstName.message)}</p>
                     )}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="lastName">{t("lastName")} *</Label>
-                    <Input id="lastName" {...ownerForm.register("lastName")} />
+                    <Input id="lastName" {...bindField(ownerForm, "lastName")} />
                     {ownerForm.formState.errors.lastName && (
                       <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.lastName.message)}</p>
                     )}
@@ -329,21 +330,21 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="phone">{t("phone")} *</Label>
-                  <Input id="phone" type="tel" {...ownerForm.register("phone")} />
+                  <Input id="phone" type="tel" {...bindField(ownerForm, "phone")} />
                   {ownerForm.formState.errors.phone && (
                     <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.phone.message)}</p>
                   )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="email">{t("email")}</Label>
-                  <Input id="email" type="email" {...ownerForm.register("email")} />
+                  <Input id="email" type="email" {...bindField(ownerForm, "email")} />
                   {ownerForm.formState.errors.email && (
                     <p className="text-xs text-destructive">{translateMessage(tv, ownerForm.formState.errors.email.message)}</p>
                   )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="address">{t("address")}</Label>
-                  <Input id="address" {...ownerForm.register("address")} />
+                  <Input id="address" {...bindField(ownerForm, "address")} />
                 </div>
                 <Button type="submit" className="w-full" disabled={isSaving}>
                   {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -386,7 +387,7 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               {/* Name */}
               <div className="col-span-2 space-y-1">
                 <Label htmlFor="petName">{t("name")} *</Label>
-                <Input id="petName" placeholder={t("exName")} {...petForm.register("name")} />
+                <Input id="petName" placeholder={t("exName")} {...bindField(petForm, "name")} />
                 {petForm.formState.errors.name && (
                   <p className="text-xs text-destructive">{translateMessage(tv, petForm.formState.errors.name.message)}</p>
                 )}
@@ -440,31 +441,31 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
               {/* Breed */}
               <div className="space-y-1">
                 <Label htmlFor="breed">{t("breed")}</Label>
-                <Input id="breed" {...petForm.register("breed")} />
+                <Input id="breed" {...bindField(petForm, "breed")} />
               </div>
 
               {/* Color */}
               <div className="space-y-1">
                 <Label htmlFor="color">{t("color")}</Label>
-                <Input id="color" {...petForm.register("color")} />
+                <Input id="color" {...bindField(petForm, "color")} />
               </div>
 
               {/* Birth date */}
               <div className="space-y-1">
                 <Label htmlFor="birthDate">{t("birthDate")}</Label>
-                <Input id="birthDate" type="date" {...petForm.register("birthDate")} />
+                <Input id="birthDate" type="date" {...bindField(petForm, "birthDate")} />
               </div>
 
               {/* Weight */}
               <div className="space-y-1">
                 <Label htmlFor="weight">{t("weight")} (kg)</Label>
-                <Input id="weight" type="number" step="0.1" min="0" {...petForm.register("weight")} />
+                <Input id="weight" type="number" step="0.1" min="0" {...bindField(petForm, "weight")} />
               </div>
 
               {/* Microchip */}
               <div className="col-span-2 space-y-1">
                 <Label htmlFor="microchipNumber">{t("microchip")}</Label>
-                <Input id="microchipNumber" {...petForm.register("microchipNumber")} />
+                <Input id="microchipNumber" {...bindField(petForm, "microchipNumber")} />
               </div>
             </div>
 

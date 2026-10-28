@@ -2,7 +2,9 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { createPrescription, updatePrescription } from "@/lib/actions/prescriptions";
+import { createPrescription, updatePrescription, deletePrescription } from "@/lib/actions/prescriptions";
+import { DeleteButton } from "@/components/common/DeleteButton";
+import { useCan } from "@/components/layout/PermissionsProvider";
 import type { PrescriptionFull, PrescriptionItemData } from "@/lib/actions/prescriptions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ interface PrescriptionDialogProps {
   appointmentTitle?: string;
   record?: PrescriptionFull;
   onSaved: (p: PrescriptionFull) => void;
+  onDeleted?: (id: string) => void;
 }
 
 type ItemState = PrescriptionItemData & { _key: number };
@@ -52,7 +55,9 @@ export function PrescriptionDialog({
   appointmentTitle,
   record,
   onSaved,
+  onDeleted,
 }: PrescriptionDialogProps) {
+  const canDelete = useCan("medical.delete");
   const t = useTranslations("prescriptions");
   const tc = useTranslations("common");
   const [isSaving, startSave] = useTransition();
@@ -276,6 +281,17 @@ export function PrescriptionDialog({
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">
+            {record && onDeleted && canDelete && (
+              <DeleteButton
+                confirmText={t("deleteConfirm")}
+                onDelete={async () => {
+                  await deletePrescription(record.id);
+                  toast.success(t("deleted"));
+                  onDeleted(record.id);
+                  onOpenChange(false);
+                }}
+              />
+            )}
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               {tc("cancel")}
             </Button>

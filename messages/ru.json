@@ -212,7 +212,8 @@
     "addService": "Добавить услугу",
     "removeService": "Убрать услугу",
     "services": "Услуги",
-    "touchEditHint": "Тяните, чтобы перенести · полоска снизу меняет длительность · нажмите на пустое место, чтобы закончить"
+    "touchEditHint": "Тяните, чтобы перенести · полоска снизу меняет длительность · нажмите на пустое место, чтобы закончить",
+    "createMedicalRecord": "Медзапись"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -281,7 +282,11 @@
     "searchPlaceholder": "Поиск по пациенту, диагнозу...",
     "newShort": "Новая запись",
     "noneFound": "Записи не найдены",
-    "count": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}"
+    "count": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
+    "fromVisit": "Сита",
+    "fillFromVisit": "Заполнить из ситы",
+    "chooseVisit": "Выберите ситу…",
+    "visitHasRecord": "У этой ситы уже есть медзапись"
   },
   "finances": {
     "title": "Финансы",
@@ -872,7 +877,9 @@
     "batch": "Партия: {batch}",
     "singleDose": "Однократная доза",
     "doctor": "Др. {name}",
-    "register": "Зарегистрировать"
+    "register": "Зарегистрировать",
+    "deleteConfirm": "Удалить эту вакцинацию?",
+    "deleted": "Вакцинация удалена"
   },
   "calendar": {
     "today": "Сегодня",

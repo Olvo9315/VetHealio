@@ -2,6 +2,7 @@
 
 import { useTransition, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -160,7 +161,7 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
           {/* Name */}
           <div className="space-y-1.5">
             <Label htmlFor="name">{t("name")} *</Label>
-            <Input id="name" placeholder={t("namePlaceholder")} {...form.register("name")} />
+            <Input id="name" placeholder={t("namePlaceholder")} {...bindField(form, "name")} />
             {form.formState.errors.name && (
               <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.name.message)}</p>
             )}
@@ -214,14 +215,14 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="quantity">{t("currentQuantity")} *</Label>
-                <Input id="quantity" type="number" min="0" step="0.1" {...form.register("quantity")} />
+                <Input id="quantity" type="number" min="0" step="0.1" {...bindField(form, "quantity")} />
                 {form.formState.errors.quantity && (
                   <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.quantity.message)}</p>
                 )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="minStock">{t("minStock")}</Label>
-                <Input id="minStock" type="number" min="0" step="0.1" {...form.register("minStock")} />
+                <Input id="minStock" type="number" min="0" step="0.1" {...bindField(form, "minStock")} />
               </div>
             </div>
           </div>
@@ -234,25 +235,25 @@ export function InventoryDialog({ open, onOpenChange, item, onSaved }: Inventory
               <Label htmlFor="unitCost">{t("unitCostEur")}</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
-                <Input id="unitCost" type="number" min="0" step="0.01" placeholder="0.00" className="pl-6" {...form.register("unitCost")} />
+                <Input id="unitCost" type="number" min="0" step="0.01" placeholder="0.00" className="pl-6" {...bindField(form, "unitCost")} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="expiryDate">{t("expiryDate")}</Label>
-              <Input id="expiryDate" type="date" {...form.register("expiryDate")} />
+              <Input id="expiryDate" type="date" {...bindField(form, "expiryDate")} />
             </div>
           </div>
 
           {/* Supplier */}
           <div className="space-y-1.5">
             <Label htmlFor="supplier">{t("supplier")}</Label>
-            <Input id="supplier" placeholder={t("supplierPlaceholder")} {...form.register("supplier")} />
+            <Input id="supplier" placeholder={t("supplierPlaceholder")} {...bindField(form, "supplier")} />
           </div>
 
           {/* Notes */}
           <div className="space-y-1.5">
             <Label htmlFor="notes">{t("notes")}</Label>
-            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...bindField(form, "notes")} />
           </div>
 
           <div className="flex gap-2 pt-1">

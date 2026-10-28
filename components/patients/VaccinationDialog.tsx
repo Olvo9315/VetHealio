@@ -2,10 +2,13 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { createVaccination, updateVaccination } from "@/lib/actions/vaccinations";
+import { createVaccination, updateVaccination, deleteVaccination } from "@/lib/actions/vaccinations";
+import { DeleteButton } from "@/components/common/DeleteButton";
+import { useCan } from "@/components/layout/PermissionsProvider";
 import type { VaccinationFull } from "@/lib/actions/vaccinations";
 import { getVeterinarians } from "@/lib/actions/appointments";
 import { toast } from "sonner";
@@ -50,6 +53,7 @@ interface VaccinationDialogProps {
   presetPetId: string;
   presetPetName: string;
   onSaved: (v: VaccinationFull) => void;
+  onDeleted?: (id: string) => void;
 }
 
 export function VaccinationDialog({
@@ -59,8 +63,10 @@ export function VaccinationDialog({
   presetPetId,
   presetPetName,
   onSaved,
+  onDeleted,
 }: VaccinationDialogProps) {
   const isEdit = !!vaccination;
+  const canDelete = useCan("medical.delete");
   const t = useTranslations("vaccinations");
   const tc = useTranslations("common");
   const tv = useTranslations("validation");
@@ -171,7 +177,7 @@ export function VaccinationDialog({
           {/* Vacuna */}
           <div className="space-y-1.5">
             <Label htmlFor="vaccineName">{t("vaccineName")} *</Label>
-            <Input id="vaccineName" placeholder={t("vaccineNamePlaceholder")} {...form.register("vaccineName")} />
+            <Input id="vaccineName" placeholder={t("vaccineNamePlaceholder")} {...bindField(form, "vaccineName")} />
             {form.formState.errors.vaccineName && (
               <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.vaccineName.message)}</p>
             )}
@@ -201,30 +207,41 @@ export function VaccinationDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="dateAdministered">{t("dateAdministered")} *</Label>
-              <Input id="dateAdministered" type="date" {...form.register("dateAdministered")} />
+              <Input id="dateAdministered" type="date" {...bindField(form, "dateAdministered")} />
               {form.formState.errors.dateAdministered && (
                 <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.dateAdministered.message)}</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nextDueDate">{t("nextDueDate")}</Label>
-              <Input id="nextDueDate" type="date" {...form.register("nextDueDate")} />
+              <Input id="nextDueDate" type="date" {...bindField(form, "nextDueDate")} />
             </div>
           </div>
 
           {/* Lote */}
           <div className="space-y-1.5">
             <Label htmlFor="batchNumber">{t("batchNumber")}</Label>
-            <Input id="batchNumber" placeholder={t("batchPlaceholder")} {...form.register("batchNumber")} />
+            <Input id="batchNumber" placeholder={t("batchPlaceholder")} {...bindField(form, "batchNumber")} />
           </div>
 
           {/* Notas */}
           <div className="space-y-1.5">
             <Label htmlFor="notes">{t("notes")}</Label>
-            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...bindField(form, "notes")} />
           </div>
 
           <div className="flex gap-2 pt-1">
+            {isEdit && onDeleted && canDelete && (
+              <DeleteButton
+                confirmText={t("deleteConfirm")}
+                onDelete={async () => {
+                  await deleteVaccination(vaccination.id, vaccination.petId);
+                  toast.success(t("deleted"));
+                  onDeleted(vaccination.id);
+                  onOpenChange(false);
+                }}
+              />
+            )}
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               {tc("cancel")}
             </Button>

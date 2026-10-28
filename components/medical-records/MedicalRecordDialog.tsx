@@ -4,13 +4,21 @@ import { useTranslations } from "next-intl";
 import { translateMessage } from "@/lib/i18n-messages";
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import {
   createMedicalRecord,
   updateMedicalRecord,
+  deleteMedicalRecord,
+  getMedicalRecordForAppointment,
 } from "@/lib/actions/medicalRecords";
+import type { MedicalRecordDraft } from "@/lib/actions/medicalRecords";
+import { RecordPrescriptions } from "./RecordPrescriptions";
+import { formatAppointmentId } from "@/lib/utils";
+import { DeleteButton } from "@/components/common/DeleteButton";
+import { useCan } from "@/components/layout/PermissionsProvider";
 import type { MedicalRecordFull, MedicalRecordFormData } from "@/lib/actions/medicalRecords";
 import { searchPetsForAppointment } from "@/lib/actions/appointments";
 import { getVeterinarians } from "@/lib/actions/appointments";
@@ -33,7 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Search, PawPrint, Plus, Trash2, Loader2, Pill } from "lucide-react";
+import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck } from "lucide-react";
 
 // ---- Schema ----
 const prescriptionSchema = z.object({
@@ -56,6 +64,7 @@ const schema = z.object({
   heartRate: z.coerce.number().int().positive().optional().or(z.literal("")),
   notes: z.string().max(1000).optional().or(z.literal("")),
   prescriptions: z.array(prescriptionSchema).optional(),
+  appointmentId: z.string().optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -69,6 +78,60 @@ interface MedicalRecordDialogProps {
   presetPetId?: string;
   presetPetName?: string;
   onSaved: (record: MedicalRecordFull) => void;
+  onDeleted?: (id: string) => void;
+  // New record of a visit, filled in from it
+  draft?: MedicalRecordDraft;
+  // The patient's visits, to fill a new record from one of them
+  appointments?: VisitOption[];
+}
+
+type VisitOption = { id: string; number: number; title: string; startTime: Date };
+
+// Medications typed inside the record; prescriptions written with the prescription form are shown apart
+function inlineMedications(record: MedicalRecordFull) {
+  return record.prescriptions
+    .filter((p) => !p.items?.length && p.medicationName)
+    .map((p) => ({
+      medicationName: p.medicationName,
+      dosage: p.dosage,
+      frequency: p.frequency,
+      duration: p.duration,
+      notes: p.notes ?? "",
+    }));
+}
+
+function valuesFromRecord(record: MedicalRecordFull): FormData {
+  return {
+    petId: record.petId,
+    veterinarianId: record.veterinarianId,
+    date: format(new Date(record.date), "yyyy-MM-dd'T'HH:mm"),
+    chiefComplaint: record.chiefComplaint,
+    diagnosis: record.diagnosis ?? "",
+    treatment: record.treatment ?? "",
+    weight: record.weight ?? "",
+    temperature: record.temperature ?? "",
+    heartRate: record.heartRate ?? "",
+    notes: record.notes ?? "",
+    prescriptions: inlineMedications(record),
+    appointmentId: record.appointmentId ?? "",
+  };
+}
+
+function valuesFromDraft(d: MedicalRecordDraft): FormData {
+  return {
+    petId: d.petId,
+    veterinarianId: d.veterinarianId,
+    date: format(new Date(d.date), "yyyy-MM-dd'T'HH:mm"),
+    chiefComplaint: d.chiefComplaint,
+    diagnosis: "",
+    treatment: d.treatment,
+    weight: d.weight ?? "",
+    temperature: "",
+    heartRate: "",
+    notes: d.notes,
+    prescriptions: [],
+    appointmentId: d.appointmentId,
+  };
 }
 
 export function MedicalRecordDialog({
@@ -78,8 +141,12 @@ export function MedicalRecordDialog({
   presetPetId,
   presetPetName,
   onSaved,
+  onDeleted,
+  draft,
+  appointments,
 }: MedicalRecordDialogProps) {
   const isEdit = !!record;
+  const canDelete = useCan("medical.delete");
   const t = useTranslations("medicalRecords");
   const tc = useTranslations("common");
   const tv = useTranslations("validation");
@@ -97,25 +164,9 @@ export function MedicalRecordDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: record
-      ? {
-          petId: record.petId,
-          veterinarianId: record.veterinarianId,
-          date: format(new Date(record.date), "yyyy-MM-dd'T'HH:mm"),
-          chiefComplaint: record.chiefComplaint,
-          diagnosis: record.diagnosis ?? "",
-          treatment: record.treatment ?? "",
-          weight: record.weight ?? "",
-          temperature: record.temperature ?? "",
-          heartRate: record.heartRate ?? "",
-          notes: record.notes ?? "",
-          prescriptions: record.prescriptions.map((p) => ({
-            medicationName: p.medicationName,
-            dosage: p.dosage,
-            frequency: p.frequency,
-            duration: p.duration,
-            notes: p.notes ?? "",
-          })),
-        }
+      ? valuesFromRecord(record)
+      : draft
+      ? valuesFromDraft(draft)
       : {
           petId: presetPetId ?? "",
           veterinarianId: "",
@@ -128,6 +179,7 @@ export function MedicalRecordDialog({
           heartRate: "",
           notes: "",
           prescriptions: [],
+          appointmentId: "",
         },
   });
 
@@ -142,31 +194,43 @@ export function MedicalRecordDialog({
   }, []);
 
   const watchVetId = form.watch("veterinarianId");
+  const watchVisitId = form.watch("appointmentId");
+  const [isFilling, startFill] = useTransition();
+  const visit: VisitOption | undefined =
+    (record?.appointment && record.appointment.id === watchVisitId ? record.appointment : undefined) ??
+    (draft && draft.appointmentId === watchVisitId
+      ? { id: draft.appointmentId, number: draft.appointmentNumber, title: draft.chiefComplaint, startTime: draft.date }
+      : undefined) ??
+    appointments?.find((a) => a.id === watchVisitId);
+
+  function fillFromVisit(appointmentId: string) {
+    startFill(async () => {
+      const res = await getMedicalRecordForAppointment(appointmentId);
+      if (!res) return;
+      if ("record" in res) {
+        toast.info(t("visitHasRecord"));
+        return;
+      }
+      const values = valuesFromDraft(res.draft);
+      // Keep what was already typed; fill in the rest from the visit
+      const current = form.getValues();
+      (Object.keys(values) as (keyof FormData)[]).forEach((k) => {
+        const cur = current[k];
+        if (k === "appointmentId" || cur === "" || cur === undefined || (Array.isArray(cur) && cur.length === 0)) {
+          form.setValue(k, values[k] as never, { shouldDirty: true });
+        }
+      });
+    });
+  }
   const watchDate = form.watch("date");
 
   // Re-initialize on open
   useEffect(() => {
     if (!open) return;
     if (isEdit && record) {
-      form.reset({
-        petId: record.petId,
-        veterinarianId: record.veterinarianId,
-        date: format(new Date(record.date), "yyyy-MM-dd'T'HH:mm"),
-        chiefComplaint: record.chiefComplaint,
-        diagnosis: record.diagnosis ?? "",
-        treatment: record.treatment ?? "",
-        weight: record.weight ?? "",
-        temperature: record.temperature ?? "",
-        heartRate: record.heartRate ?? "",
-        notes: record.notes ?? "",
-        prescriptions: record.prescriptions.map((p) => ({
-          medicationName: p.medicationName,
-          dosage: p.dosage,
-          frequency: p.frequency,
-          duration: p.duration,
-          notes: p.notes ?? "",
-        })),
-      });
+      form.reset(valuesFromRecord(record));
+    } else if (draft) {
+      form.reset(valuesFromDraft(draft));
     } else {
       form.reset({
         petId: presetPetId ?? "",
@@ -180,6 +244,7 @@ export function MedicalRecordDialog({
         heartRate: "",
         notes: "",
         prescriptions: [],
+        appointmentId: "",
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,10 +266,12 @@ export function MedicalRecordDialog({
         species: record.pet?.species ?? "",
         owner: record.pet?.owner ?? { firstName: "", lastName: "", phone: "" },
       });
+    } else if (draft) {
+      setSelectedPet({ id: draft.petId, name: draft.petName, species: "", owner: { firstName: "", lastName: "", phone: "" } });
     } else if (presetPetId && presetPetName) {
       setSelectedPet({ id: presetPetId, name: presetPetName, species: "", owner: { firstName: "", lastName: "", phone: "" } });
     }
-  }, [record, presetPetId, presetPetName]);
+  }, [record, draft, presetPetId, presetPetName]);
 
   // Reset on close
   useEffect(() => {
@@ -376,12 +443,55 @@ export function MedicalRecordDialog({
             </div>
           </div>
 
+          {/* Visit this record documents */}
+          {watchVisitId ? (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+              <CalendarCheck className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-muted-foreground">{t("fromVisit")}</span>
+              {visit && (
+                <span className="font-medium truncate">
+                  {formatAppointmentId(visit.number)} · {format(new Date(visit.startTime), "dd/MM/yyyy HH:mm")}
+                </span>
+              )}
+              {!isEdit && !draft && (
+                <button
+                  type="button"
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => form.setValue("appointmentId", "")}
+                >
+                  {tc("change")}
+                </button>
+              )}
+            </div>
+          ) : (
+            !isEdit && !!appointments?.length && (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  {t("fillFromVisit")}
+                  {isFilling && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                </Label>
+                <Select value="" onValueChange={(v) => v && fillFromVisit(v as string)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t("chooseVisit")}>{t("chooseVisit")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {appointments.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {format(new Date(a.startTime), "dd/MM/yyyy")} · {a.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
+          )}
+
           <Separator />
 
           {/* Chief complaint */}
           <div className="space-y-1.5">
             <Label htmlFor="chiefComplaint">{t("chiefComplaint")} *</Label>
-            <Textarea id="chiefComplaint" rows={2} placeholder={t("chiefComplaintPlaceholder")} {...form.register("chiefComplaint")} />
+            <Textarea id="chiefComplaint" rows={2} placeholder={t("chiefComplaintPlaceholder")} {...bindField(form, "chiefComplaint")} />
             {form.formState.errors.chiefComplaint && (
               <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.chiefComplaint.message)}</p>
             )}
@@ -391,11 +501,11 @@ export function MedicalRecordDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
-              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...form.register("diagnosis")} />
+              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...bindField(form, "diagnosis")} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="treatment">{t("treatment")}</Label>
-              <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...form.register("treatment")} />
+              <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...bindField(form, "treatment")} />
             </div>
           </div>
 
@@ -405,15 +515,15 @@ export function MedicalRecordDialog({
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="weight">{t("weight")}</Label>
-                <Input id="weight" type="number" step="0.1" placeholder="0.0" {...form.register("weight")} />
+                <Input id="weight" type="number" step="0.1" placeholder="0.0" {...bindField(form, "weight")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="temperature">{t("temperatureShort")}</Label>
-                <Input id="temperature" type="number" step="0.1" placeholder="38.5" {...form.register("temperature")} />
+                <Input id="temperature" type="number" step="0.1" placeholder="38.5" {...bindField(form, "temperature")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="heartRate">{t("heartRate")}</Label>
-                <Input id="heartRate" type="number" placeholder="80" {...form.register("heartRate")} />
+                <Input id="heartRate" type="number" placeholder="80" {...bindField(form, "heartRate")} />
               </div>
             </div>
           </div>
@@ -421,7 +531,7 @@ export function MedicalRecordDialog({
           {/* Notes */}
           <div className="space-y-1.5">
             <Label htmlFor="notes">{t("additionalNotes")}</Label>
-            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...form.register("notes")} />
+            <Textarea id="notes" rows={2} placeholder={tc("notesPlaceholder")} {...bindField(form, "notes")} />
           </div>
 
           <Separator />
@@ -442,7 +552,12 @@ export function MedicalRecordDialog({
               </Button>
             </div>
 
-            {fields.length === 0 && (
+            {/* Prescriptions written in the visit (edited in Prescriptions) */}
+            {record && record.prescriptions.some((p) => p.items?.length) && (
+              <RecordPrescriptions prescriptions={record.prescriptions.filter((p) => p.items?.length)} />
+            )}
+
+            {fields.length === 0 && !record?.prescriptions.some((p) => p.items?.length) && (
               <p className="text-sm text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
                 {t("noPrescriptions")}
               </p>
@@ -461,21 +576,32 @@ export function MedicalRecordDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
-                    <Input placeholder={t("medicationNamePlaceholder")} {...form.register(`prescriptions.${idx}.medicationName`)} />
+                    <Input placeholder={t("medicationNamePlaceholder")} {...bindField(form, `prescriptions.${idx}.medicationName`)} />
                     {form.formState.errors.prescriptions?.[idx]?.medicationName && (
                       <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
                     )}
                   </div>
-                  <Input placeholder={t("dosagePlaceholder")} {...form.register(`prescriptions.${idx}.dosage`)} />
-                  <Input placeholder={t("frequencyPlaceholder")} {...form.register(`prescriptions.${idx}.frequency`)} />
-                  <Input placeholder={t("durationPlaceholder")} {...form.register(`prescriptions.${idx}.duration`)} />
-                  <Input placeholder={t("optionalNotes")} {...form.register(`prescriptions.${idx}.notes`)} />
+                  <Input placeholder={t("dosagePlaceholder")} {...bindField(form, `prescriptions.${idx}.dosage`)} />
+                  <Input placeholder={t("frequencyPlaceholder")} {...bindField(form, `prescriptions.${idx}.frequency`)} />
+                  <Input placeholder={t("durationPlaceholder")} {...bindField(form, `prescriptions.${idx}.duration`)} />
+                  <Input placeholder={t("optionalNotes")} {...bindField(form, `prescriptions.${idx}.notes`)} />
                 </div>
               </div>
             ))}
           </div>
 
           <div className="flex gap-2 pt-1">
+            {isEdit && onDeleted && canDelete && (
+              <DeleteButton
+                confirmText={t("deleteConfirm")}
+                onDelete={async () => {
+                  await deleteMedicalRecord(record.id);
+                  toast.success(t("deleted"));
+                  onDeleted(record.id);
+                  onOpenChange(false);
+                }}
+              />
+            )}
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               {tc("cancel")}
             </Button>
