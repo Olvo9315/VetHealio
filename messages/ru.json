@@ -502,7 +502,19 @@
     "passwordsNoMatch": "Пароли не совпадают",
     "es": "Español",
     "ru": "Русский",
-    "en": "English"
+    "en": "English",
+    "accent": "Цвет",
+    "accents": {
+      "green": "Зелёный",
+      "teal": "Бирюзовый",
+      "blue": "Синий",
+      "indigo": "Индиго",
+      "violet": "Фиолетовый",
+      "rose": "Розовый",
+      "coral": "Коралловый",
+      "honey": "Медовый",
+      "graphite": "Графит"
+    }
   },
   "staff": {
     "title": "Персонал",

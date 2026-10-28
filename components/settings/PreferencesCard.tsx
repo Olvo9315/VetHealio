@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { updatePreferences } from "@/lib/actions/settings";
 import { toast } from "sonner";
-import { Loader2, Settings, Sun, Moon, Globe } from "lucide-react";
+import { Loader2, Settings, Sun, Moon, Globe, Palette, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ACCENTS, toAccent, type Accent } from "@/lib/accents";
 
 type Lang = "es" | "ru" | "en";
 type Theme = "light" | "dark";
@@ -15,13 +16,15 @@ interface PreferencesCardProps {
   userId: string;
   initialLanguage: string;
   initialTheme: string;
+  initialAccent: string;
 }
 
-export function PreferencesCard({ userId, initialLanguage, initialTheme }: PreferencesCardProps) {
+export function PreferencesCard({ userId, initialLanguage, initialTheme, initialAccent }: PreferencesCardProps) {
   const t = useTranslations("settings");
   const router = useRouter();
   const [lang, setLang] = useState<Lang>((initialLanguage as Lang) ?? "es");
   const [theme, setTheme] = useState<Theme>((initialTheme as Theme) ?? "light");
+  const [accent, setAccent] = useState<Accent>(toAccent(initialAccent));
   const [isSaving, startSave] = useTransition();
 
   const LANGUAGES: { value: Lang; label: string; flag: string }[] = [
@@ -36,6 +39,14 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
     document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
   }
 
+  function applyAccent(newAccent: Accent) {
+    setAccent(newAccent);
+    document.documentElement.dataset.accent = newAccent;
+    document.cookie = `accent=${newAccent}; path=/; max-age=31536000; SameSite=Lax`;
+    const hex = ACCENTS.find((a) => a.id === newAccent)?.hex;
+    if (hex) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", hex);
+  }
+
   function applyLang(newLang: Lang) {
     setLang(newLang);
     document.cookie = `locale=${newLang}; path=/; max-age=31536000; SameSite=Lax`;
@@ -43,7 +54,7 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
 
   function handleSave() {
     startSave(async () => {
-      const result = await updatePreferences(userId, { language: lang, theme });
+      const result = await updatePreferences(userId, { language: lang, theme, accent });
       if ("error" in result) {
         toast.error(t("errorPreferences"));
         return;
@@ -81,6 +92,35 @@ export function PreferencesCard({ userId, initialLanguage, initialTheme }: Prefe
             >
               {th === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               {th === "light" ? t("light") : t("dark")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Accent color */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Palette className="w-4 h-4 text-muted-foreground" />
+          <p className="text-sm font-medium">{t("accent")}</p>
+          <span className="ml-auto text-xs text-muted-foreground">{t(`accents.${accent}`)}</span>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          {ACCENTS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => applyAccent(a.id)}
+              aria-label={t(`accents.${a.id}`)}
+              aria-pressed={accent === a.id}
+              title={t(`accents.${a.id}`)}
+              className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center transition-transform",
+                "ring-offset-2 ring-offset-card hover:scale-110",
+                accent === a.id && "ring-2"
+              )}
+              style={{ backgroundColor: a.hex, ["--tw-ring-color" as string]: a.hex }}
+            >
+              {accent === a.id && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
             </button>
           ))}
         </div>

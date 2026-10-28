@@ -99,6 +99,7 @@ model User {
   phone                 String?
   language              String   @default("es")
   theme                 String   @default("light")
+  accent                String   @default("green")
   googleCalendarEnabled Boolean  @default(false)
   googleRefreshToken    String?
   createdAt             DateTime @default(now())

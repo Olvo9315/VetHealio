@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { TopBar } from "@/components/layout/TopBar";
 import { getUserById } from "@/lib/actions/settings";
 import { ProfileCard } from "@/components/settings/ProfileCard";
@@ -50,6 +51,8 @@ export default async function SettingsPage() {
               userId={user.id}
               initialLanguage={user.language}
               initialTheme={user.theme}
+              // The color this device shows; the saved one on a device that never picked one
+              initialAccent={(await cookies()).get("accent")?.value ?? user.accent}
             />
           </div>
 

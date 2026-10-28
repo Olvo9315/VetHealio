@@ -502,7 +502,19 @@
     "passwordsNoMatch": "Las contraseñas no coinciden",
     "es": "Español",
     "ru": "Русский",
-    "en": "English"
+    "en": "English",
+    "accent": "Color",
+    "accents": {
+      "green": "Verde",
+      "teal": "Turquesa",
+      "blue": "Azul",
+      "indigo": "Índigo",
+      "violet": "Violeta",
+      "rose": "Rosa",
+      "coral": "Coral",
+      "honey": "Miel",
+      "graphite": "Grafito"
+    }
   },
   "staff": {
     "title": "Personal",

@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { cookies } from "next/headers";
+import { accentHex, toAccent } from "@/lib/accents";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { getClinic } from "@/lib/clinic";
 
@@ -24,12 +25,16 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#1D9E75",
-};
+export async function generateViewport(): Promise<Viewport> {
+  const cookieStore = await cookies();
+  return {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+    // Browser bar follows the chosen accent color
+    themeColor: accentHex(toAccent(cookieStore.get("accent")?.value)),
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -40,9 +45,10 @@ export default async function RootLayout({
   const messages = await getMessages();
   const cookieStore = await cookies();
   const theme = cookieStore.get("theme")?.value ?? "light";
+  const accent = toAccent(cookieStore.get("accent")?.value);
 
   return (
-    <html lang={locale} className={theme === "dark" ? "dark" : ""} suppressHydrationWarning>
+    <html lang={locale} className={theme === "dark" ? "dark" : ""} data-accent={accent} suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <NextIntlClientProvider messages={messages}>
           {children}

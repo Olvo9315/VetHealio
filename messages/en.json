@@ -502,7 +502,19 @@
     "passwordsNoMatch": "Passwords do not match",
     "es": "Español",
     "ru": "Русский",
-    "en": "English"
+    "en": "English",
+    "accent": "Color",
+    "accents": {
+      "green": "Green",
+      "teal": "Teal",
+      "blue": "Blue",
+      "indigo": "Indigo",
+      "violet": "Violet",
+      "rose": "Rose",
+      "coral": "Coral",
+      "honey": "Honey",
+      "graphite": "Graphite"
+    }
   },
   "staff": {
     "title": "Staff",
