@@ -24,6 +24,7 @@ import { AppointmentDialog } from "./AppointmentDialog";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
 import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
+import { VisitMedicalRecordDialog } from "@/components/medical-records/VisitMedicalRecordDialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -543,6 +544,7 @@ export function AppointmentsCalendar({
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoicePresetApt, setInvoicePresetApt] = useState<AppointmentOption | undefined>();
   const [prescriptionDialogOpen, setPrescriptionDialogOpen] = useState(false);
+  const [recordVisitId, setRecordVisitId] = useState<string | null>(null);
   const [prescriptionApt, setPrescriptionApt] = useState<AppointmentFull | null>(null);
 
   // Refs keep EventComponent stable so DnD HOC doesn't break on state changes
@@ -862,6 +864,12 @@ export function AppointmentsCalendar({
     setPrescriptionApt(selectedAppointment);
     setDetailOpen(false);
     setPrescriptionDialogOpen(true);
+  }
+
+  function handleMedicalRecordFromDetail() {
+    if (!selectedAppointment) return;
+    setRecordVisitId(selectedAppointment.id);
+    setDetailOpen(false);
   }
 
   function handleCreateInvoiceFromDetail() {
@@ -1366,6 +1374,7 @@ export function AppointmentsCalendar({
             onEdit={handleEditFromDetail}
             onCreateInvoice={handleCreateInvoiceFromDetail}
             onCreatePrescription={handleCreatePrescriptionFromDetail}
+            onCreateMedicalRecord={handleMedicalRecordFromDetail}
           />
         )}
 
@@ -1377,6 +1386,9 @@ export function AppointmentsCalendar({
           presetAppointment={invoicePresetApt}
           onSaved={() => { setInvoiceDialogOpen(false); }}
         />
+
+        {/* Medical record of the appointment */}
+        <VisitMedicalRecordDialog appointmentId={recordVisitId} onClose={() => setRecordVisitId(null)} onDeleted={() => {}} />
 
         {/* Prescription Dialog (from appointment) */}
         {prescriptionDialogOpen && prescriptionApt && (

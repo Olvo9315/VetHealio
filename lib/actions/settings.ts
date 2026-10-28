@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { ACCENT_IDS } from "@/lib/accents";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 import { getActor, hasPermission, requireUserId } from "@/lib/permissions";
@@ -20,6 +21,7 @@ export type UserProfile = {
   role: Role;
   language: string;
   theme: string;
+  accent: string;
 };
 
 // ---- Schemas ----
@@ -40,6 +42,7 @@ const passwordSchema = z.object({
 const preferencesSchema = z.object({
   language: z.enum(["es", "ru", "en"]).optional(),
   theme: z.enum(["light", "dark"]).optional(),
+  accent: z.enum(ACCENT_IDS).optional(),
 });
 
 // ---- Queries ----
@@ -60,6 +63,7 @@ export async function getUserById(id: string): Promise<UserProfile | null> {
       role: true,
       language: true,
       theme: true,
+      accent: true,
     },
   });
   return user as UserProfile | null;
@@ -82,7 +86,7 @@ export async function updateProfile(userId: string, data: z.infer<typeof profile
       phone: parsed.data.phone || null,
       avatar: parsed.data.avatar || null,
     },
-    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
+    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true, accent: true },
   });
 
   revalidatePath("/settings");
@@ -122,8 +126,9 @@ export async function updatePreferences(userId: string, data: z.infer<typeof pre
     data: {
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
       ...(parsed.data.theme ? { theme: parsed.data.theme } : {}),
+      ...(parsed.data.accent ? { accent: parsed.data.accent } : {}),
     },
-    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true },
+    select: { id: true, name: true, firstName: true, lastName: true, email: true, phone: true, avatar: true, role: true, language: true, theme: true, accent: true },
   });
 
   revalidatePath("/settings");

@@ -99,6 +99,7 @@ model User {
   phone                 String?
   language              String   @default("es")
   theme                 String   @default("light")
+  accent                String   @default("green")
   googleCalendarEnabled Boolean  @default(false)
   googleRefreshToken    String?
   createdAt             DateTime @default(now())
@@ -321,6 +322,7 @@ model Appointment {
   room           Room?    @relation(fields: [roomId], references: [id])
   invoice        Invoice?
   prescriptions  Prescription[]
+  medicalRecords MedicalRecord[]
 
   @@index([startTime, endTime])
   @@index([petId])
@@ -359,8 +361,12 @@ model MedicalRecord {
   veterinarian   User           @relation(fields: [veterinarianId], references: [id])
   prescriptions  Prescription[]
   attachments    Attachment[]
+  // Visit this record documents (filled in from it)
+  appointmentId  String?
+  appointment    Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([petId, date])
+  @@index([appointmentId])
 }
 
 model Prescription {

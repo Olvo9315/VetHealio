@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { FileText, Thermometer, Heart, Weight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { RecordPrescriptions, type RecordPrescription } from "@/components/medical-records/RecordPrescriptions";
 
 interface MedicalRecord {
   id: string;
@@ -17,13 +18,7 @@ interface MedicalRecord {
   notes: string | null;
   createdAt: Date;
   veterinarian: { name: string };
-  prescriptions: Array<{
-    id: string;
-    medicationName: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-  }>;
+  prescriptions: RecordPrescription[];
 }
 
 interface MedicalTimelineProps {
@@ -125,15 +120,7 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                   {t("prescriptions")}
                 </p>
-                <div className="space-y-1">
-                  {record.prescriptions.map((p) => (
-                    <div key={p.id} className="text-xs bg-primary/5 rounded px-2 py-1.5">
-                      <span className="font-medium">{p.medicationName}</span>
-                      {" — "}
-                      {p.dosage} · {p.frequency} · {p.duration}
-                    </div>
-                  ))}
-                </div>
+                <RecordPrescriptions prescriptions={record.prescriptions} />
               </div>
             )}
 

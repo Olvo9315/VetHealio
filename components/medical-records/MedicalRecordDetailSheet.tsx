@@ -23,7 +23,6 @@ import {
   User,
   Phone,
   Stethoscope,
-  Pill,
   Thermometer,
   Heart,
   Weight,
@@ -33,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 import { useCan } from "@/components/layout/PermissionsProvider";
+import { RecordPrescriptions } from "./RecordPrescriptions";
 
 interface MedicalRecordDetailSheetProps {
   open: boolean;
@@ -188,24 +188,9 @@ export function MedicalRecordDetailSheet({
               <Separator />
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Recetas ({record.prescriptions.length})
+                  {t("prescriptions")}
                 </p>
-                <div className="space-y-2">
-                  {record.prescriptions.map((p) => (
-                    <div key={p.id} className="border border-border rounded-lg p-3 space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <Pill className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-sm font-medium">{p.medicationName}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 text-xs text-muted-foreground">
-                        <span><span className="font-medium text-foreground">{t("dosageShort")}</span> {p.dosage}</span>
-                        <span><span className="font-medium text-foreground">{t("frequencyShort")}</span> {p.frequency}</span>
-                        <span><span className="font-medium text-foreground">{t("durationShort")}</span> {p.duration}</span>
-                      </div>
-                      {p.notes && <p className="text-xs text-muted-foreground">{p.notes}</p>}
-                    </div>
-                  ))}
-                </div>
+                <RecordPrescriptions prescriptions={record.prescriptions} />
               </div>
             </>
           )}

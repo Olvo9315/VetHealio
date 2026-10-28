@@ -175,6 +175,14 @@ export async function getInvoices(filters?: {
   return invoices.map((inv) => ({ ...inv, items: inv.items.map(localize) }));
 }
 
+export async function getInvoiceById(id: string): Promise<InvoiceFull | null> {
+  const invoice = (await prisma.invoice.findUnique({
+    where: { id },
+    include: fullInclude,
+  })) as unknown as InvoiceFull | null;
+  return invoice && localizeInvoice(invoice);
+}
+
 export async function getInvoiceStats(): Promise<InvoiceStats> {
   const now = new Date();
   const monthStart = startOfMonth(now);

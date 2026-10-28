@@ -11,16 +11,22 @@ import { MedicalRecordDialog } from "@/components/medical-records/MedicalRecordD
 import { VaccinationDialog } from "./VaccinationDialog";
 import { DirectInvoiceDialog } from "./DirectInvoiceDialog";
 import { AppointmentDialog } from "@/components/appointments/AppointmentDialog";
+import { AppointmentDetailSheet } from "@/components/appointments/AppointmentDetailSheet";
+import { VisitMedicalRecordDialog } from "@/components/medical-records/VisitMedicalRecordDialog";
+import { InvoiceDetailSheet } from "@/components/finances/InvoiceDetailSheet";
+import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
 import type { PetFull } from "@/lib/types";
 import type { MedicalRecordFull } from "@/lib/actions/medicalRecords";
 import type { VaccinationFull } from "@/lib/actions/vaccinations";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import type { AppointmentFull } from "@/lib/actions/appointments";
 import type { PrescriptionFull } from "@/lib/actions/prescriptions";
-import { getVeterinarians } from "@/lib/actions/appointments";
+import { getVeterinarians, getAppointmentById } from "@/lib/actions/appointments";
+import { getInvoiceById, type AppointmentOption } from "@/lib/actions/invoices";
+import { getServicesFlat, type ServiceFlat } from "@/lib/actions/services";
 import { getRooms, type Room } from "@/lib/actions/rooms";
 import { format } from "date-fns";
-import { Calendar, DollarSign, Clock, Plus, Receipt } from "lucide-react";
+import { Calendar, DollarSign, Clock, Plus, Receipt, ChevronRight } from "lucide-react";
 import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
 
@@ -58,6 +64,22 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<PrescriptionFull | null>(null);
+  const [editingVaccination, setEditingVaccination] = useState<VaccinationFull | null>(null);
+
+  // An appointment opened from the list, and what can be done from it
+  const [openApt, setOpenApt] = useState<AppointmentFull | null>(null);
+  const [aptSheetOpen, setAptSheetOpen] = useState(false);
+  const [editingApt, setEditingApt] = useState<AppointmentFull | null>(null);
+  const [aptPrescription, setAptPrescription] = useState<AppointmentFull | null>(null);
+  const [recordVisitId, setRecordVisitId] = useState<string | null>(null);
+  const [aptInvoice, setAptInvoice] = useState<AppointmentOption | undefined>();
+
+  // An invoice opened from the list
+  const [openInvoice, setOpenInvoice] = useState<InvoiceFull | null>(null);
+  const [invoiceSheetOpen, setInvoiceSheetOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceFull | null>(null);
+  // Service catalog for invoices; loaded the first time one is opened
+  const [services, setServices] = useState<ServiceFlat[] | null>(null);
 
   const [medicalRecords, setMedicalRecords] = useState(pet.medicalRecords);
   const [vaccinations, setVaccinations] = useState(pet.vaccinations);
@@ -81,6 +103,47 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
       setRooms(roomList);
     });
   }, []);
+
+  async function loadServices() {
+    if (services) return services;
+    const list = await getServicesFlat();
+    setServices(list);
+    return list;
+  }
+
+  async function openAppointment(id: string) {
+    const [apt] = await Promise.all([getAppointmentById(id), loadServices()]);
+    if (!apt) return;
+    setOpenApt(apt);
+    setAptSheetOpen(true);
+  }
+
+  async function openInvoiceDetail(id: string) {
+    const [inv] = await Promise.all([getInvoiceById(id), loadServices()]);
+    if (!inv) return;
+    setOpenInvoice(inv);
+    setInvoiceSheetOpen(true);
+  }
+
+  function invoiceFromAppointment(apt: AppointmentFull) {
+    const withPrice = (sv: { id: string; name: string; officialName?: string }) => ({
+      ...sv,
+      price: services?.find((x) => x.id === sv.id)?.price ?? null,
+    });
+    setAptInvoice({
+      id: apt.id,
+      title: apt.title,
+      startTime: apt.startTime,
+      type: apt.type,
+      service: apt.service ? withPrice(apt.service) : null,
+      extraServices: (apt.extraServices ?? []).map(withPrice),
+      pet: apt.pet,
+    });
+  }
+
+  function handleMedicalDeleted(id: string) {
+    setMedicalRecords((prev) => prev.filter((r) => r.id !== id));
+  }
 
   function handleMedicalSaved(record: MedicalRecordFull) {
     setMedicalRecords((prev) => {
@@ -126,7 +189,13 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
   }
 
   function handleInvoiceSaved(invoice: InvoiceFull) {
-    setInvoices((prev) => [
+    setInvoices((prev) => {
+      if (prev.some((x) => x.id === invoice.id)) {
+        return prev.map((x) =>
+          x.id === invoice.id ? { ...x, status: invoice.status, totalAmount: invoice.totalAmount, items: invoice.items } : x
+        );
+      }
+      return [
       {
         id: invoice.id,
         number: invoice.number,
@@ -140,7 +209,8 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         items: invoice.items,
       } as typeof prev[0],
       ...prev,
-    ]);
+      ];
+    });
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
@@ -231,7 +301,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
               )}
             </div>
             <MedicalTimeline
-              records={medicalRecords}
+              records={medicalRecords as React.ComponentProps<typeof MedicalTimeline>["records"]}
               onEdit={(record) => setEditingRecord(record as typeof pet.medicalRecords[0])}
             />
           </div>
@@ -252,7 +322,10 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
               </Button>
               )}
             </div>
-            <VaccinationsList vaccinations={vaccinations} />
+            <VaccinationsList
+              vaccinations={vaccinations}
+              onEdit={canMedical ? (v) => setEditingVaccination(v as unknown as VaccinationFull) : undefined}
+            />
           </div>
         )}
 
@@ -277,9 +350,11 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
             ) : (
               <div className="space-y-2">
                 {appointments.map((apt) => (
-                  <div
+                  <button
                     key={apt.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card"
+                    type="button"
+                    onClick={() => openAppointment(apt.id)}
+                    className="w-full text-left flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors"
                   >
                     <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                       <Clock className="w-4 h-4 text-primary" />
@@ -298,7 +373,8 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                     >
                       {appointmentStatusLabel[apt.status] ?? apt.status}
                     </span>
-                  </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
                 ))}
               </div>
             )}
@@ -350,9 +426,11 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
             ) : (
               <div className="space-y-2">
                 {invoices.map((inv) => (
-                  <div
+                  <button
                     key={inv.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card"
+                    type="button"
+                    onClick={() => openInvoiceDetail(inv.id)}
+                    className="w-full text-left flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors"
                   >
                     <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                       <Receipt className="w-4 h-4 text-primary" />
@@ -371,7 +449,8 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
                         {invoiceStatusLabel[inv.status] ?? inv.status}
                       </span>
                     </div>
-                  </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
                 ))}
               </div>
             )}
@@ -386,6 +465,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
         onOpenChange={setMedicalOpen}
         presetPetId={pet.id}
         presetPetName={pet.name}
+        appointments={appointments.filter((a) => a.status !== "CANCELLED")}
         onSaved={handleMedicalSaved}
       />
 
@@ -397,6 +477,97 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
           presetPetName={pet.name}
           record={editingRecord as unknown as import("@/lib/actions/medicalRecords").MedicalRecordFull}
           onSaved={(record) => { handleMedicalSaved(record); setEditingRecord(null); }}
+          onDeleted={handleMedicalDeleted}
+        />
+      )}
+
+      <VisitMedicalRecordDialog
+        appointmentId={recordVisitId}
+        onClose={() => setRecordVisitId(null)}
+        onSaved={handleMedicalSaved}
+        onDeleted={handleMedicalDeleted}
+      />
+
+      {editingVaccination && (
+        <VaccinationDialog
+          open={!!editingVaccination}
+          onOpenChange={(v) => { if (!v) setEditingVaccination(null); }}
+          vaccination={editingVaccination}
+          presetPetId={pet.id}
+          presetPetName={pet.name}
+          onSaved={(v) => { handleVaccinationSaved(v); setEditingVaccination(null); }}
+          onDeleted={(id) => setVaccinations((prev) => prev.filter((x) => x.id !== id))}
+        />
+      )}
+
+      {openApt && (
+        <AppointmentDetailSheet
+          open={aptSheetOpen}
+          onOpenChange={setAptSheetOpen}
+          appointment={openApt}
+          services={services ?? []}
+          onUpdated={(apt) => { setOpenApt(apt); handleAppointmentSaved(apt); }}
+          onDeleted={(id) => { setAppointments((prev) => prev.filter((a) => a.id !== id)); setAptSheetOpen(false); }}
+          onEdit={() => { setEditingApt(openApt); setAptSheetOpen(false); }}
+          onCreateInvoice={() => { invoiceFromAppointment(openApt); setAptSheetOpen(false); }}
+          onCreatePrescription={() => { setAptPrescription(openApt); setAptSheetOpen(false); }}
+          onCreateMedicalRecord={() => { setRecordVisitId(openApt.id); setAptSheetOpen(false); }}
+        />
+      )}
+
+      {editingApt && vets.length > 0 && (
+        <AppointmentDialog
+          open={!!editingApt}
+          onOpenChange={(v) => { if (!v) setEditingApt(null); }}
+          vets={vets}
+          rooms={rooms}
+          services={services ?? undefined}
+          appointment={editingApt}
+          onSaved={(apt) => { handleAppointmentSaved(apt); setEditingApt(null); }}
+        />
+      )}
+
+      {aptPrescription && (
+        <PrescriptionDialog
+          open={!!aptPrescription}
+          onOpenChange={(v) => { if (!v) setAptPrescription(null); }}
+          petId={pet.id}
+          petName={pet.name}
+          veterinarianId={aptPrescription.veterinarianId}
+          appointmentId={aptPrescription.id}
+          appointmentTitle={aptPrescription.title}
+          onSaved={(p) => { handlePrescriptionSaved(p); setAptPrescription(null); }}
+        />
+      )}
+
+      {services && (
+        <InvoiceDialog
+          open={!!aptInvoice}
+          onOpenChange={(v) => { if (!v) setAptInvoice(undefined); }}
+          services={services}
+          presetAppointment={aptInvoice}
+          onSaved={(inv) => { handleInvoiceSaved(inv); setAptInvoice(undefined); }}
+        />
+      )}
+
+      {openInvoice && (
+        <InvoiceDetailSheet
+          open={invoiceSheetOpen}
+          onOpenChange={setInvoiceSheetOpen}
+          invoice={openInvoice}
+          onUpdated={(inv) => { setOpenInvoice(inv); handleInvoiceSaved(inv); }}
+          onDeleted={(id) => { setInvoices((prev) => prev.filter((x) => x.id !== id)); setInvoiceSheetOpen(false); }}
+          onEdit={() => { setEditingInvoice(openInvoice); setInvoiceSheetOpen(false); }}
+        />
+      )}
+
+      {editingInvoice && services && (
+        <InvoiceDialog
+          open={!!editingInvoice}
+          onOpenChange={(v) => { if (!v) setEditingInvoice(null); }}
+          invoice={editingInvoice}
+          services={services}
+          onSaved={(inv) => { handleInvoiceSaved(inv); setEditingInvoice(null); }}
         />
       )}
 
@@ -445,6 +616,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
           petName={pet.name}
           record={editingPrescription}
           onSaved={(p) => { handlePrescriptionSaved(p); setEditingPrescription(null); }}
+          onDeleted={(id) => setPrescriptions((prev) => prev.filter((x) => x.id !== id))}
         />
       )}
     </>

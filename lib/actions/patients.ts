@@ -215,7 +215,8 @@ export async function getPetById(id: string): Promise<PetFull | null> {
       medicalRecords: {
         include: {
           veterinarian: { select: { name: true } },
-          prescriptions: true,
+          appointment: { select: { id: true, number: true, title: true, startTime: true } },
+          prescriptions: { include: { items: { select: { id: true, medicationName: true, units: true, posology: true } } } },
         },
         orderBy: { date: "desc" },
         take: 20,

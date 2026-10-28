@@ -38,6 +38,7 @@ import {
   Loader2,
   Receipt,
   Pill,
+  Stethoscope,
 } from "lucide-react";
 import { cn, formatAppointmentId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -53,6 +54,7 @@ interface AppointmentDetailSheetProps {
   onEdit: () => void;
   onCreateInvoice?: () => void;
   onCreatePrescription?: () => void;
+  onCreateMedicalRecord?: () => void;
   // Catalog, to show "Category › Sub-service" instead of a bare sub-service name
   services?: ServiceFlat[];
 }
@@ -66,11 +68,13 @@ export function AppointmentDetailSheet({
   onEdit,
   onCreateInvoice,
   onCreatePrescription,
+  onCreateMedicalRecord,
   services = [],
 }: AppointmentDetailSheetProps) {
   const dateLocale = useDateLocale();
   const canInvoice = useCan("invoice.write");
   const canPrescribe = useCan("prescription.write");
+  const canMedical = useCan("medical.write");
   const t = useTranslations("appointments");
   const tr = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -271,6 +275,12 @@ export function AppointmentDetailSheet({
             <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
               <Pill className="w-4 h-4 mr-2" />
               {t("createPrescription")}
+            </Button>
+          )}
+          {onCreateMedicalRecord && canMedical && (
+            <Button className="w-full" variant="outline" onClick={onCreateMedicalRecord}>
+              <Stethoscope className="w-4 h-4 mr-2" />
+              {t("createMedicalRecord")}
             </Button>
           )}
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>

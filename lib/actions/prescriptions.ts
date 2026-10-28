@@ -74,13 +74,19 @@ export async function createPrescription(data: z.infer<typeof prescriptionSchema
   const parsed = prescriptionSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
+  // Written in a visit that already has its medical record: it belongs to that record
+  const visitRecord =
+    !parsed.data.medicalRecordId && parsed.data.appointmentId
+      ? await prisma.medicalRecord.findFirst({ where: { appointmentId: parsed.data.appointmentId }, select: { id: true } })
+      : null;
+
   const prescription = await prisma.prescription.create({
     data: {
       notes: parsed.data.notes || null,
       petId: parsed.data.petId,
       veterinarianId: parsed.data.veterinarianId || null,
       appointmentId: parsed.data.appointmentId || null,
-      medicalRecordId: parsed.data.medicalRecordId || null,
+      medicalRecordId: parsed.data.medicalRecordId || visitRecord?.id || null,
       items: {
         create: parsed.data.items.map((item) => ({
           medicationName: item.medicationName,

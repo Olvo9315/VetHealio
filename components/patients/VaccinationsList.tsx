@@ -1,6 +1,7 @@
 import { format, isBefore, addDays } from "date-fns";
 import { Syringe, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 interface Vaccination {
   id: string;
@@ -42,11 +43,12 @@ function VaccinationStatus({ nextDueDate }: { nextDueDate: Date | null }) {
   );
 }
 
-interface VaccinationsListProps {
-  vaccinations: Vaccination[];
+interface VaccinationsListProps<V extends Vaccination> {
+  vaccinations: V[];
+  onEdit?: (v: V) => void;
 }
 
-export function VaccinationsList({ vaccinations }: VaccinationsListProps) {
+export function VaccinationsList<V extends Vaccination>({ vaccinations, onEdit }: VaccinationsListProps<V>) {
   const t = useTranslations("vaccinations");
   if (vaccinations.length === 0) {
     return (
@@ -62,7 +64,14 @@ export function VaccinationsList({ vaccinations }: VaccinationsListProps) {
       {vaccinations.map((v) => (
         <div
           key={v.id}
-          className="flex items-start justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
+          role={onEdit ? "button" : undefined}
+          tabIndex={onEdit ? 0 : undefined}
+          onClick={() => onEdit?.(v)}
+          onKeyDown={(e) => { if (onEdit && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onEdit(v); } }}
+          className={cn(
+            "flex items-start justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors",
+            onEdit && "cursor-pointer hover:border-primary/40"
+          )}
         >
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">

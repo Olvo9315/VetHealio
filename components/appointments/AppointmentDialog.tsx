@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Species } from "@prisma/client";
@@ -881,7 +882,7 @@ export function AppointmentDialog({
           {/* ── Title ── */}
           <div className="space-y-1.5">
             <Label htmlFor="title">{t("titleLabel")}</Label>
-            <Input id="title" {...form.register("title")} placeholder={t("titleAuto")} />
+            <Input id="title" {...bindField(form, "title")} placeholder={t("titleAuto")} />
             {form.formState.errors.title && (
               <p className="text-xs text-destructive">{translateMessage(tv, form.formState.errors.title.message)}</p>
             )}
@@ -922,7 +923,7 @@ export function AppointmentDialog({
               id="notes"
               rows={2}
               placeholder={t("notesPlaceholder")}
-              {...form.register("notes")}
+              {...bindField(form, "notes")}
             />
           </div>
 

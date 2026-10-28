@@ -212,7 +212,8 @@
     "addService": "Добавить услугу",
     "removeService": "Убрать услугу",
     "services": "Услуги",
-    "touchEditHint": "Тяните, чтобы перенести · полоска снизу меняет длительность · нажмите на пустое место, чтобы закончить"
+    "touchEditHint": "Тяните, чтобы перенести · полоска снизу меняет длительность · нажмите на пустое место, чтобы закончить",
+    "createMedicalRecord": "Медзапись"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -281,7 +282,11 @@
     "searchPlaceholder": "Поиск по пациенту, диагнозу...",
     "newShort": "Новая запись",
     "noneFound": "Записи не найдены",
-    "count": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}"
+    "count": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
+    "fromVisit": "Сита",
+    "fillFromVisit": "Заполнить из ситы",
+    "chooseVisit": "Выберите ситу…",
+    "visitHasRecord": "У этой ситы уже есть медзапись"
   },
   "finances": {
     "title": "Финансы",
@@ -502,7 +507,19 @@
     "passwordsNoMatch": "Пароли не совпадают",
     "es": "Español",
     "ru": "Русский",
-    "en": "English"
+    "en": "English",
+    "accent": "Цвет",
+    "accents": {
+      "green": "Зелёный",
+      "teal": "Бирюзовый",
+      "blue": "Синий",
+      "indigo": "Индиго",
+      "violet": "Фиолетовый",
+      "rose": "Розовый",
+      "coral": "Коралловый",
+      "honey": "Медовый",
+      "graphite": "Графит"
+    }
   },
   "staff": {
     "title": "Персонал",
@@ -860,7 +877,9 @@
     "batch": "Партия: {batch}",
     "singleDose": "Однократная доза",
     "doctor": "Др. {name}",
-    "register": "Зарегистрировать"
+    "register": "Зарегистрировать",
+    "deleteConfirm": "Удалить эту вакцинацию?",
+    "deleted": "Вакцинация удалена"
   },
   "calendar": {
     "today": "Сегодня",

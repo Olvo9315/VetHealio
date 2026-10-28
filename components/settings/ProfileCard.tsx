@@ -2,6 +2,7 @@
 
 import { useTransition, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
@@ -118,14 +119,14 @@ export function ProfileCard({ user }: ProfileCardProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="firstName">{t("firstName")} *</Label>
-            <Input id="firstName" {...form.register("firstName")} />
+            <Input id="firstName" {...bindField(form, "firstName")} />
             {form.formState.errors.firstName && (
               <p className="text-xs text-destructive">{form.formState.errors.firstName.message}</p>
             )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lastName">{t("lastName")} *</Label>
-            <Input id="lastName" {...form.register("lastName")} />
+            <Input id="lastName" {...bindField(form, "lastName")} />
             {form.formState.errors.lastName && (
               <p className="text-xs text-destructive">{form.formState.errors.lastName.message}</p>
             )}
@@ -142,7 +143,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
         {/* Phone */}
         <div className="space-y-1.5">
           <Label htmlFor="phone">{t("phone")}</Label>
-          <Input id="phone" type="tel" placeholder="+34 600 000 000" {...form.register("phone")} />
+          <Input id="phone" type="tel" placeholder="+34 600 000 000" {...bindField(form, "phone")} />
         </div>
 
         {/* Avatar URL */}
@@ -152,7 +153,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
             id="avatar"
             type="url"
             placeholder="https://..."
-            {...form.register("avatar")}
+            {...bindField(form, "avatar")}
             onChange={(e) => {
               form.setValue("avatar", e.target.value);
               setAvatarPreview(e.target.value);
