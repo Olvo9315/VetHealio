@@ -286,7 +286,8 @@
     "fromVisit": "Cita",
     "fillFromVisit": "Rellenar desde una cita",
     "chooseVisit": "Elegir cita…",
-    "visitHasRecord": "Esta cita ya tiene historial médico"
+    "visitHasRecord": "Esta cita ya tiene historial médico",
+    "checkFields": "Revisa los campos marcados"
   },
   "finances": {
     "title": "Finanzas",

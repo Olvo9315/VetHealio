@@ -37,9 +37,9 @@ export type MedicalRecordFull = {
   prescriptions: {
     id: string;
     medicationName: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
+    dosage: string | null;
+    frequency: string | null;
+    duration: string | null;
     notes: string | null;
     // Prescriptions written from the prescription form (instead of inside the record) have items
     items: { id: string; medicationName: string; units: string | null; posology: string }[];
@@ -51,9 +51,9 @@ export type MedicalRecordFull = {
 
 const prescriptionSchema = z.object({
   medicationName: z.string().min(1),
-  dosage: z.string().min(1),
-  frequency: z.string().min(1),
-  duration: z.string().min(1),
+  dosage: z.string().max(200).optional().or(z.literal("")),
+  frequency: z.string().max(200).optional().or(z.literal("")),
+  duration: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().max(200).optional().or(z.literal("")),
 });
 
@@ -214,9 +214,9 @@ export async function createMedicalRecord(data: MedicalRecordFormData) {
       prescriptions: {
         create: (parsed.data.prescriptions ?? []).map((p) => ({
           medicationName: p.medicationName,
-          dosage: p.dosage,
-          frequency: p.frequency,
-          duration: p.duration,
+          dosage: p.dosage || null,
+          frequency: p.frequency || null,
+          duration: p.duration || null,
           notes: p.notes || null,
         })),
       },
@@ -255,9 +255,9 @@ export async function updateMedicalRecord(id: string, data: MedicalRecordFormDat
       prescriptions: {
         create: (parsed.data.prescriptions ?? []).map((p) => ({
           medicationName: p.medicationName,
-          dosage: p.dosage,
-          frequency: p.frequency,
-          duration: p.duration,
+          dosage: p.dosage || null,
+          frequency: p.frequency || null,
+          duration: p.duration || null,
           notes: p.notes || null,
         })),
       },

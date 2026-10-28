@@ -286,7 +286,8 @@
     "fromVisit": "Appointment",
     "fillFromVisit": "Fill in from an appointment",
     "chooseVisit": "Choose appointment…",
-    "visitHasRecord": "This appointment already has a medical record"
+    "visitHasRecord": "This appointment already has a medical record",
+    "checkFields": "Check the highlighted fields"
   },
   "finances": {
     "title": "Finances",
