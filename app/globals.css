@@ -78,6 +78,8 @@
   [data-accent="honey"] { --brand-l: 0.64; --brand-c: 0.13; --brand-h: 72; }
   [data-accent="graphite"] { --brand-l: 0.5; --brand-c: 0.025; --brand-h: 255; }
   .dark {
+    /* Native scrollbars and form controls in dark too */
+    color-scheme: dark;
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.18 0 0);
@@ -342,4 +344,57 @@
     user-select: none;
     -webkit-touch-callout: none;
   }
+}
+
+/* Calendar colors follow the theme: the library ships fixed light-gray lines (#ddd) and a
+   light-blue "today", which glare in the dark theme */
+.rbc-header,
+.rbc-header + .rbc-header,
+.rbc-month-view,
+.rbc-month-row + .rbc-month-row,
+.rbc-day-bg + .rbc-day-bg,
+.rbc-overlay,
+.rbc-overlay-header,
+.rbc-agenda-view table.rbc-agenda-table,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr + tr,
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th,
+.rbc-timeslot-group,
+.rbc-time-view-resources .rbc-time-header-gutter,
+.rbc-time-view,
+.rbc-time-view .rbc-allday-cell + .rbc-allday-cell,
+.rbc-time-header.rbc-overflowing,
+.rbc-time-header > .rbc-row:first-child,
+.rbc-time-header > .rbc-row.rbc-row-resource,
+.rbc-time-header-content,
+.rbc-time-header-content > .rbc-row.rbc-row-resource,
+.rbc-time-content,
+.rbc-time-content > * + * > * {
+  border-color: var(--border);
+}
+.rbc-time-content {
+  border-top-width: 1px;
+}
+/* Quarter/half-hour lines inside an hour: fainter than the hour lines */
+.rbc-day-slot .rbc-time-slot {
+  border-top-color: color-mix(in oklch, var(--border) 45%, transparent);
+}
+.rbc-today {
+  background-color: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+.dark .rbc-today {
+  background-color: color-mix(in oklch, var(--primary) 9%, transparent);
+}
+.rbc-off-range-bg {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+.rbc-off-range {
+  color: var(--muted-foreground);
+}
+.rbc-overlay {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
+.rbc-show-more {
+  background-color: transparent;
 }
