@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { translateMessage } from "@/lib/i18n-messages";
 import { useState, useTransition, useEffect, useRef } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { bindField } from "@/lib/form-field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,9 +46,9 @@ import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck } from "lu
 // ---- Schema ----
 const prescriptionSchema = z.object({
   medicationName: z.string().min(1, "required"),
-  dosage: z.string().min(1, "required"),
-  frequency: z.string().min(1, "required"),
-  duration: z.string().min(1, "required"),
+  dosage: z.string().optional().or(z.literal("")),
+  frequency: z.string().optional().or(z.literal("")),
+  duration: z.string().optional().or(z.literal("")),
   notes: z.string().max(200).optional().or(z.literal("")),
 });
 
@@ -93,9 +93,9 @@ function inlineMedications(record: MedicalRecordFull) {
     .filter((p) => !p.items?.length && p.medicationName)
     .map((p) => ({
       medicationName: p.medicationName,
-      dosage: p.dosage,
-      frequency: p.frequency,
-      duration: p.duration,
+      dosage: p.dosage ?? "",
+      frequency: p.frequency ?? "",
+      duration: p.duration ?? "",
       notes: p.notes ?? "",
     }));
 }
@@ -183,10 +183,11 @@ export function MedicalRecordDialog({
         },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "prescriptions",
-  });
+  // Medications typed in the record. Not a useFieldArray: with controlled inputs its rows were
+  // re-created on every keystroke and the field lost focus after each character.
+  const medications = form.watch("prescriptions") ?? [];
+  const setMedications = (list: NonNullable<FormData["prescriptions"]>) =>
+    form.setValue("prescriptions", list, { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
 
   // Load vets
   useEffect(() => {
@@ -333,7 +334,7 @@ export function MedicalRecordDialog({
                   }
                 });
             }
-            form.handleSubmit(handleSubmit)();
+            form.handleSubmit(handleSubmit, () => toast.error(t("checkFields")))();
           }}
         >
           {/* Row: Patient + Vet */}
@@ -545,7 +546,7 @@ export function MedicalRecordDialog({
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => append({ medicationName: "", dosage: "", frequency: "", duration: "", notes: "" })}
+                onClick={() => setMedications([...medications, { medicationName: "", dosage: "", frequency: "", duration: "", notes: "" }])}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {t("addMedication")}
@@ -557,20 +558,20 @@ export function MedicalRecordDialog({
               <RecordPrescriptions prescriptions={record.prescriptions.filter((p) => p.items?.length)} />
             )}
 
-            {fields.length === 0 && !record?.prescriptions.some((p) => p.items?.length) && (
+            {medications.length === 0 && !record?.prescriptions.some((p) => p.items?.length) && (
               <p className="text-sm text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
                 {t("noPrescriptions")}
               </p>
             )}
 
-            {fields.map((field, idx) => (
-              <div key={field.id} className="border border-border rounded-lg p-3 space-y-2">
+            {medications.map((_, idx) => (
+              <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Pill className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
                   </div>
-                  <button type="button" onClick={() => remove(idx)} className="text-muted-foreground hover:text-destructive">
+                  <button type="button" onClick={() => setMedications(medications.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

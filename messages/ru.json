@@ -286,7 +286,8 @@
     "fromVisit": "Сита",
     "fillFromVisit": "Заполнить из ситы",
     "chooseVisit": "Выберите ситу…",
-    "visitHasRecord": "У этой ситы уже есть медзапись"
+    "visitHasRecord": "У этой ситы уже есть медзапись",
+    "checkFields": "Проверьте отмеченные поля"
   },
   "finances": {
     "title": "Финансы",
