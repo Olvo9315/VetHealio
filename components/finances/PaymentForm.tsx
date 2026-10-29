@@ -62,7 +62,7 @@ export function PaymentForm({
         {method === "CASH" && (
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">{t("cashGiven")}</Label>
-            <NumberInput className="h-9" value={given} onValueChange={(v) => setGiven(Math.max(0, v))} />
+            <NumberInput className="h-9" placeholder={t("cashGivenPlaceholder")} value={given} onValueChange={(v) => setGiven(Math.max(0, v))} />
           </div>
         )}
       </div>

@@ -502,7 +502,7 @@
     "dueShort": "debe {amount}",
     "payments": "Pagos",
     "amountToPay": "Importe a cobrar",
-    "cashGiven": "Entrega el cliente",
+    "cashGiven": "Entrega el cliente (opcional)",
     "changeToGive": "Cambio a devolver: {amount}",
     "partialHint": "Pago parcial: quedará pendiente {left}",
     "takePayment": "Cobrar {amount}",
@@ -562,7 +562,8 @@
     "rectifiesDoc": "rectifica {doc}",
     "bookHint": "Numeración correlativa por serie y año. Los tickets sustituidos por una factura no suman en los totales. Las facturas emitidas no se modifican: se corrigen con una rectificativa.",
     "clinicNifMissing": "Falta el NIF de la clínica: es obligatorio en las facturas.",
-    "openSettings": "Abrir ajustes"
+    "openSettings": "Abrir ajustes",
+    "cashGivenPlaceholder": "Para calcular el cambio"
   },
   "inventory": {
     "title": "Inventario",

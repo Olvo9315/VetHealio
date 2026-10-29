@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { MedicalTimeline } from "./MedicalTimeline";
 import { VaccinationsList } from "./VaccinationsList";
@@ -90,6 +91,13 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
   const [prescriptions, setPrescriptions] = useState<PrescriptionFull[]>(
     (pet.prescriptions ?? []) as PrescriptionFull[]
   );
+  const router = useRouter();
+
+  // Fresh data from the server (e.g. after the owner paid their debt from the header): follow it
+  useEffect(() => setMedicalRecords(pet.medicalRecords), [pet.medicalRecords]);
+  useEffect(() => setVaccinations(pet.vaccinations), [pet.vaccinations]);
+  useEffect(() => setAppointments(pet.appointments), [pet.appointments]);
+  useEffect(() => setInvoices(pet.invoices), [pet.invoices]);
 
   const presetPet = {
     id: pet.id,
@@ -564,7 +572,12 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
           open={invoiceSheetOpen}
           onOpenChange={setInvoiceSheetOpen}
           invoice={openInvoice}
-          onUpdated={(inv) => { setOpenInvoice(inv); handleInvoiceSaved(inv); }}
+          onUpdated={(inv) => {
+            setOpenInvoice(inv);
+            handleInvoiceSaved(inv);
+            // The owner's debt in the header changes with every payment
+            router.refresh();
+          }}
           onDeleted={(id) => { setInvoices((prev) => prev.filter((x) => x.id !== id)); setInvoiceSheetOpen(false); }}
           onEdit={() => { setEditingInvoice(openInvoice); setInvoiceSheetOpen(false); }}
         />

@@ -502,7 +502,7 @@
     "dueShort": "owes {amount}",
     "payments": "Payments",
     "amountToPay": "Amount to take",
-    "cashGiven": "Customer hands over",
+    "cashGiven": "Cash handed over (optional)",
     "changeToGive": "Change to give: {amount}",
     "partialHint": "Partial payment: {left} will remain due",
     "takePayment": "Take {amount}",
@@ -562,7 +562,8 @@
     "rectifiesDoc": "corrects {doc}",
     "bookHint": "Numbering is consecutive per series and year. Tickets replaced by an invoice are not counted in totals. Issued documents are never edited: they are corrected with a corrective invoice.",
     "clinicNifMissing": "The clinic's tax ID (NIF) is missing: invoices require it.",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "cashGivenPlaceholder": "To work out the change"
   },
   "inventory": {
     "title": "Inventory",
