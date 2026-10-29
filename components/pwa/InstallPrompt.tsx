@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { Download, X } from "lucide-react";
 import {
   bannerAllowed,
@@ -20,6 +21,8 @@ const SHOW_DELAY_MS = 8000;
 export function InstallPrompt() {
   const t = useTranslations("pwa");
   const [visible, setVisible] = useState(false);
+  // Customers opening a link to sign a document are not staff: never offer them the app
+  const isPublic = usePathname()?.startsWith("/sign/") ?? false;
 
   useEffect(() => {
     if (isInstalled()) return;
@@ -55,7 +58,7 @@ export function InstallPrompt() {
     setVisible(false);
   }
 
-  if (!visible) return null;
+  if (!visible || isPublic) return null;
 
   return (
     <div

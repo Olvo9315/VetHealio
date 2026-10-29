@@ -8,7 +8,8 @@ import { requireUserId } from "@/lib/permissions";
 import { getClinic } from "@/lib/clinic";
 import { putFile } from "@/lib/storage";
 import { getTranslations } from "next-intl/server";
-import { docLocale, getDocT } from "@/lib/documents";
+import { randomBytes } from "node:crypto";
+import { docLocale, getDocT, whatsappNumber } from "@/lib/documents";
 import { TREATMENT_CONSENTS, type ConsentDetails } from "@/lib/consents";
 
 export type ConsentStatus = { id: string; signedAt: Date; method: string; marketing: boolean } | null;
@@ -193,4 +194,88 @@ export async function getTreatmentConsentText(ownerId: string, input: z.input<ty
   if (d.cost?.trim()) lines.push(`${t("consentCost")}: ${d.cost.trim()}`);
   lines.push("", t(`consentBody_text_${data.kind}`), "", t("consentClosing"));
   return { locale, text: lines.join("\n") };
+}
+
+// ---- Signing on the customer's own phone ----
+
+const requestSchema = z.object({
+  kind: z.enum(["rgpd", ...TREATMENT_CONSENTS]),
+  text: z.string().min(20).max(20000),
+  lang: z.enum(["es", "ru", "en"]),
+  petIds: z.array(z.string()).max(30).default([]),
+  details: z.record(z.string(), z.string().max(2000)).optional(),
+  signerName: z.string().max(150).optional(),
+});
+
+const LINK_DAYS = 7;
+
+// A private link to the document for the owner to sign on their phone. Sent by WhatsApp or e-mail
+// from the staff member's device; it can be used once and expires in a week.
+export async function createConsentRequest(ownerId: string, input: z.input<typeof requestSchema>) {
+  const userId = await requireUserId();
+  const data = requestSchema.parse(input);
+  const owner = await prisma.owner.findUniqueOrThrow({ where: { id: ownerId }, select: { firstName: true, phone: true, email: true } });
+  const petIds = data.petIds.length
+    ? (await prisma.pet.findMany({ where: { id: { in: data.petIds }, ownerId }, select: { id: true } })).map((p) => p.id)
+    : [];
+  const token = randomBytes(24).toString("base64url");
+  await prisma.consentRequest.create({
+    data: {
+      token,
+      ownerId,
+      kind: data.kind,
+      text: data.text,
+      lang: data.lang,
+      petIds,
+      details: { ...(data.details ?? {}), lang: data.lang },
+      signerName: data.signerName?.trim() || null,
+      expiresAt: new Date(Date.now() + LINK_DAYS * 24 * 3600 * 1000),
+      createdById: userId,
+    },
+  });
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
+  const url = `${proto}://${host}/sign/${token}`;
+  const clinic = await getClinic();
+  const t = await getDocT(data.lang);
+  const message = t(data.kind === "rgpd" ? "signLinkMessageRgpd" : "signLinkMessageTreatment", { owner: owner.firstName, clinic: clinic.name, url, days: LINK_DAYS });
+  revalidatePath(`/owners/${ownerId}`);
+  return {
+    url,
+    message,
+    subject: t("signLinkSubject", { clinic: clinic.name }),
+    whatsapp: owner.phone ? whatsappNumber(owner.phone) : null,
+    email: owner.email,
+  };
+}
+
+export type PendingSignature = { id: string; kind: string; createdAt: Date; expiresAt: Date; petNames: string[]; by: string | null };
+
+// Links sent and not signed yet (still valid)
+export async function getPendingSignatures(ownerId: string): Promise<PendingSignature[]> {
+  await requireUserId();
+  const [requests, pets] = await Promise.all([
+    prisma.consentRequest.findMany({
+      where: { ownerId, signedAt: null, cancelledAt: null, expiresAt: { gt: new Date() } },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.pet.findMany({ where: { ownerId }, select: { id: true, name: true } }),
+  ]);
+  const names = new Map(pets.map((p) => [p.id, p.name]));
+  return requests.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    createdAt: r.createdAt,
+    expiresAt: r.expiresAt,
+    petNames: r.petIds.map((id) => names.get(id)).filter((n): n is string => !!n),
+    by: r.createdBy?.name ?? null,
+  }));
+}
+
+export async function cancelConsentRequest(id: string) {
+  await requireUserId();
+  const r = await prisma.consentRequest.update({ where: { id }, data: { cancelledAt: new Date() }, select: { ownerId: true } });
+  revalidatePath(`/owners/${r.ownerId}`);
 }

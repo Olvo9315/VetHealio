@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SignaturePad, type SignaturePadHandle } from "@/components/common/SignaturePad";
+import { SendSignLink } from "./SendSignLink";
 import { cn } from "@/lib/utils";
 
 const LANGS = ["es", "ru", "en"] as const;
@@ -244,6 +245,19 @@ export function TreatmentConsentDialog({
             </div>
             {method === "CHECKBOX" && kind !== "general" && <p className="text-xs text-amber-700 dark:text-amber-400">{t("signatureRecommended")}</p>}
             {method === "SIGNATURE" && <SignaturePad ref={pad} onChange={(empty) => setSigned(!empty)} />}
+            <div className="space-y-1.5 border-t pt-3">
+              <p className="text-xs text-muted-foreground">{t("orSendLink")}</p>
+              <SendSignLink
+                ownerId={ownerId}
+                disabled={!text}
+                input={() =>
+                  text
+                    ? { kind, text, lang: lang as "es" | "ru" | "en", petIds, details: fullDetails(), signerName: signer || undefined }
+                    : null
+                }
+                onSent={() => onOpenChange(false)}
+              />
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setStep("fill")}>{t("back")}</Button>
               <Button className="flex-1" disabled={!accept || !text || isBusy || (method === "SIGNATURE" && !signed)} onClick={save}>

@@ -255,6 +255,62 @@ ALTER TABLE "AdviserExport" ADD CONSTRAINT "AdviserExport_createdById_fkey" FORE
 -- AlterTable
 ALTER TABLE "ClinicSettings" ADD COLUMN     "pricesIncludeTax" BOOLEAN NOT NULL DEFAULT true;
 
+-- AlterTable
+ALTER TABLE "Prescription" ADD COLUMN     "presvetRef" TEXT,
+ADD COLUMN     "presvetSentAt" TIMESTAMP(3),
+ADD COLUMN     "presvetStatus" TEXT;
+
+-- AlterTable
+ALTER TABLE "PrescriptionItem" ADD COLUMN     "antibiotic" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "exceptional" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "nationalCode" TEXT,
+ADD COLUMN     "packages" DOUBLE PRECISION,
+ADD COLUMN     "purpose" TEXT,
+ADD COLUMN     "route" TEXT,
+ADD COLUMN     "treatmentDays" INTEGER;
+
+-- CreateTable
+CREATE TABLE "ConsentRequest" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "lang" TEXT NOT NULL,
+    "petIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "details" JSONB,
+    "signerName" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "signedAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
+    "ownerId" TEXT NOT NULL,
+    "createdById" TEXT,
+    "consentId" TEXT,
+
+    CONSTRAINT "ConsentRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ConsentRequest_token_key" ON "ConsentRequest"("token");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ConsentRequest_consentId_key" ON "ConsentRequest"("consentId");
+
+-- CreateIndex
+CREATE INDEX "ConsentRequest_ownerId_idx" ON "ConsentRequest"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "Prescription_presvetStatus_idx" ON "Prescription"("presvetStatus");
+
+-- AddForeignKey
+ALTER TABLE "ConsentRequest" ADD CONSTRAINT "ConsentRequest_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Owner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConsentRequest" ADD CONSTRAINT "ConsentRequest_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConsentRequest" ADD CONSTRAINT "ConsentRequest_consentId_fkey" FOREIGN KEY ("consentId") REFERENCES "Consent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

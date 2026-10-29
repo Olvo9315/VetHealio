@@ -9,6 +9,7 @@ import { getConsentText, recordConsent } from "@/lib/actions/consents";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { SignaturePad, type SignaturePadHandle } from "@/components/common/SignaturePad";
+import { SendSignLink } from "./SendSignLink";
 import { cn } from "@/lib/utils";
 
 const LANGS = ["es", "ru", "en"] as const;
@@ -98,6 +99,16 @@ export function ConsentDialog({ ownerId, ownerName, open, onOpenChange }: { owne
             </button>
           </div>
           {method === "SIGNATURE" && <SignaturePad ref={pad} onChange={(empty) => setSigned(!empty)} />}
+
+          <div className="space-y-1.5 border-t pt-3">
+            <p className="text-xs text-muted-foreground">{t("orSendLink")}</p>
+            <SendSignLink
+              ownerId={ownerId}
+              disabled={!text}
+              input={() => (text ? { kind: "rgpd", text, lang: lang as "es" | "ru" | "en" } : null)}
+              onSent={() => onOpenChange(false)}
+            />
+          </div>
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>

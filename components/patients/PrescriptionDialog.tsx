@@ -14,6 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, Plus, Trash2, Pill } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PresvetFields } from "./PresvetFields";
+import { isAntibioticIngredient } from "@/lib/presvet";
 
 interface PrescriptionDialogProps {
   open: boolean;
@@ -75,6 +77,13 @@ export function PrescriptionDialog({
           posology: i.posology,
           indications: i.indications ?? "",
           warnings: i.warnings ?? "",
+          antibiotic: i.antibiotic,
+          nationalCode: i.nationalCode ?? "",
+          route: i.route ?? "",
+          treatmentDays: i.treatmentDays ?? "",
+          packages: i.packages ?? "",
+          purpose: (i.purpose ?? "") as PrescriptionItemData["purpose"],
+          exceptional: i.exceptional,
         }))
       : [emptyItem(nextKey())];
   }
@@ -90,8 +99,20 @@ export function PrescriptionDialog({
 
   function updateItem(key: number, field: keyof PrescriptionItemData, value: string) {
     setItems((prev) =>
-      prev.map((it) => (it._key === key ? { ...it, [field]: value } : it))
+      prev.map((it) => {
+        if (it._key !== key) return it;
+        const next = { ...it, [field]: value };
+        // An antimicrobial active ingredient switches the PRESVET data on (the vet can switch it off)
+        if (field === "activeIngredient" && !it.antibiotic && isAntibioticIngredient(value) && !isAntibioticIngredient(it.activeIngredient)) {
+          next.antibiotic = true;
+        }
+        return next;
+      })
     );
+  }
+
+  function patchItem(key: number, patch: Partial<ItemState>) {
+    setItems((prev) => prev.map((it) => (it._key === key ? { ...it, ...patch } : it)));
   }
 
   function addItem() {
@@ -120,6 +141,13 @@ export function PrescriptionDialog({
         posology: i.posology.trim(),
         indications: i.indications?.trim() || undefined,
         warnings: i.warnings?.trim() || undefined,
+        antibiotic: !!i.antibiotic,
+        nationalCode: i.nationalCode || undefined,
+        route: i.route || undefined,
+        treatmentDays: i.treatmentDays || undefined,
+        packages: i.packages || undefined,
+        purpose: i.purpose || undefined,
+        exceptional: !!i.exceptional,
       })),
     };
 
@@ -249,6 +277,20 @@ export function PrescriptionDialog({
                       placeholder={t("warningsPlaceholder")}
                     />
                   </div>
+
+                  <PresvetFields
+                    value={{
+                      antibiotic: item.antibiotic,
+                      nationalCode: item.nationalCode ?? "",
+                      route: item.route ?? "",
+                      treatmentDays: item.treatmentDays ?? "",
+                      packages: item.packages ?? "",
+                      purpose: item.purpose ?? "",
+                      exceptional: item.exceptional,
+                    }}
+                    suggested={isAntibioticIngredient(item.activeIngredient) || isAntibioticIngredient(item.medicationName)}
+                    onChange={(v) => patchItem(item._key, v as Partial<ItemState>)}
+                  />
                 </div>
               </div>
             ))}

@@ -12,6 +12,14 @@ const prescriptionItemSchema = z.object({
   posology: z.string().min(1).max(200),
   indications: z.string().max(300).optional().or(z.literal("")),
   warnings: z.string().max(300).optional().or(z.literal("")),
+  // PRESVET (antibiotics)
+  antibiotic: z.boolean().optional(),
+  nationalCode: z.string().max(20).optional().or(z.literal("")),
+  route: z.string().max(30).optional().or(z.literal("")),
+  treatmentDays: z.union([z.number(), z.string().max(6)]).optional(),
+  packages: z.union([z.number(), z.string().max(10)]).optional(),
+  purpose: z.enum(["THERAPEUTIC", "PROPHYLACTIC", "METAPHYLACTIC"]).optional().or(z.literal("")),
+  exceptional: z.boolean().optional(),
 });
 
 const prescriptionSchema = z.object({
@@ -23,7 +31,7 @@ const prescriptionSchema = z.object({
   items: z.array(prescriptionItemSchema).min(1),
 });
 
-export type PrescriptionItemData = z.infer<typeof prescriptionItemSchema>;
+export type PrescriptionItemData = z.input<typeof prescriptionItemSchema>;
 
 export type PrescriptionFull = {
   id: string;
@@ -44,7 +52,16 @@ export type PrescriptionFull = {
     posology: string;
     indications: string | null;
     warnings: string | null;
+    antibiotic: boolean;
+    nationalCode: string | null;
+    route: string | null;
+    treatmentDays: number | null;
+    packages: number | null;
+    purpose: string | null;
+    exceptional: boolean;
   }>;
+  presvetStatus: string | null;
+  presvetSentAt: Date | null;
 };
 
 const itemInclude = {
@@ -69,7 +86,31 @@ export async function getPrescriptionsByPet(petId: string): Promise<Prescription
   return [...direct, ...viaRecord] as PrescriptionFull[];
 }
 
-export async function createPrescription(data: z.infer<typeof prescriptionSchema>) {
+function itemData(item: z.infer<typeof prescriptionItemSchema>) {
+  return {
+    medicationName: item.medicationName,
+    units: item.units || null,
+    activeIngredient: item.activeIngredient || null,
+    posology: item.posology,
+    indications: item.indications || null,
+    warnings: item.warnings || null,
+    antibiotic: !!item.antibiotic,
+    nationalCode: item.nationalCode?.trim() || null,
+    route: item.route || null,
+    treatmentDays: Math.round(Number(item.treatmentDays)) || null,
+    packages: Number(item.packages) || null,
+    purpose: item.purpose || null,
+    exceptional: !!item.exceptional,
+  };
+}
+
+// A prescription with antibiotics has to be reported; changing one already reported asks for it again
+function presvetStatusFor(items: z.infer<typeof prescriptionItemSchema>[], previous: string | null) {
+  if (!items.some((i) => i.antibiotic)) return null;
+  return previous === "SENT" || previous === "CHANGED" ? "CHANGED" : "PENDING";
+}
+
+export async function createPrescription(data: z.input<typeof prescriptionSchema>) {
   await requirePermission("prescription.write");
   const parsed = prescriptionSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
@@ -87,16 +128,8 @@ export async function createPrescription(data: z.infer<typeof prescriptionSchema
       veterinarianId: parsed.data.veterinarianId || null,
       appointmentId: parsed.data.appointmentId || null,
       medicalRecordId: parsed.data.medicalRecordId || visitRecord?.id || null,
-      items: {
-        create: parsed.data.items.map((item) => ({
-          medicationName: item.medicationName,
-          units: item.units || null,
-          activeIngredient: item.activeIngredient || null,
-          posology: item.posology,
-          indications: item.indications || null,
-          warnings: item.warnings || null,
-        })),
-      },
+      presvetStatus: presvetStatusFor(parsed.data.items, null),
+      items: { create: parsed.data.items.map(itemData) },
     },
     include: itemInclude,
   });
@@ -105,12 +138,13 @@ export async function createPrescription(data: z.infer<typeof prescriptionSchema
   return { prescription };
 }
 
-export async function updatePrescription(id: string, data: z.infer<typeof prescriptionSchema>) {
+export async function updatePrescription(id: string, data: z.input<typeof prescriptionSchema>) {
   await requirePermission("prescription.write");
   const parsed = prescriptionSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   // Delete existing items and recreate
+  const before = await prisma.prescription.findUnique({ where: { id }, select: { presvetStatus: true } });
   await prisma.prescriptionItem.deleteMany({ where: { prescriptionId: id } });
 
   const prescription = await prisma.prescription.update({
@@ -119,16 +153,8 @@ export async function updatePrescription(id: string, data: z.infer<typeof prescr
       notes: parsed.data.notes || null,
       veterinarianId: parsed.data.veterinarianId || null,
       appointmentId: parsed.data.appointmentId || null,
-      items: {
-        create: parsed.data.items.map((item) => ({
-          medicationName: item.medicationName,
-          units: item.units || null,
-          activeIngredient: item.activeIngredient || null,
-          posology: item.posology,
-          indications: item.indications || null,
-          warnings: item.warnings || null,
-        })),
-      },
+      presvetStatus: presvetStatusFor(parsed.data.items, before?.presvetStatus ?? null),
+      items: { create: parsed.data.items.map(itemData) },
     },
     include: itemInclude,
   });

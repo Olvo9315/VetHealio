@@ -134,6 +134,7 @@ model User {
   fiscalDocuments     FiscalDocument[]
   stockMovements      StockMovement[]
   consentsRecorded    Consent[]
+  consentRequests     ConsentRequest[]    @relation("ConsentRequestBy")
 }
 
 model StaffProfile {
@@ -287,8 +288,9 @@ model Owner {
   remindersConsent Boolean  @default(true)
   createdAt        DateTime @default(now())
 
-  pets     Pet[]
-  consents Consent[]
+  pets            Pet[]
+  consents        Consent[]
+  consentRequests ConsentRequest[]
 }
 
 model Pet {
@@ -435,8 +437,16 @@ model Prescription {
 
   items PrescriptionItem[]
 
+  // PRESVET (national register of antibiotic prescriptions): PENDING when it has antibiotics to
+  // report, SENT once communicated; null when there is nothing to report
+  presvetStatus String?
+  presvetSentAt DateTime?
+  // Reference returned by PRESVET (or the batch it went out in)
+  presvetRef    String?
+
   @@index([petId, createdAt])
   @@index([appointmentId])
+  @@index([presvetStatus])
 }
 
 model PrescriptionItem {
@@ -447,6 +457,16 @@ model PrescriptionItem {
   posology         String
   indications      String?
   warnings         String?
+  // PRESVET data (antibiotics): national code, route, days, packages, purpose, exceptional use
+  antibiotic       Boolean @default(false)
+  nationalCode     String?
+  route            String?
+  treatmentDays    Int?
+  packages         Float?
+  // THERAPEUTIC | PROPHYLACTIC | METAPHYLACTIC
+  purpose          String?
+  // Exceptional prescription (cascade / off-label use)
+  exceptional      Boolean @default(false)
 
   prescriptionId String
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
@@ -691,6 +711,32 @@ model StockMovement {
 }
 
 // Data-protection (RGPD) consent of an owner: the text they accepted and how
+// A document sent to the owner to sign on their own phone: a private link (WhatsApp / e-mail) that
+// works once and expires. Signing it creates the Consent.
+model ConsentRequest {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  kind        String
+  text        String
+  lang        String
+  petIds      String[]  @default([])
+  details     Json?
+  signerName  String?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  signedAt    DateTime?
+  cancelledAt DateTime?
+
+  ownerId     String
+  owner       Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?    @relation("ConsentRequestBy", fields: [createdById], references: [id], onDelete: SetNull)
+  consentId   String?  @unique
+  consent     Consent? @relation(fields: [consentId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+}
+
 model Consent {
   id           String   @id @default(cuid())
   // rgpd | general | surgery | hospitalization | euthanasia | necropsy (lib/consents.ts)
@@ -709,10 +755,11 @@ model Consent {
   signedAt     DateTime @default(now())
   userAgent    String?
 
-  ownerId      String
-  owner        Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  recordedById String?
-  recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  ownerId        String
+  owner          Owner           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  recordedById   String?
+  recordedBy     User?           @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  consentRequest ConsentRequest?
 
   @@index([ownerId])
 }

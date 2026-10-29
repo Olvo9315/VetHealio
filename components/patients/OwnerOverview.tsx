@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronLeft, FileSignature, Mail, MapPin, Pencil, Phone, Plus, Printer, ShieldAlert, ShieldCheck, Stethoscope, Wallet, Merge } from "lucide-react";
+import { AlertTriangle, ChevronLeft, FileSignature, Mail, MapPin, Pencil, Phone, Plus, Printer, ShieldAlert, ShieldCheck, Stethoscope, Wallet, Merge, Clock } from "lucide-react";
 import type { Owner, Species } from "@prisma/client";
-import type { ConsentStatus, OwnerDocument } from "@/lib/actions/consents";
+import { cancelConsentRequest, type ConsentStatus, type OwnerDocument, type PendingSignature } from "@/lib/actions/consents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SpeciesBadge } from "./SpeciesBadge";
@@ -44,8 +44,11 @@ export function OwnerOverview({
   consent,
   documents,
   duplicates = [],
+  pending = [],
 }: {
   duplicates?: OwnerCard[];
+  // Signing links sent and not signed yet
+  pending?: PendingSignature[];
   owner: Owner & { pets: Pet[] };
   bills: Bill[];
   debt: number;
@@ -205,7 +208,33 @@ export function OwnerOverview({
           <h3 className="text-sm font-semibold">{t("documents")}</h3>
         </div>
         <div className="rounded-xl border bg-card divide-y">
-          {documents.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">{t("noDocuments")}</p>}
+          {pending.map((p) => (
+            <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 bg-amber-50/60 dark:bg-amber-950/20">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {p.kind === "rgpd" ? tc("rgpdDoc") : tc(`kind_${p.kind}`)}
+                  {p.petNames.length > 0 && <span className="font-normal text-muted-foreground"> · {p.petNames.join(", ")}</span>}
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {tc("waitingSignature", { date: format(new Date(p.createdAt), "dd/MM HH:mm"), until: format(new Date(p.expiresAt), "dd/MM") })}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-muted-foreground"
+                onClick={async () => {
+                  if (!confirm(tc("cancelLinkConfirm"))) return;
+                  await cancelConsentRequest(p.id);
+                  router.refresh();
+                }}
+              >
+                {tc("cancelLink")}
+              </Button>
+            </div>
+          ))}
+          {documents.length === 0 && !pending.length && <p className="text-sm text-muted-foreground text-center py-6">{t("noDocuments")}</p>}
           {documents.map((d) => (
             <a key={d.id} href={`/print/consent/${d.id}`} target="_blank" className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40">
               {d.kind === "rgpd" ? <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" /> : <Stethoscope className="w-4 h-4 text-primary shrink-0" />}
