@@ -66,7 +66,7 @@ export function WaitingRoom() {
 
   // Left to right like a to-do board: expected → waiting → in consultation → done
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       <Column title={t("expectedToday")} count={expected.length} icon={LogIn}>
         {expected.map((r) => (
           <Card key={r.id} row={r}>
@@ -189,7 +189,7 @@ function Card({ row, muted, children }: { row: AppointmentListRow; muted?: boole
           <p className="font-medium text-sm leading-tight truncate">
             {row.pet.name} <span className="font-normal text-muted-foreground">· {row.pet.owner.firstName} {row.pet.owner.lastName}</span>
           </p>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground line-clamp-2">
             {format(new Date(row.startTime), "HH:mm")} · {row.services.join(", ") || row.title} · {row.veterinarian.name}
             {row.room ? ` · ${row.room.name}` : ""}
           </p>

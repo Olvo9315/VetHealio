@@ -32,17 +32,18 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     <div className="flex flex-col min-h-full">
       <TopBar user={session?.user ?? {}} title={t("title")} />
       <div className="flex-1 p-4 md:p-6 flex flex-col min-h-0 gap-4">
-        <nav className="flex gap-1 rounded-lg border p-0.5 bg-muted/40 self-start max-w-full overflow-x-auto no-scrollbar">
+        {/* On a phone the three views share the width, icon above the name, so every name is readable */}
+        <nav className="grid grid-cols-3 w-full gap-1 rounded-lg border p-0.5 bg-muted/40 sm:flex sm:w-auto sm:self-start">
           {tabs.map(({ id, icon: Icon, label }) => (
             <Link
               key={id}
               href={id === "calendar" ? "/appointments" : `/appointments?view=${id}`}
               className={cn(
-                "flex items-center gap-1.5 px-3 h-8 text-sm rounded-md transition-colors whitespace-nowrap shrink-0",
+                "flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] leading-tight text-center rounded-md transition-colors sm:flex-row sm:gap-1.5 sm:px-3 sm:py-0 sm:h-8 sm:text-sm sm:whitespace-nowrap",
                 view === id ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-4 h-4 shrink-0" />
               {label}
             </Link>
           ))}
