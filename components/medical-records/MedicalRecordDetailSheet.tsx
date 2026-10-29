@@ -191,7 +191,7 @@ export function MedicalRecordDetailSheet({
           )}
 
           <TextBlock label={t("homeCare")} text={record.homeCare} />
-          <HomeCareShare recordId={record.id} />
+          <HomeCareShare recordId={record.id} narrow />
 
           {/* Vitals */}
           {hasVitals && (

@@ -17,12 +17,15 @@ export function HomeCareShare({
   recordId,
   prepare,
   embedded,
+  narrow,
   className,
 }: {
   recordId?: string;
   prepare?: () => Promise<string | null>;
   // Inside the record form, right under the text: no second box, buttons two by two
   embedded?: boolean;
+  // In a side panel: two buttons per row even on a wide screen
+  narrow?: boolean;
   className?: string;
 }) {
   const t = useTranslations("medicalRecords");
@@ -58,7 +61,7 @@ export function HomeCareShare({
           ))}
         </div>
       </div>
-      <div className={cn("grid grid-cols-2 gap-2 [&>button]:min-w-0", !embedded && "sm:grid-cols-4")}>
+      <div className={cn("grid grid-cols-2 gap-2 [&>button]:min-w-0", !embedded && !narrow && "sm:grid-cols-4", narrow && "[&>button]:h-auto [&>button]:flex-col [&>button]:gap-0.5 [&>button]:px-1.5 [&>button]:py-1.5 [&>button]:text-xs [&_span]:whitespace-normal [&_span]:text-center [&_span]:leading-tight")}>
         <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy}
           onClick={() => {
             if (!prepare) { window.open(`/print/home-care/${recordId}?lang=${lang}`, "_blank"); return; }
@@ -70,8 +73,8 @@ export function HomeCareShare({
               if (w) w.location.href = `/print/home-care/${id}?lang=${lang}`;
             });
           }}>
-          <Printer className="w-4 h-4" />
-          {t("homeCarePrint")}
+          <Printer className="w-4 h-4 shrink-0" />
+          <span className="truncate">{t("homeCarePrint")}</span>
         </Button>
         <Button
           type="button"
@@ -88,8 +91,8 @@ export function HomeCareShare({
             })
           }
         >
-          <MessageCircle className="w-4 h-4" />
-          WhatsApp
+          <MessageCircle className="w-4 h-4 shrink-0" />
+          <span className="truncate">WhatsApp</span>
         </Button>
         <Button
           type="button"
@@ -104,8 +107,8 @@ export function HomeCareShare({
             })
           }
         >
-          <Mail className="w-4 h-4" />
-          Email
+          <Mail className="w-4 h-4 shrink-0" />
+          <span className="truncate">Email</span>
         </Button>
         <Button
           type="button"
@@ -120,8 +123,8 @@ export function HomeCareShare({
             })
           }
         >
-          <Copy className="w-4 h-4" />
-          {t("homeCareCopy")}
+          <Copy className="w-4 h-4 shrink-0" />
+          <span className="truncate">{t("homeCareCopy")}</span>
         </Button>
       </div>
     </div>
