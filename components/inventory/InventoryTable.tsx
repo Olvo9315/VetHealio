@@ -411,6 +411,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSaved={(i) => { handleSaved(i); setDetailOpen(true); }}
+        onOpenExisting={(id) => { const found = items.find((i) => i.id === id); if (found) openDetail(found); }}
       />
 
       {/* Edit dialog */}

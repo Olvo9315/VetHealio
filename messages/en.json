@@ -728,7 +728,14 @@
     "noMovements": "No movements yet",
     "move_RECEIPT": "Received",
     "move_SALE": "Sale / use",
-    "move_ADJUST": "Manual adjustment"
+    "move_ADJUST": "Manual adjustment",
+    "suggestInStock": "In stock: {qty} {unit}",
+    "suggestPrescribed": "Prescribed before",
+    "suggestSold": "Sold before",
+    "suggestExists": "This product is already in stock ({qty} {unit}). To add units use «Receive delivery» or open the item; creating it again would duplicate it.",
+    "suggestOpenExisting": "Open the existing item",
+    "barcode": "National code / barcode",
+    "barcodePlaceholder": "CN or barcode"
   },
   "settings": {
     "title": "Settings",

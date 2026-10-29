@@ -18,6 +18,8 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  // Signed in as someone who no longer exists: end that session and ask to sign in again
+  if (!(await getActor())) redirect("/api/session-ended");
 
   const user = session.user as { id: string; role: Role };
   let showStaff = user.role === "ADMIN";

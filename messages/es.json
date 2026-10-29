@@ -728,7 +728,14 @@
     "noMovements": "Sin movimientos todavía",
     "move_RECEIPT": "Entrada",
     "move_SALE": "Venta / uso",
-    "move_ADJUST": "Ajuste manual"
+    "move_ADJUST": "Ajuste manual",
+    "suggestInStock": "En el almacén: {qty} {unit}",
+    "suggestPrescribed": "Recetado antes",
+    "suggestSold": "Vendido antes",
+    "suggestExists": "Este producto ya está en el almacén ({qty} {unit}). Para sumar unidades usa «Recibir pedido» o abre el artículo; crearlo de nuevo lo duplicaría.",
+    "suggestOpenExisting": "Abrir el artículo existente",
+    "barcode": "Código nacional / barras",
+    "barcodePlaceholder": "CN o código de barras"
   },
   "settings": {
     "title": "Ajustes",

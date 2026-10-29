@@ -374,3 +374,63 @@ export async function getItemTrace(itemId: string) {
     movements: movements.map((m) => ({ ...m, user: m.user?.name ?? null, invoiceNumber: m.invoice?.number ?? null })) as StockMovementRow[],
   };
 }
+
+export type ItemSuggestion = {
+  // stock: already an item here · rx: prescribed before · bill: sold on a bill before
+  source: "stock" | "rx" | "bill";
+  id?: string;
+  name: string;
+  category?: string;
+  unit?: string;
+  quantity?: number;
+  unitCost?: number | null;
+  salePrice?: number | null;
+  taxRate?: number | null;
+  supplier?: string | null;
+  barcode?: string | null;
+  detail?: string | null;
+};
+
+// While a new stock item's name is typed: what the clinic already has in stock (to avoid a
+// duplicate, or copy its data), medicines prescribed before (name, CN) and products sold on bills
+// (name, price with VAT, VAT)
+export async function suggestInventoryItems(query: string): Promise<ItemSuggestion[]> {
+  await requireUserId();
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const [stock, rx, bills] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { OR: [{ name: { contains: q, mode: "insensitive" } }, { barcode: { contains: q } }] },
+      orderBy: { name: "asc" },
+      take: 6,
+      select: { id: true, name: true, category: true, unit: true, quantity: true, unitCost: true, salePrice: true, taxRate: true, supplier: true, barcode: true },
+    }),
+    prisma.prescriptionItem.findMany({
+      where: { OR: [{ medicationName: { contains: q, mode: "insensitive" } }, { nationalCode: { contains: q } }] },
+      orderBy: { prescription: { createdAt: "desc" } },
+      take: 20,
+      select: { medicationName: true, nationalCode: true, activeIngredient: true, units: true },
+    }),
+    prisma.invoiceItem.findMany({
+      where: { description: { contains: q, mode: "insensitive" }, type: "MEDICATION", inventoryItemId: null },
+      orderBy: { invoice: { createdAt: "desc" } },
+      take: 20,
+      select: { description: true, unitPrice: true, taxRate: true },
+    }),
+  ]);
+  const seen = new Set(stock.map((s) => s.name.trim().toLowerCase()));
+  const out: ItemSuggestion[] = stock.map((s) => ({ source: "stock" as const, ...s }));
+  for (const r of rx) {
+    const key = r.medicationName.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ source: "rx", name: r.medicationName, category: "Medicamentos", barcode: r.nationalCode, detail: [r.activeIngredient, r.units].filter(Boolean).join(" · ") || null });
+  }
+  for (const b of bills) {
+    const key = b.description.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ source: "bill", name: b.description, salePrice: b.unitPrice, taxRate: b.taxRate });
+  }
+  return out.slice(0, 10);
+}
