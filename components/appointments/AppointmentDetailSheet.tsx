@@ -418,10 +418,10 @@ export function AppointmentDetailSheet({
         </div>
 
         {/* Actions: documents and create buttons (desktop here; on a phone at the end of the details,
-            so they don't cover the screen), then edit / delete */}
+            so they don't cover the screen), then edit and delete one above the other */}
         <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
           <div className="hidden md:block space-y-2">{visitActions}</div>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+          <div className="space-y-2">
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
             {t("edit")}
