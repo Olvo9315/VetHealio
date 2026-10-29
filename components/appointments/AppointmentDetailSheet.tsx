@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { format, differenceInMinutes } from "date-fns";
 import { useDateLocale } from "@/lib/date-locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
@@ -40,11 +40,14 @@ import {
   Pill,
   Stethoscope,
 } from "lucide-react";
-import { cn, formatAppointmentId } from "@/lib/utils";
+import { cn, formatAppointmentId, formatEstimateId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import type { ServiceFlat } from "@/lib/actions/services";
 import { servicePath } from "@/lib/service-path";
 import { EstimateDialog } from "@/components/estimates/EstimateDialog";
+import { getAppointmentEstimates, type EstimateFull } from "@/lib/actions/estimates";
+import { estimateState, ESTIMATE_STATE_STYLE } from "@/lib/estimates";
+import { formatEur } from "@/lib/format";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -83,6 +86,17 @@ export function AppointmentDetailSheet({
   const [isDeleting, startDelete] = useTransition();
   // Presupuesto for this visit (e.g. a surgery to plan): written right here
   const [estimateOpen, setEstimateOpen] = useState(false);
+  const [estimates, setEstimates] = useState<EstimateFull[]>([]);
+  const [editingEstimate, setEditingEstimate] = useState<EstimateFull | null>(null);
+  const te = useTranslations("estimates");
+
+  useEffect(() => {
+    if (open && canInvoice) getAppointmentEstimates(appointment.id).then(setEstimates);
+  }, [open, appointment.id, canInvoice]);
+
+  function estimateSaved(e: EstimateFull) {
+    setEstimates((prev) => (prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [e, ...prev]));
+  }
 
   const typeCfg = getTypeCfgForAppointment(appointment);
   const stCfg = statusConfig[appointment.status];
@@ -275,6 +289,23 @@ export function AppointmentDetailSheet({
               {t("createInvoice")}
             </Button>
           )}
+          {/* This visit's presupuestos: opened again from here */}
+          {canInvoice && estimates.map((e) => {
+            const state = estimateState(e);
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => { onOpenChange(false); setEditingEstimate(e); }}
+                className="w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/40"
+              >
+                <FileText className="w-4 h-4 text-sky-600 shrink-0" />
+                <span className="flex-1 min-w-0 truncate" title={te("estimate")}><span className="font-mono text-xs">{formatEstimateId(e.number)}</span> · {e.title}</span>
+                <span className="font-medium shrink-0">{formatEur(e.total)}</span>
+                <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full font-medium shrink-0", ESTIMATE_STATE_STYLE[state])}>{te(`state_${state}`)}</span>
+              </button>
+            );
+          })}
           {canInvoice && (
             <Button className="w-full" variant="outline" onClick={() => { onOpenChange(false); setEstimateOpen(true); }}>
               <FileText className="w-4 h-4 mr-2" />
@@ -314,10 +345,13 @@ export function AppointmentDetailSheet({
       </SheetContent>
     </Sheet>
     {/* Like the bill, prescription and record: the menu closes and the form opens on its own */}
-    {estimateOpen && (
+    {(estimateOpen || editingEstimate) && (
       <EstimateDialog
         open
-        onOpenChange={setEstimateOpen}
+        onOpenChange={(v) => { if (!v) { setEstimateOpen(false); setEditingEstimate(null); } }}
+        estimate={editingEstimate ?? undefined}
+        onSaved={estimateSaved}
+        onDeleted={(id) => setEstimates((prev) => prev.filter((x) => x.id !== id))}
         petId={appointment.petId}
         petName={appointment.pet.name}
         appointmentId={appointment.id}

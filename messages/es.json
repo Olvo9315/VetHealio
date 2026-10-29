@@ -1743,6 +1743,8 @@
     "filter_open": "Pendientes",
     "filter_all": "Todos",
     "newFromPatient": "Los presupuestos nuevos se crean desde la ficha del paciente o la cita.",
-    "empty": "No hay presupuestos"
+    "empty": "No hay presupuestos",
+    "savedShare": "Presupuesto guardado. Ahora puedes imprimirlo o enviarlo al dueño.",
+    "shareNow": "{number} guardado: entrégalo al dueño"
   }
 }

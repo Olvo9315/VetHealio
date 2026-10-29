@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { addDays, format } from "date-fns";
 import { toast } from "sonner";
@@ -99,10 +99,14 @@ export function EstimateDialog({
   const [quickAddRow, setQuickAddRow] = useState<string | null>(null);
   const [lang, setLang] = useState<string>(LANGS.includes(uiLocale as never) ? uiLocale : "es");
   const [busy, startBusy] = useTransition();
+  // Just written: the dialog stays open and points at printing / sending it to the owner
+  const [justCreated, setJustCreated] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setCurrent(estimate);
+    setJustCreated(false);
     setErrors({});
     setProductOpen(false);
     setTitle(estimate?.title ?? presetTitle ?? "");
@@ -180,10 +184,16 @@ export function EstimateDialog({
         items: lines.map(({ description, quantity, unitPrice, taxRate, type, serviceId, inventoryItemId }) => ({ description, quantity, unitPrice, taxRate, type, serviceId, inventoryItemId })),
       });
       if ("error" in r) { toast.error(t("errorSave")); return; }
+      const isNew = !current;
       setCurrent(r.estimate);
       onSaved?.(r.estimate);
       if (after) after(r.estimate);
-      else { toast.success(t("saved")); onOpenChange(false); }
+      else if (isNew) {
+        // A new estimate is for the owner: offer to print or send it right away instead of closing
+        setJustCreated(true);
+        toast.success(t("savedShare"));
+        setTimeout(() => shareRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+      } else { toast.success(t("saved")); onOpenChange(false); }
     });
   }
 
@@ -335,9 +345,11 @@ export function EstimateDialog({
             </div>
 
             {/* Give it to the owner */}
-            <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2">
+            <div ref={shareRef} className={cn("rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2 transition-shadow", justCreated && "ring-2 ring-primary/60 shadow-md")}>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground flex-1 min-w-0">{t("shareHint")}</p>
+                <p className={cn("flex-1 min-w-0", justCreated ? "text-sm font-medium text-primary" : "text-xs text-muted-foreground")}>
+                  {justCreated && current ? t("shareNow", { number: formatEstimateId(current.number) }) : t("shareHint")}
+                </p>
                 {busy && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
                 <div className="flex rounded-md border bg-background p-0.5">
                   {LANGS.map((l) => (
@@ -347,7 +359,7 @@ export function EstimateDialog({
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 [&>button]:min-w-0">
+              <div className="grid grid-cols-3 gap-2 [&>button]:min-w-0 max-sm:[&>button]:h-auto max-sm:[&>button]:flex-col max-sm:[&>button]:gap-0.5 max-sm:[&>button]:py-1.5 max-sm:[&>button]:text-xs max-sm:[&_span]:whitespace-normal max-sm:[&_span]:text-center max-sm:[&_span]:leading-tight">
                 <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy} onClick={print}><Printer className="w-4 h-4 shrink-0" /><span className="truncate">{t("print")}</span></Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy} onClick={() => share("whatsapp")}><MessageCircle className="w-4 h-4 shrink-0" /><span className="truncate">WhatsApp</span></Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy} onClick={() => share("email")}><Mail className="w-4 h-4 shrink-0" /><span className="truncate">Email</span></Button>
@@ -389,7 +401,7 @@ export function EstimateDialog({
                   <Trash2 className="w-4 h-4" />
                 </Button>
               )}
-              <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>{readOnly ? t("close") : tc("cancel")}</Button>
+              <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>{readOnly || justCreated ? t("close") : tc("cancel")}</Button>
               {!readOnly && (
                 <Button type="button" className="flex-1" disabled={busy} onClick={() => save()}>
                   {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

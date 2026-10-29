@@ -1743,6 +1743,8 @@
     "filter_open": "Pending",
     "filter_all": "All",
     "newFromPatient": "New estimates are written from the patient's page or the appointment.",
-    "empty": "No estimates"
+    "empty": "No estimates",
+    "savedShare": "Estimate saved. You can now print it or send it to the owner.",
+    "shareNow": "{number} saved: give it to the owner"
   }
 }

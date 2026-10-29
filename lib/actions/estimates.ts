@@ -61,6 +61,12 @@ export type EstimateFull = {
   createdBy: { name: string | null } | null;
 };
 
+// Estimates written for one visit (shown in its menu, so they are found again)
+export async function getAppointmentEstimates(appointmentId: string): Promise<EstimateFull[]> {
+  await requireUserId();
+  return prisma.estimate.findMany({ where: { appointmentId }, include, orderBy: { createdAt: "desc" } }) as unknown as Promise<EstimateFull[]>;
+}
+
 export async function getPetEstimates(petId: string): Promise<EstimateFull[]> {
   await requireUserId();
   return prisma.estimate.findMany({ where: { petId }, include, orderBy: { createdAt: "desc" } }) as unknown as Promise<EstimateFull[]>;
