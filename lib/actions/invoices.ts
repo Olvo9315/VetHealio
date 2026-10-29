@@ -8,8 +8,12 @@ import { Prisma } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { getDateLocale } from "@/lib/date-locale";
 import { getServiceRelationLocalizer } from "@/lib/service-i18n";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, requireUserId } from "@/lib/permissions";
+import { getClinic } from "@/lib/clinic";
+import { cents } from "@/lib/format";
+import { syncInvoiceStock } from "@/lib/stock";
 import type {
+  InvoiceKind,
   InvoiceStatus,
   PaymentMethod,
   InvoiceItemType,
@@ -24,6 +28,7 @@ export type InvoiceFull = {
   number: number;
   status: InvoiceStatus;
   totalAmount: number;
+  paidAmount: number;
   paymentMethod: PaymentMethod | null;
   paidAt: Date | null;
   createdAt: Date;
@@ -31,8 +36,34 @@ export type InvoiceFull = {
   pet: {
     name: string;
     species: Species;
-    owner: { firstName: string; lastName: string; phone: string };
+    owner: { id: string; firstName: string; lastName: string; phone: string; email: string | null; nif: string | null; address: string | null; postalCode: string | null };
   };
+  payments: {
+    id: string;
+    amount: number;
+    method: PaymentMethod;
+    paidAt: Date;
+    note: string | null;
+    receivedBy: { name: string } | null;
+    voidedAt: Date | null;
+    voidReason: string | null;
+    voidedBy: { name: string } | null;
+  }[];
+  // Fiscal documents issued for this bill (ticket, full invoice, rectifying), oldest first
+  documents: {
+    id: string;
+    kind: InvoiceKind;
+    series: string;
+    year: number;
+    number: number;
+    issuedAt: Date;
+    total: number;
+    customerName: string;
+    customerNif: string | null;
+    replacesId: string | null;
+    // Already handed to the tax adviser
+    exportId: string | null;
+  }[];
   appointmentId: string | null;
   appointment: {
     id: string;
@@ -53,8 +84,10 @@ export type InvoiceFull = {
     unitPrice: number;
     total: number;
     type: InvoiceItemType | null;
+    taxRate: number;
     serviceId: string | null;
     service: { name: string } | null;
+    inventoryItemId: string | null;
   }[];
 };
 
@@ -84,6 +117,8 @@ const invoiceItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.coerce.number().int().positive(),
   unitPrice: z.coerce.number().positive(),
+  taxRate: z.coerce.number().min(0).max(30).optional(),
+  inventoryItemId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
   type: z.nativeEnum({ CONSULTATION: "CONSULTATION", MEDICATION: "MEDICATION", SERVICE: "SERVICE", OTHER: "OTHER" } as Record<InvoiceItemType, InvoiceItemType>).optional(),
   serviceId: z.string().cuid().nullable().optional().transform((v) => v ?? null),
 });
@@ -98,8 +133,8 @@ const directInvoiceSchema = z.object({
   items: z.array(invoiceItemSchema).min(1),
 });
 
-export type InvoiceFormData = z.infer<typeof invoiceSchema>;
-export type DirectInvoiceFormData = z.infer<typeof directInvoiceSchema>;
+export type InvoiceFormData = z.input<typeof invoiceSchema>;
+export type DirectInvoiceFormData = z.input<typeof directInvoiceSchema>;
 
 // ---- Include helper ----
 
@@ -108,8 +143,38 @@ const fullInclude = {
     select: {
       name: true,
       species: true,
-      owner: { select: { firstName: true, lastName: true, phone: true } },
+      owner: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, nif: true, address: true, postalCode: true } },
     },
+  },
+  payments: {
+    select: {
+      id: true,
+      amount: true,
+      method: true,
+      paidAt: true,
+      note: true,
+      receivedBy: { select: { name: true } },
+      voidedAt: true,
+      voidReason: true,
+      voidedBy: { select: { name: true } },
+    },
+    orderBy: { paidAt: "asc" as const },
+  },
+  documents: {
+    select: {
+      id: true,
+      kind: true,
+      series: true,
+      year: true,
+      number: true,
+      issuedAt: true,
+      total: true,
+      customerName: true,
+      customerNif: true,
+      replacesId: true,
+      exportId: true,
+    },
+    orderBy: { issuedAt: "asc" as const },
   },
   appointment: {
     select: {
@@ -135,8 +200,10 @@ const fullInclude = {
       unitPrice: true,
       total: true,
       type: true,
+      taxRate: true,
       serviceId: true,
       service: { select: { name: true, translations: true } },
+      inventoryItemId: true,
     },
   },
 } as const;
@@ -188,26 +255,28 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
-  const [paidThisMonth, pending, countThisMonth] = await Promise.all([
-    prisma.invoice.aggregate({
-      where: { status: "PAID", paidAt: { gte: monthStart, lte: monthEnd } },
-      _sum: { totalAmount: true },
-      _count: true,
+  const [received, pending, countThisMonth, paidThisMonth] = await Promise.all([
+    // Money actually received this month (partial payments included)
+    prisma.payment.aggregate({
+      where: { paidAt: { gte: monthStart, lte: monthEnd }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
+      _sum: { amount: true },
     }),
     prisma.invoice.aggregate({
       where: { status: "PENDING" },
-      _sum: { totalAmount: true },
+      _sum: { totalAmount: true, paidAmount: true },
     }),
     prisma.invoice.count({
       where: { createdAt: { gte: monthStart, lte: monthEnd } },
     }),
+    prisma.invoice.count({ where: { status: "PAID", paidAt: { gte: monthStart, lte: monthEnd } } }),
   ]);
 
   return {
-    revenueThisMonth: paidThisMonth._sum.totalAmount ?? 0,
-    revenuePending: pending._sum.totalAmount ?? 0,
+    revenueThisMonth: received._sum.amount ?? 0,
+    // What is still owed on unpaid bills
+    revenuePending: (pending._sum.totalAmount ?? 0) - (pending._sum.paidAmount ?? 0),
     invoicesThisMonth: countThisMonth,
-    paidThisMonth: paidThisMonth._count,
+    paidThisMonth,
   };
 }
 
@@ -216,18 +285,18 @@ export async function getRevenueChartData(days: number = 30): Promise<ChartPoint
   from.setHours(0, 0, 0, 0);
 
   const dateLocale = getDateLocale(await getLocale());
-  const invoices = await prisma.invoice.findMany({
-    where: { status: "PAID", paidAt: { gte: from } },
-    select: { paidAt: true, totalAmount: true },
+  const payments = await prisma.payment.findMany({
+    where: { paidAt: { gte: from }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
+    select: { paidAt: true, amount: true },
   });
 
   return Array.from({ length: days }, (_, i) => {
     const d = new Date(from);
     d.setDate(from.getDate() + i);
     const dateKey = format(d, "yyyy-MM-dd");
-    const amount = invoices
-      .filter((inv) => inv.paidAt && format(new Date(inv.paidAt), "yyyy-MM-dd") === dateKey)
-      .reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const amount = payments
+      .filter((p) => format(new Date(p.paidAt), "yyyy-MM-dd") === dateKey)
+      .reduce((sum, p) => sum + p.amount, 0);
     return { date: format(d, "d MMM", { locale: dateLocale }), amount };
   });
 }
@@ -285,15 +354,28 @@ export async function searchAppointmentsWithoutInvoice(
 
 // ---- Mutations ----
 
-function buildItems(items: z.infer<typeof invoiceItemSchema>[]) {
-  return items.map((item) => ({
+async function buildItems(items: z.infer<typeof invoiceItemSchema>[]) {
+  const { defaultTaxRate, pricesIncludeTax } = await getClinic();
+  return items.map((item) => {
+    const taxRate = item.taxRate ?? defaultTaxRate;
+    // Lines are stored with VAT included; a clinic that prices before VAT has it added here
+    const unitPrice = pricesIncludeTax ? item.unitPrice : cents(item.unitPrice * (1 + taxRate / 100));
+    return {
     description: item.description,
     quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: item.quantity * item.unitPrice,
+    unitPrice,
+    total: cents(item.quantity * unitPrice),
     type: item.type as InvoiceItemType | undefined,
+    taxRate,
     serviceId: item.serviceId ?? null,
-  }));
+    inventoryItemId: item.inventoryItemId ?? null,
+    };
+  });
+}
+
+// A bill with fiscal documents is closed: it is corrected with a rectifying document instead
+async function isIssued(id: string) {
+  return (await prisma.fiscalDocument.count({ where: { invoiceId: id } })) > 0;
 }
 
 export async function createInvoice(data: InvoiceFormData) {
@@ -307,18 +389,22 @@ export async function createInvoice(data: InvoiceFormData) {
   });
   if (!appointment) return { error: "appointmentNotFound" };
 
-  const items = buildItems(parsed.data.items);
-  const totalAmount = items.reduce((s, i) => s + i.total, 0);
+  const items = await buildItems(parsed.data.items);
+  const totalAmount = cents(items.reduce((s, i) => s + i.total, 0));
+  const userId = await requireUserId();
 
   try {
-    const invoice = await prisma.invoice.create({
-      data: {
-        petId: appointment.petId,
-        appointmentId: parsed.data.appointmentId,
-        totalAmount,
-        items: { create: items },
-      },
-      include: fullInclude,
+    const invoice = await prisma.$transaction(async (tx) => {
+      const created = await tx.invoice.create({
+        data: {
+          petId: appointment.petId,
+          appointmentId: parsed.data.appointmentId,
+          totalAmount,
+          items: { create: items },
+        },
+      });
+      await syncInvoiceStock(tx, created.id, items, userId);
+      return tx.invoice.findUniqueOrThrow({ where: { id: created.id }, include: fullInclude });
     });
 
     revalidatePath("/finances");
@@ -344,16 +430,16 @@ export async function createDirectInvoice(data: DirectInvoiceFormData) {
   const parsed = directInvoiceSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
-  const items = buildItems(parsed.data.items);
-  const totalAmount = items.reduce((s, i) => s + i.total, 0);
+  const items = await buildItems(parsed.data.items);
+  const totalAmount = cents(items.reduce((s, i) => s + i.total, 0));
+  const userId = await requireUserId();
 
-  const invoice = await prisma.invoice.create({
-    data: {
-      petId: parsed.data.petId,
-      totalAmount,
-      items: { create: items },
-    },
-    include: fullInclude,
+  const invoice = await prisma.$transaction(async (tx) => {
+    const created = await tx.invoice.create({
+      data: { petId: parsed.data.petId, totalAmount, items: { create: items } },
+    });
+    await syncInvoiceStock(tx, created.id, items, userId);
+    return tx.invoice.findUniqueOrThrow({ where: { id: created.id }, include: fullInclude });
   });
 
   revalidatePath("/finances");
@@ -371,50 +457,44 @@ export async function updateInvoice(id: string, data: InvoiceFormData) {
     select: { petId: true },
   });
   if (!appointment) return { error: "appointmentNotFound" };
+  if (await isIssued(id)) return { error: "invoiceIssued" as const };
 
-  await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
+  const items = await buildItems(parsed.data.items);
+  const totalAmount = cents(items.reduce((s, i) => s + i.total, 0));
+  const userId = await requireUserId();
 
-  const items = buildItems(parsed.data.items);
-  const totalAmount = items.reduce((s, i) => s + i.total, 0);
-
-  const invoice = await prisma.invoice.update({
-    where: { id },
-    data: {
-      petId: appointment.petId,
-      appointmentId: parsed.data.appointmentId,
-      totalAmount,
-      items: { create: items },
-    },
-    include: fullInclude,
+  const invoice = await prisma.$transaction(async (tx) => {
+    await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+    const current = await tx.invoice.findUniqueOrThrow({ where: { id }, select: { paidAmount: true } });
+    await tx.invoice.update({
+      where: { id },
+      data: {
+        petId: appointment.petId,
+        appointmentId: parsed.data.appointmentId,
+        totalAmount,
+        // Paid bills that grow are pending again; ones now covered by their payments are paid
+        status: current.paidAmount + 0.005 >= totalAmount ? "PAID" : "PENDING",
+        items: { create: items },
+      },
+    });
+    await syncInvoiceStock(tx, id, items, userId);
+    return tx.invoice.findUniqueOrThrow({ where: { id }, include: fullInclude });
   });
 
   revalidatePath("/finances");
   return { invoice: await localizeInvoice(invoice as unknown as InvoiceFull) };
 }
 
-export async function updateInvoiceStatus(
-  id: string,
-  status: InvoiceStatus,
-  paymentMethod?: PaymentMethod
-) {
-  await requirePermission(status === "CANCELLED" ? "invoice.void" : "invoice.write");
-  const invoice = await prisma.invoice.update({
-    where: { id },
-    data: {
-      status,
-      paymentMethod: paymentMethod ?? null,
-      paidAt: status === "PAID" ? new Date() : null,
-    },
-    include: fullInclude,
-  });
-
-  revalidatePath("/finances");
-  return localizeInvoice(invoice as unknown as InvoiceFull);
-}
-
 export async function deleteInvoice(id: string) {
   await requirePermission("invoice.void");
-  await prisma.invoice.delete({ where: { id } });
+  // Issued bills stay on record (they are cancelled with a rectifying document)
+  if (await isIssued(id)) return { error: "invoiceIssued" as const };
+  const userId = await requireUserId();
+  await prisma.$transaction(async (tx) => {
+    await syncInvoiceStock(tx, id, [], userId);
+    await tx.invoice.delete({ where: { id } });
+  });
   revalidatePath("/finances");
+  revalidatePath("/inventory");
   return { success: true };
 }

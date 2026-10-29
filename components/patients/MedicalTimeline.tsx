@@ -5,6 +5,7 @@ import { FileText, Thermometer, Heart, Weight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { RecordPrescriptions, type RecordPrescription } from "@/components/medical-records/RecordPrescriptions";
+import { HomeCareShare } from "@/components/medical-records/HomeCareShare";
 
 interface MedicalRecord {
   id: string;
@@ -16,6 +17,8 @@ interface MedicalRecord {
   temperature: number | null;
   heartRate: number | null;
   notes: string | null;
+  presumptiveDiagnosis?: string | null;
+  homeCare?: string | null;
   createdAt: Date;
   veterinarian: { name: string };
   prescriptions: RecordPrescription[];
@@ -97,6 +100,14 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
             )}
 
             {/* Diagnosis & treatment */}
+            {!record.diagnosis && record.presumptiveDiagnosis && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
+                  {t("presumptiveDiagnosis")}
+                </p>
+                <p className="text-sm">{record.presumptiveDiagnosis}</p>
+              </div>
+            )}
             {record.diagnosis && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
@@ -124,11 +135,25 @@ export function MedicalTimeline({ records, onEdit }: MedicalTimelineProps) {
               </div>
             )}
 
+            {record.homeCare && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">
+                  {t("homeCare")}
+                </p>
+                <p className="text-sm whitespace-pre-line">{record.homeCare}</p>
+              </div>
+            )}
+
             {record.notes && (
               <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-1">
                 {record.notes}
               </p>
             )}
+
+            {/* Sending is its own action, not "edit this record" */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <HomeCareShare recordId={record.id} />
+            </div>
           </div>
         </div>
       ))}

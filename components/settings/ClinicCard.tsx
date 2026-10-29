@@ -42,6 +42,7 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
     website: clinic.website ?? "",
     iban: clinic.iban ?? "",
     defaultTaxRate: String(clinic.defaultTaxRate),
+    pricesIncludeTax: String(clinic.pricesIncludeTax),
     invoiceFooter: clinic.invoiceFooter ?? "",
     dataLocale: clinic.dataLocale,
   };
@@ -214,6 +215,19 @@ export function ClinicCard({ clinic }: ClinicCardProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">{field("iban", t("iban"), { placeholder: "ES00 0000 0000 0000 0000 0000" })}</div>
             {field("defaultTaxRate", t("defaultTaxRate"), { type: "number", step: "0.1", min: 0, max: 100 })}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="clinic-pricesIncludeTax">{t("pricesIncludeTax")}</Label>
+            <select
+              id="clinic-pricesIncludeTax"
+              name="pricesIncludeTax"
+              defaultValue={clinic.pricesIncludeTax ? "true" : "false"}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="true">{t("pricesWithTax")}</option>
+              <option value="false">{t("pricesWithoutTax")}</option>
+            </select>
+            <p className="text-xs text-muted-foreground">{t("pricesIncludeTaxHint")}</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="clinic-invoiceFooter">{t("invoiceFooter")}</Label>

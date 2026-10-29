@@ -15,7 +15,7 @@ import { format, parse, startOfWeek, getDay, addMonths, addWeeks, addDays, start
 import { useDateLocale } from "@/lib/date-locale";
 import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
 import type { AppointmentFull, CalendarLeave } from "@/lib/actions/appointments";
-import { updateAppointmentTime } from "@/lib/actions/appointments";
+import { getAppointmentById, updateAppointmentTime } from "@/lib/actions/appointments";
 import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig, cfgLabel } from "./AppointmentConfig";
 import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
@@ -26,7 +26,7 @@ import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
 import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
 import { VisitMedicalRecordDialog } from "@/components/medical-records/VisitMedicalRecordDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Room } from "@/lib/actions/rooms";
@@ -168,6 +168,12 @@ function AppointmentCard({
           <p className="text-xs opacity-70 leading-tight" style={{ color: typeCfg.color }}>
             {apt.title}
           </p>
+          {apt.presvetPending && (
+            <p className="text-[11px] leading-tight text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+              <ShieldAlert className="w-3 h-3" />
+              {t("presvetPending")}
+            </p>
+          )}
           {!!apt.extraServices?.length && (
             <p className="text-[11px] leading-tight text-muted-foreground mt-0.5">
               + {apt.extraServices.map((s) => serviceLabel(s.id, s.name)).join(", ")}
@@ -859,6 +865,12 @@ export function AppointmentsCalendar({
     setEditDialogOpen(true);
   }
 
+  // A prescription or record changed: reload that appointment (e.g. its PRESVET icon)
+  async function refreshAppointment(id: string) {
+    const fresh = await getAppointmentById(id);
+    if (fresh) setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, presvetPending: fresh.presvetPending } : a)));
+  }
+
   function handleCreatePrescriptionFromDetail() {
     if (!selectedAppointment) return;
     setPrescriptionApt(selectedAppointment);
@@ -958,6 +970,7 @@ export function AppointmentsCalendar({
                 {isMonthView ? (
                   <div className="flex items-center gap-1 overflow-hidden">
                     {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                     <span className="truncate font-semibold text-xs leading-none">{apt.pet.name}</span>
                   </div>
                 ) : (
@@ -966,6 +979,7 @@ export function AppointmentsCalendar({
                     <div className="min-w-0 flex-1 flex flex-col gap-px">
                       <div className="flex items-center gap-1 overflow-hidden">
                         {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                         <span className="font-semibold text-[11px] leading-tight truncate">{apt.pet.name}</span>
                       </div>
                       <span className="text-[10px] leading-tight truncate opacity-80">{apt.veterinarian.name}</span>
@@ -988,6 +1002,7 @@ export function AppointmentsCalendar({
                   <div className="h-full flex flex-col justify-start gap-px overflow-hidden">
                     <div className="flex items-center gap-1 overflow-hidden">
                       {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                       <span className="font-semibold text-[11px] leading-tight truncate">
                         {apt.pet.name}
                       </span>
@@ -1278,6 +1293,8 @@ export function AppointmentsCalendar({
           <DnDCalendar
             localizer={localizer}
             events={calendarEvents}
+            // No browser tooltip on events: hovering already shows the appointment card
+            tooltipAccessor={null}
             view={view}
             date={date}
             onNavigate={setDate}
@@ -1388,7 +1405,13 @@ export function AppointmentsCalendar({
         />
 
         {/* Medical record of the appointment */}
-        <VisitMedicalRecordDialog appointmentId={recordVisitId} onClose={() => setRecordVisitId(null)} onDeleted={() => {}} />
+        <VisitMedicalRecordDialog
+          appointmentId={recordVisitId}
+          onClose={() => setRecordVisitId(null)}
+          onDeleted={() => {}}
+          onSaved={() => recordVisitId && refreshAppointment(recordVisitId)}
+          onPrescriptionsChanged={() => recordVisitId && refreshAppointment(recordVisitId)}
+        />
 
         {/* Prescription Dialog (from appointment) */}
         {prescriptionDialogOpen && prescriptionApt && (
@@ -1400,7 +1423,7 @@ export function AppointmentsCalendar({
             veterinarianId={prescriptionApt.veterinarianId}
             appointmentId={prescriptionApt.id}
             appointmentTitle={prescriptionApt.title}
-            onSaved={() => { setPrescriptionDialogOpen(false); }}
+            onSaved={() => { setPrescriptionDialogOpen(false); refreshAppointment(prescriptionApt.id); }}
           />
         )}
       </div>

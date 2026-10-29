@@ -37,6 +37,7 @@ const clinicSchema = z.object({
     .refine((v) => v === "" || /^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(v), "invalidIban")
     .optional(),
   defaultTaxRate: z.coerce.number().min(0).max(100),
+  pricesIncludeTax: z.enum(["true", "false"]).transform((v) => v === "true"),
   dataLocale: z.enum(["es", "ru", "en"]),
   invoiceFooter: optional(500),
 });
@@ -54,7 +55,7 @@ export async function updateClinicSettings(data: ClinicFormData) {
   const parsed = clinicSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
-  const { name, country, defaultTaxRate, dataLocale, ...rest } = parsed.data;
+  const { name, country, defaultTaxRate, pricesIncludeTax, dataLocale, ...rest } = parsed.data;
   const nullable = Object.fromEntries(
     Object.entries(rest).map(([k, v]) => [k, v ? v : null])
   );
@@ -62,8 +63,8 @@ export async function updateClinicSettings(data: ClinicFormData) {
   const previous = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { dataLocale: true } });
   await prisma.clinicSettings.upsert({
     where: { id: "default" },
-    create: { id: "default", name, country, defaultTaxRate, dataLocale, ...nullable },
-    update: { name, country, defaultTaxRate, dataLocale, ...nullable },
+    create: { id: "default", name, country, defaultTaxRate, pricesIncludeTax, dataLocale, ...nullable },
+    update: { name, country, defaultTaxRate, pricesIncludeTax, dataLocale, ...nullable },
   });
   if (previous && previous.dataLocale !== dataLocale) {
     await switchServiceLanguage(previous.dataLocale, dataLocale);

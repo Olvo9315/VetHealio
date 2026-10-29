@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Bell,
 } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
@@ -34,6 +35,7 @@ const baseNavItems = [
   { href: "/patients", icon: PawPrint, key: "patients" },
   { href: "/appointments", icon: Calendar, key: "appointments" },
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
+  { href: "/reminders", icon: Bell, key: "reminders" },
   { href: "/finances", icon: DollarSign, key: "finances" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/services", icon: Scissors, key: "services" },
@@ -60,7 +62,7 @@ export function Sidebar({ showStaff, hiddenRoutes = [], clinic }: SidebarProps) 
     <TooltipProvider delay={0}>
       <aside
         className={cn(
-          "hidden md:flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
+          "hidden md:flex print:!hidden flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
           collapsed ? "w-16" : "w-60"
         )}
       >

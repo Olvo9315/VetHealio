@@ -32,6 +32,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
   const [postalCode, setPostalCode] = useState(owner.postalCode ?? "");
   const [address, setAddress] = useState(owner.address ?? "");
   const [notes, setNotes] = useState(owner.notes ?? "");
+  const [nif, setNif] = useState(owner.nif ?? "");
 
   useEffect(() => {
     if (open) {
@@ -43,6 +44,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
       setPostalCode(owner.postalCode ?? "");
       setAddress(owner.address ?? "");
       setNotes(owner.notes ?? "");
+      setNif(owner.nif ?? "");
     }
   }, [open, owner]);
 
@@ -59,6 +61,7 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
         postalCode: postalCode.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
+        nif: nif.trim(),
       });
       if ("error" in result) {
         toast.error(t("errorUpdateOwner"));
@@ -139,6 +142,11 @@ export function EditOwnerDialog({ owner, open, onOpenChange }: EditOwnerDialogPr
                 onChange={(e) => setPostalCode(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="ownerNif">{t("nif")}</Label>
+            <Input id="ownerNif" className="uppercase" value={nif} onChange={(e) => setNif(e.target.value)} placeholder="12345678Z" />
           </div>
 
           <div className="space-y-1">

@@ -10,7 +10,7 @@ import type { ServiceFlat } from "@/lib/actions/services";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { AppointmentDialog } from "./AppointmentDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertTriangle, Stethoscope, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/lib/actions/rooms";
 import type { CalendarLeave } from "@/lib/actions/appointments";
@@ -237,6 +237,7 @@ export function MobileAppointmentList({ initialAppointments, vets, services, roo
                     >
                       {apt.pet.name}
                     </span>
+                    {apt.presvetPending && <ShieldAlert className="inline w-3.5 h-3.5 ml-1 text-amber-600" aria-label={t("presvetPending")} />}
                   </p>
                   {/* Full "Category › Sub-service" (wraps instead of being cut off) */}
                   <p className="text-xs text-foreground/80 leading-snug">

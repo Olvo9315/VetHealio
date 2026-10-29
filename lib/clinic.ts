@@ -18,6 +18,8 @@ export type ClinicInfo = {
   logoUrl: string | null;
   iban: string | null;
   defaultTaxRate: number;
+  // Prices are entered with VAT included (true) or before VAT (false)
+  pricesIncludeTax: boolean;
   invoiceFooter: string | null;
   dataLocale: "es" | "ru" | "en";
 };
@@ -46,6 +48,7 @@ export const getClinic = cache(async (): Promise<ClinicInfo> => {
     logoUrl: s.logoKey ? `${fileUrl(s.logoKey)}?v=${s.updatedAt.getTime()}` : null,
     iban: s.iban,
     defaultTaxRate: s.defaultTaxRate,
+    pricesIncludeTax: s.pricesIncludeTax,
     invoiceFooter: s.invoiceFooter,
     dataLocale: (["es", "ru", "en"].includes(s.dataLocale) ? s.dataLocale : "es") as ClinicInfo["dataLocale"],
   };

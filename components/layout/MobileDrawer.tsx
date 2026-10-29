@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { FileText, Package, Scissors, Settings, X, LogOut, Users } from "lucide-react";
+import { FileText, Package, Scissors, Settings, X, LogOut, Users, Bell } from "lucide-react";
 import { ClinicMark, type ClinicBrand } from "@/components/layout/ClinicMark";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 
 const extraNav = [
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
+  { href: "/reminders", icon: Bell, key: "reminders" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/services", icon: Scissors, key: "services" },
   { href: "/settings", icon: Settings, key: "settings" },
@@ -49,7 +50,7 @@ export function MobileDrawer({ open, onClose, showStaff, hiddenRoutes = [], clin
       {/* Backdrop */}
       <div
         className={cn(
-          "md:hidden fixed inset-0 z-40 bg-black/40 transition-opacity duration-300",
+          "md:hidden print:hidden fixed inset-0 z-40 bg-black/40 transition-opacity duration-300",
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={onClose}
@@ -59,7 +60,7 @@ export function MobileDrawer({ open, onClose, showStaff, hiddenRoutes = [], clin
       {/* Drawer panel */}
       <div
         className={cn(
-          "md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl",
+          "md:hidden print:hidden fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl",
           "transition-transform duration-300 ease-out safe-area-bottom",
           open ? "translate-y-0" : "translate-y-full"
         )}

@@ -38,11 +38,11 @@ export default async function DashboardLayout({
   return (
     <PermissionsProvider permissions={permissions}>
     {/* Phones scroll the whole page (not an inner box) so the browser can tuck its address bar away */}
-    <div className="flex min-h-dvh md:h-screen md:overflow-hidden bg-background">
+    <div className="flex min-h-dvh md:h-screen md:overflow-hidden bg-background print:block print:h-auto print:min-h-0 print:overflow-visible">
       <Sidebar showStaff={showStaff} hiddenRoutes={hiddenRoutes} clinic={clinic} />
-      <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden print:block print:overflow-visible">
         {process.env.STAGING_DATABASE_URL && <StagingBanner />}
-        <main className="flex-1 md:overflow-y-auto pb-16 md:pb-0 vh-main">
+        <main className="flex-1 md:overflow-y-auto pb-16 md:pb-0 vh-main print:overflow-visible print:pb-0">
           {children}
         </main>
       </div>

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { createPrescription, updatePrescription, deletePrescription } from "@/lib/actions/prescriptions";
+import { getVeterinarians } from "@/lib/actions/appointments";
 import { DeleteButton } from "@/components/common/DeleteButton";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import type { PrescriptionFull, PrescriptionItemData } from "@/lib/actions/prescriptions";
@@ -11,9 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Plus, Trash2, Pill } from "lucide-react";
+import { Loader2, Plus, Trash2, Pill, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PresvetFields } from "./PresvetFields";
+import { MedicationInput } from "./MedicationInput";
+import { isAntibioticIngredient } from "@/lib/presvet";
 
 interface PrescriptionDialogProps {
   open: boolean;
@@ -23,6 +27,8 @@ interface PrescriptionDialogProps {
   veterinarianId?: string;
   appointmentId?: string;
   appointmentTitle?: string;
+  // Written from a medical record: belongs to it
+  medicalRecordId?: string;
   record?: PrescriptionFull;
   onSaved: (p: PrescriptionFull) => void;
   onDeleted?: (id: string) => void;
@@ -53,6 +59,7 @@ export function PrescriptionDialog({
   veterinarianId,
   appointmentId,
   appointmentTitle,
+  medicalRecordId,
   record,
   onSaved,
   onDeleted,
@@ -65,6 +72,10 @@ export function PrescriptionDialog({
   const isEdit = !!record;
 
   const [notes, setNotes] = useState(record?.notes ?? "");
+  // Prescribing vet (required on the prescription and for PRESVET)
+  const [vetId, setVetId] = useState(record?.veterinarianId ?? veterinarianId ?? "");
+  const [vets, setVets] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { getVeterinarians().then(setVets); }, []);
   function mapItems(src: PrescriptionFull["items"]): ItemState[] {
     return src.length
       ? src.map((i) => ({
@@ -75,6 +86,13 @@ export function PrescriptionDialog({
           posology: i.posology,
           indications: i.indications ?? "",
           warnings: i.warnings ?? "",
+          antibiotic: i.antibiotic,
+          nationalCode: i.nationalCode ?? "",
+          route: i.route ?? "",
+          treatmentDays: i.treatmentDays ?? "",
+          packages: i.packages ?? "",
+          purpose: (i.purpose ?? "") as PrescriptionItemData["purpose"],
+          exceptional: i.exceptional,
         }))
       : [emptyItem(nextKey())];
   }
@@ -84,14 +102,27 @@ export function PrescriptionDialog({
   useEffect(() => {
     if (open) {
       setNotes(record?.notes ?? "");
+      setVetId(record?.veterinarianId ?? veterinarianId ?? "");
       setItems(mapItems(record?.items ?? []));
     }
   }, [open, record]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateItem(key: number, field: keyof PrescriptionItemData, value: string) {
     setItems((prev) =>
-      prev.map((it) => (it._key === key ? { ...it, [field]: value } : it))
+      prev.map((it) => {
+        if (it._key !== key) return it;
+        const next = { ...it, [field]: value };
+        // An antimicrobial active ingredient switches the PRESVET data on (the vet can switch it off)
+        if (field === "activeIngredient" && !it.antibiotic && isAntibioticIngredient(value) && !isAntibioticIngredient(it.activeIngredient)) {
+          next.antibiotic = true;
+        }
+        return next;
+      })
     );
+  }
+
+  function patchItem(key: number, patch: Partial<ItemState>) {
+    setItems((prev) => prev.map((it) => (it._key === key ? { ...it, ...patch } : it)));
   }
 
   function addItem() {
@@ -102,7 +133,7 @@ export function PrescriptionDialog({
     setItems((prev) => prev.filter((it) => it._key !== key));
   }
 
-  const canSave = items.length > 0 && items.every((i) => i.medicationName.trim() && i.posology.trim());
+  const canSave = !!vetId && items.length > 0 && items.every((i) => i.medicationName.trim() && i.posology.trim());
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,8 +142,9 @@ export function PrescriptionDialog({
     const data = {
       notes: notes.trim() || undefined,
       petId,
-      veterinarianId: veterinarianId || undefined,
+      veterinarianId: vetId || undefined,
       appointmentId: appointmentId || undefined,
+      medicalRecordId: medicalRecordId || undefined,
       items: items.map((i) => ({
         medicationName: i.medicationName.trim(),
         units: i.units?.trim() || undefined,
@@ -120,6 +152,13 @@ export function PrescriptionDialog({
         posology: i.posology.trim(),
         indications: i.indications?.trim() || undefined,
         warnings: i.warnings?.trim() || undefined,
+        antibiotic: !!i.antibiotic,
+        nationalCode: i.nationalCode || undefined,
+        route: i.route || undefined,
+        treatmentDays: i.treatmentDays || undefined,
+        packages: i.packages || undefined,
+        purpose: i.purpose || undefined,
+        exceptional: !!i.exceptional,
       })),
     };
 
@@ -155,6 +194,17 @@ export function PrescriptionDialog({
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-1">
+            <Label className="text-xs">{t("prescribingVet")} *</Label>
+            <select
+              className={cn("h-9 w-full rounded-md border bg-background px-2 text-sm", !vetId && "border-amber-400")}
+              value={vetId}
+              onChange={(e) => setVetId(e.target.value)}
+            >
+              <option value="">{t("chooseVet")}</option>
+              {vets.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
 
           {/* Medications */}
           <div className="space-y-3">
@@ -190,12 +240,20 @@ export function PrescriptionDialog({
                   {/* Medicamento */}
                   <div className="col-span-2 space-y-1">
                     <Label className="text-xs">{t("medicationName")} *</Label>
-                    <Input
+                    <MedicationInput
                       value={item.medicationName}
-                      onChange={(e) => updateItem(item._key, "medicationName", e.target.value)}
+                      onChange={(v) => updateItem(item._key, "medicationName", v)}
+                      onPick={(m) => patchItem(item._key, {
+                        medicationName: m.name,
+                        activeIngredient: m.activeIngredient ?? item.activeIngredient,
+                        units: m.units ?? item.units,
+                        posology: item.posology || m.posology || "",
+                        nationalCode: m.nationalCode ?? item.nationalCode,
+                        ...(m.route ? { route: m.route as ItemState["route"] } : {}),
+                        antibiotic: item.antibiotic || m.antibiotic || isAntibioticIngredient(m.activeIngredient),
+                      })}
                       placeholder={t("medicationPlaceholder")}
                       autoFocus={idx === 0}
-                      required
                     />
                   </div>
 
@@ -249,6 +307,20 @@ export function PrescriptionDialog({
                       placeholder={t("warningsPlaceholder")}
                     />
                   </div>
+
+                  <PresvetFields
+                    value={{
+                      antibiotic: item.antibiotic,
+                      nationalCode: item.nationalCode ?? "",
+                      route: item.route ?? "",
+                      treatmentDays: item.treatmentDays ?? "",
+                      packages: item.packages ?? "",
+                      purpose: item.purpose ?? "",
+                      exceptional: item.exceptional,
+                    }}
+                    suggested={isAntibioticIngredient(item.activeIngredient) || isAntibioticIngredient(item.medicationName)}
+                    onChange={(v) => patchItem(item._key, v as Partial<ItemState>)}
+                  />
                 </div>
               </div>
             ))}
@@ -291,6 +363,12 @@ export function PrescriptionDialog({
                   onOpenChange(false);
                 }}
               />
+            )}
+            {/* The saved prescription, to sign and give to the owner */}
+            {record && (
+              <Button type="button" variant="outline" size="icon" className="shrink-0" title={t("print")} onClick={() => window.open(`/print/prescription/${record.id}`, "_blank")}>
+                <Printer className="w-4 h-4" />
+              </Button>
             )}
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               {tc("cancel")}

@@ -13,9 +13,13 @@ import {
   updateMedicalRecord,
   deleteMedicalRecord,
   getMedicalRecordForAppointment,
+  getExamTemplate,
 } from "@/lib/actions/medicalRecords";
+import { ExamChecklist } from "./ExamChecklist";
+import { DEFAULT_EXAM_KEYS, examRows, type ExamRow } from "@/lib/exam";
 import type { MedicalRecordDraft } from "@/lib/actions/medicalRecords";
-import { RecordPrescriptions } from "./RecordPrescriptions";
+import { RecordRxSection } from "./RecordRxSection";
+import { HomeCareShare } from "./HomeCareShare";
 import { formatAppointmentId } from "@/lib/utils";
 import { DeleteButton } from "@/components/common/DeleteButton";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -41,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck } from "lucide-react";
+import { Search, PawPrint, Trash2, Loader2, Pill, CalendarCheck, Home, Wand2, AlertTriangle } from "lucide-react";
 
 // ---- Schema ----
 const prescriptionSchema = z.object({
@@ -63,6 +67,10 @@ const schema = z.object({
   temperature: z.coerce.number().positive().optional().or(z.literal("")),
   heartRate: z.coerce.number().int().positive().optional().or(z.literal("")),
   notes: z.string().max(1000).optional().or(z.literal("")),
+  clinicalSigns: z.string().max(2000).optional().or(z.literal("")),
+  presumptiveDiagnosis: z.string().max(500).optional().or(z.literal("")),
+  homeCare: z.string().max(4000).optional().or(z.literal("")),
+  exam: z.array(z.object({ key: z.string(), status: z.enum(["normal", "abnormal"]).nullable(), note: z.string() })).optional(),
   prescriptions: z.array(prescriptionSchema).optional(),
   appointmentId: z.string().optional().or(z.literal("")),
 });
@@ -83,6 +91,8 @@ interface MedicalRecordDialogProps {
   draft?: MedicalRecordDraft;
   // The patient's visits, to fill a new record from one of them
   appointments?: VisitOption[];
+  // A prescription was added or changed from inside the record (e.g. the calendar's PRESVET icon)
+  onPrescriptionsChanged?: () => void;
 }
 
 type VisitOption = { id: string; number: number; title: string; startTime: Date };
@@ -100,7 +110,7 @@ function inlineMedications(record: MedicalRecordFull) {
     }));
 }
 
-function valuesFromRecord(record: MedicalRecordFull): FormData {
+function valuesFromRecord(record: MedicalRecordFull, template: string[]): FormData {
   return {
     petId: record.petId,
     veterinarianId: record.veterinarianId,
@@ -112,12 +122,16 @@ function valuesFromRecord(record: MedicalRecordFull): FormData {
     temperature: record.temperature ?? "",
     heartRate: record.heartRate ?? "",
     notes: record.notes ?? "",
+    clinicalSigns: record.clinicalSigns ?? "",
+    presumptiveDiagnosis: record.presumptiveDiagnosis ?? "",
+    homeCare: record.homeCare ?? "",
+    exam: examRows(record.exam, template),
     prescriptions: inlineMedications(record),
     appointmentId: record.appointmentId ?? "",
   };
 }
 
-function valuesFromDraft(d: MedicalRecordDraft): FormData {
+function valuesFromDraft(d: MedicalRecordDraft, template: string[]): FormData {
   return {
     petId: d.petId,
     veterinarianId: d.veterinarianId,
@@ -129,9 +143,49 @@ function valuesFromDraft(d: MedicalRecordDraft): FormData {
     temperature: "",
     heartRate: "",
     notes: d.notes,
+    clinicalSigns: "",
+    presumptiveDiagnosis: "",
+    homeCare: "",
+    exam: examRows(null, template),
     prescriptions: [],
     appointmentId: d.appointmentId,
   };
+}
+
+function emptyValues(petId: string, vetId: string, template: string[]): FormData {
+  return {
+    petId,
+    veterinarianId: vetId,
+    date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    chiefComplaint: "",
+    diagnosis: "",
+    treatment: "",
+    weight: "",
+    temperature: "",
+    heartRate: "",
+    notes: "",
+    clinicalSigns: "",
+    presumptiveDiagnosis: "",
+    homeCare: "",
+    exam: examRows(null, template),
+    prescriptions: [],
+    appointmentId: "",
+  };
+}
+
+// Instructions for the owner, gathered from the treatment and the medications of the record
+function suggestHomeCare(values: FormData, record?: MedicalRecordFull) {
+  const lines: string[] = [];
+  if (values.treatment?.trim()) lines.push(values.treatment.trim());
+  for (const m of values.prescriptions ?? []) {
+    if (!m.medicationName.trim()) continue;
+    const parts = [m.dosage, m.frequency, m.duration].map((x) => x?.trim()).filter(Boolean);
+    lines.push(`• ${m.medicationName.trim()}${parts.length ? `: ${parts.join(", ")}` : ""}`);
+  }
+  for (const p of record?.prescriptions ?? []) {
+    for (const i of p.items ?? []) lines.push(`• ${i.medicationName}${i.units ? ` ${i.units}` : ""}: ${i.posology}`);
+  }
+  return Array.from(new Set(lines)).join("\n");
 }
 
 export function MedicalRecordDialog({
@@ -144,6 +198,7 @@ export function MedicalRecordDialog({
   onDeleted,
   draft,
   appointments,
+  onPrescriptionsChanged,
 }: MedicalRecordDialogProps) {
   const isEdit = !!record;
   const canDelete = useCan("medical.delete");
@@ -152,6 +207,13 @@ export function MedicalRecordDialog({
   const tv = useTranslations("validation");
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
+  const [template, setTemplate] = useState<string[]>([...DEFAULT_EXAM_KEYS]);
+  // Prescriptions written here before the record existed: linked when it is saved
+  const [linkIds, setLinkIds] = useState<string[]>([]);
+  // A new record saved from inside the dialog (to send the home-care instructions) and the last
+  // saved version, handed to the parent when the dialog closes
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const lastSaved = useRef<MedicalRecordFull | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
@@ -164,24 +226,12 @@ export function MedicalRecordDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: record
-      ? valuesFromRecord(record)
+      ? valuesFromRecord(record, template)
       : draft
-      ? valuesFromDraft(draft)
-      : {
-          petId: presetPetId ?? "",
-          veterinarianId: "",
-          date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-          chiefComplaint: "",
-          diagnosis: "",
-          treatment: "",
-          weight: "",
-          temperature: "",
-          heartRate: "",
-          notes: "",
-          prescriptions: [],
-          appointmentId: "",
-        },
+      ? valuesFromDraft(draft, template)
+      : emptyValues(presetPetId ?? "", "", template),
   });
+  const exam = (form.watch("exam") ?? []) as ExamRow[];
 
   // Medications typed in the record. Not a useFieldArray: with controlled inputs its rows were
   // re-created on every keystroke and the field lost focus after each character.
@@ -192,6 +242,12 @@ export function MedicalRecordDialog({
   // Load vets
   useEffect(() => {
     getVeterinarians().then(setVets);
+    getExamTemplate().then((keys) => {
+      setTemplate(keys);
+      // Rows of the clinic's own list, keeping anything already marked
+      form.setValue("exam", examRows(form.getValues("exam")?.filter((r) => r.status || r.note), keys));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const watchVetId = form.watch("veterinarianId");
@@ -212,11 +268,12 @@ export function MedicalRecordDialog({
         toast.info(t("visitHasRecord"));
         return;
       }
-      const values = valuesFromDraft(res.draft);
+      const values = valuesFromDraft(res.draft, template);
       // Keep what was already typed; fill in the rest from the visit
       const current = form.getValues();
       (Object.keys(values) as (keyof FormData)[]).forEach((k) => {
         const cur = current[k];
+        if (k === "exam") return;
         if (k === "appointmentId" || cur === "" || cur === undefined || (Array.isArray(cur) && cur.length === 0)) {
           form.setValue(k, values[k] as never, { shouldDirty: true });
         }
@@ -227,26 +284,18 @@ export function MedicalRecordDialog({
 
   // Re-initialize on open
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (lastSaved.current) { onSaved(lastSaved.current); lastSaved.current = null; }
+      return;
+    }
+    setLinkIds([]);
+    setSavedId(null);
     if (isEdit && record) {
-      form.reset(valuesFromRecord(record));
+      form.reset(valuesFromRecord(record, template));
     } else if (draft) {
-      form.reset(valuesFromDraft(draft));
+      form.reset(valuesFromDraft(draft, template));
     } else {
-      form.reset({
-        petId: presetPetId ?? "",
-        veterinarianId: vets[0]?.id ?? "",
-        date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-        chiefComplaint: "",
-        diagnosis: "",
-        treatment: "",
-        weight: "",
-        temperature: "",
-        heartRate: "",
-        notes: "",
-        prescriptions: [],
-        appointmentId: "",
-      });
+      form.reset(emptyValues(presetPetId ?? "", vets[0]?.id ?? "", template));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -296,33 +345,57 @@ export function MedicalRecordDialog({
   }, [petQuery]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function save(data: any): Promise<MedicalRecordFull | null> {
+    data = { ...data, linkPrescriptionIds: linkIds };
+    const id = record?.id ?? savedId;
+    if (id) {
+      const result = await updateMedicalRecord(id, data as MedicalRecordFormData);
+      if ("error" in result) { toast.error(t("errorUpdate")); return null; }
+      return result.record;
+    }
+    const result = await createMedicalRecord(data as MedicalRecordFormData);
+    if ("error" in result) { toast.error(t("errorCreate")); return null; }
+    setSavedId(result.record.id);
+    setLinkIds([]);
+    return result.record;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function handleSubmit(data: any) {
     startSave(async () => {
-      if (isEdit) {
-        const result = await updateMedicalRecord(record.id, data as MedicalRecordFormData);
-        if ("error" in result) { toast.error(t("errorUpdate")); return; }
-        toast.success(t("updated"));
-        onSaved(result.record);
-      } else {
-        const result = await createMedicalRecord(data as MedicalRecordFormData);
-        if ("error" in result) { toast.error(t("errorCreate")); return; }
-        toast.success(t("created"));
-        onSaved(result.record);
-      }
+      const saved = await save(data);
+      if (!saved) return;
+      toast.success(isEdit || savedId ? t("updated") : t("created"));
+      lastSaved.current = null;
+      onSaved(saved);
       onOpenChange(false);
+    });
+  }
+
+  // Before sending or printing the home-care instructions: save what is on screen
+  function saveForShare(): Promise<string | null> {
+    return new Promise((resolve) => {
+      form.handleSubmit(
+        async (data) => {
+          const saved = await save(data);
+          if (saved) lastSaved.current = saved;
+          resolve(saved?.id ?? null);
+        },
+        () => { toast.error(t("homeCareSaveFirst")); resolve(null); },
+      )();
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? t("editRecord") : t("newRecord")}</DialogTitle>
         </DialogHeader>
 
         <form
           ref={formRef}
-          className="space-y-5 mt-2"
+          className="space-y-5 mt-2 min-w-0"
           onSubmit={(e) => {
             e.preventDefault();
             if (formRef.current) {
@@ -487,6 +560,13 @@ export function MedicalRecordDialog({
             )
           )}
 
+          {record?.pet?.alerts && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="whitespace-pre-line">{record.pet.alerts}</span>
+            </div>
+          )}
+
           <Separator />
 
           {/* Chief complaint */}
@@ -498,16 +578,10 @@ export function MedicalRecordDialog({
             )}
           </div>
 
-          {/* Diagnosis + Treatment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
-              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...bindField(form, "diagnosis")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="treatment">{t("treatment")}</Label>
-              <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...bindField(form, "treatment")} />
-            </div>
+          {/* Symptoms */}
+          <div className="space-y-1.5">
+            <Label htmlFor="clinicalSigns">{t("clinicalSigns")}</Label>
+            <Textarea id="clinicalSigns" rows={2} placeholder={t("clinicalSignsPlaceholder")} {...bindField(form, "clinicalSigns")} />
           </div>
 
           {/* Vitals */}
@@ -529,6 +603,50 @@ export function MedicalRecordDialog({
             </div>
           </div>
 
+          {/* Physical exam */}
+          <ExamChecklist rows={exam} onChange={(rows) => form.setValue("exam", rows, { shouldDirty: true })} />
+
+          {/* Diagnosis: working, then definitive */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="presumptiveDiagnosis">{t("presumptiveDiagnosis")}</Label>
+              <Textarea id="presumptiveDiagnosis" rows={2} placeholder={t("presumptiveDiagnosisPlaceholder")} {...bindField(form, "presumptiveDiagnosis")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
+              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...bindField(form, "diagnosis")} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="treatment">{t("treatment")}</Label>
+            <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...bindField(form, "treatment")} />
+          </div>
+
+          {/* Instructions for the owner at home */}
+          <div className="space-y-1.5 rounded-lg border border-primary/25 bg-primary/5 p-3">
+            <div className="flex items-center gap-2">
+              <Home className="w-4 h-4 text-primary" />
+              <Label htmlFor="homeCare" className="flex-1">{t("homeCare")}</Label>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+                onClick={() => {
+                  const text = suggestHomeCare(form.getValues(), record);
+                  if (!text) { toast.info(t("homeCareNothing")); return; }
+                  const cur = form.getValues("homeCare")?.trim();
+                  form.setValue("homeCare", cur ? `${cur}\n${text}` : text, { shouldDirty: true });
+                }}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                {t("homeCareFill")}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("homeCareHint")}</p>
+            <Textarea id="homeCare" rows={4} className="bg-background" placeholder={t("homeCarePlaceholder")} {...bindField(form, "homeCare")} />
+            <HomeCareShare prepare={saveForShare} embedded />
+          </div>
+
           {/* Notes */}
           <div className="space-y-1.5">
             <Label htmlFor="notes">{t("additionalNotes")}</Label>
@@ -537,59 +655,48 @@ export function MedicalRecordDialog({
 
           <Separator />
 
-          {/* Prescriptions */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("prescriptions")}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setMedications([...medications, { medicationName: "", dosage: "", frequency: "", duration: "", notes: "" }])}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                {t("addMedication")}
-              </Button>
+          {/* Prescriptions: the visit's real prescriptions, opened and added with the prescription form */}
+          <RecordRxSection
+            petId={form.watch("petId")}
+            petName={selectedPet?.name ?? presetPetName ?? ""}
+            veterinarianId={watchVetId || undefined}
+            appointmentId={watchVisitId || undefined}
+            medicalRecordId={record?.id}
+            onCreated={(id) => setLinkIds((ids) => [...ids, id])}
+            onChanged={onPrescriptionsChanged}
+          />
+
+          {/* Medications typed inside older records, before prescriptions were one list */}
+          {medications.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{t("legacyMedications")}</p>
+              {medications.map((_, idx) => (
+                <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Pill className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
+                    </div>
+                    <button type="button" onClick={() => setMedications(medications.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <Input placeholder={t("medicationNamePlaceholder")} {...bindField(form, `prescriptions.${idx}.medicationName`)} />
+                      {form.formState.errors.prescriptions?.[idx]?.medicationName && (
+                        <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
+                      )}
+                    </div>
+                    <Input placeholder={t("dosagePlaceholder")} {...bindField(form, `prescriptions.${idx}.dosage`)} />
+                    <Input placeholder={t("frequencyPlaceholder")} {...bindField(form, `prescriptions.${idx}.frequency`)} />
+                    <Input placeholder={t("durationPlaceholder")} {...bindField(form, `prescriptions.${idx}.duration`)} />
+                    <Input placeholder={t("optionalNotes")} {...bindField(form, `prescriptions.${idx}.notes`)} />
+                  </div>
+                </div>
+              ))}
             </div>
-
-            {/* Prescriptions written in the visit (edited in Prescriptions) */}
-            {record && record.prescriptions.some((p) => p.items?.length) && (
-              <RecordPrescriptions prescriptions={record.prescriptions.filter((p) => p.items?.length)} />
-            )}
-
-            {medications.length === 0 && !record?.prescriptions.some((p) => p.items?.length) && (
-              <p className="text-sm text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
-                {t("noPrescriptions")}
-              </p>
-            )}
-
-            {medications.map((_, idx) => (
-              <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Pill className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
-                  </div>
-                  <button type="button" onClick={() => setMedications(medications.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Input placeholder={t("medicationNamePlaceholder")} {...bindField(form, `prescriptions.${idx}.medicationName`)} />
-                    {form.formState.errors.prescriptions?.[idx]?.medicationName && (
-                      <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
-                    )}
-                  </div>
-                  <Input placeholder={t("dosagePlaceholder")} {...bindField(form, `prescriptions.${idx}.dosage`)} />
-                  <Input placeholder={t("frequencyPlaceholder")} {...bindField(form, `prescriptions.${idx}.frequency`)} />
-                  <Input placeholder={t("durationPlaceholder")} {...bindField(form, `prescriptions.${idx}.duration`)} />
-                  <Input placeholder={t("optionalNotes")} {...bindField(form, `prescriptions.${idx}.notes`)} />
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             {isEdit && onDeleted && canDelete && (

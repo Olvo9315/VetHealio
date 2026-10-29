@@ -33,6 +33,21 @@ import { cn } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import { RecordPrescriptions } from "./RecordPrescriptions";
+import { HomeCareShare } from "./HomeCareShare";
+import { examLabel, filledExam, parseExam } from "@/lib/exam";
+
+function TextBlock({ label, text }: { label: string; text: string | null }) {
+  if (!text) return null;
+  return (
+    <>
+      <Separator />
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+        <p className="text-sm whitespace-pre-line">{text}</p>
+      </div>
+    </>
+  );
+}
 
 interface MedicalRecordDetailSheetProps {
   open: boolean;
@@ -66,6 +81,7 @@ export function MedicalRecordDetailSheet({
   }
 
   const hasVitals = record.weight !== null || record.temperature !== null || record.heartRate !== null;
+  const exam = filledExam(parseExam(record.exam));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -125,6 +141,33 @@ export function MedicalRecordDetailSheet({
             <p className="text-sm">{record.chiefComplaint}</p>
           </div>
 
+          <TextBlock label={t("clinicalSigns")} text={record.clinicalSigns} />
+
+          {/* Physical exam: only what was marked */}
+          {exam.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("examTitle")}</p>
+                <ul className="text-sm space-y-0.5">
+                  {exam.map((r) => (
+                    <li key={r.key} className="flex gap-2">
+                      <span className={cn("shrink-0", r.status === "abnormal" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+                        {r.status === "abnormal" ? "▲" : "✓"}
+                      </span>
+                      <span>
+                        <span className="text-muted-foreground">{examLabel(t, r.key)}:</span>{" "}
+                        {r.note || (r.status === "abnormal" ? t("examAltered") : t("examNormal"))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+
+          <TextBlock label={t("presumptiveDiagnosis")} text={record.presumptiveDiagnosis} />
+
           {/* Diagnosis */}
           {record.diagnosis && (
             <>
@@ -146,6 +189,9 @@ export function MedicalRecordDetailSheet({
               </div>
             </>
           )}
+
+          <TextBlock label={t("homeCare")} text={record.homeCare} />
+          <HomeCareShare recordId={record.id} narrow />
 
           {/* Vitals */}
           {hasVitals && (

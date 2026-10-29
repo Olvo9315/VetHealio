@@ -404,3 +404,20 @@
   background-color: var(--card);
   border-color: var(--border);
 }
+
+/* Printable documents (app/print): always light, A4 */
+.print-doc {
+  color-scheme: light;
+  background: #fff;
+  color: #171717;
+  min-height: 100vh;
+}
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff !important; }
+  .print-doc .doc-page { box-shadow: none !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }
+}
+
+/* Horizontally scrolling chip rows (tabs, presets) without a visible bar */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

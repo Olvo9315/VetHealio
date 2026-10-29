@@ -31,6 +31,8 @@ export type AppointmentFull = {
   room: { id: string; name: string; color: string } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
   veterinarian: { id: string; name: string };
+  // A prescription of this visit still has to be reported to PRESVET
+  presvetPending?: boolean;
 };
 
 // ---- Validation ----
@@ -109,6 +111,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       startTime: { gte: from, lte: to },
     },
     include: {
+      prescriptions: { where: { presvetStatus: { in: ["PENDING", "CHANGED"] } }, select: { id: true }, take: 1 },
       pet: {
         select: {
           id: true,
@@ -123,9 +126,9 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       room: roomInclude,
     },
     orderBy: { startTime: "asc" },
-  })) as unknown as AppointmentFull[];
+  })) as unknown as (AppointmentFull & { prescriptions: { id: string }[] })[];
   const localize = await getAppointmentLocalizer();
-  return rows.map(localize);
+  return rows.map(({ prescriptions, ...a }) => ({ ...localize(a as AppointmentFull), presvetPending: prescriptions.length > 0 }));
 }
 
 export async function getAppointmentById(id: string): Promise<AppointmentFull | null> {
@@ -144,9 +147,12 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       service: serviceInclude,
       extraServices: extraServicesInclude,
       room: roomInclude,
+      prescriptions: { where: { presvetStatus: { in: ["PENDING", "CHANGED"] } }, select: { id: true }, take: 1 },
     },
-  })) as unknown as AppointmentFull | null;
-  return row && (await getAppointmentLocalizer())(row);
+  })) as unknown as (AppointmentFull & { prescriptions: { id: string }[] }) | null;
+  if (!row) return null;
+  const { prescriptions, ...apt } = row;
+  return { ...(await getAppointmentLocalizer())(apt as AppointmentFull), presvetPending: prescriptions.length > 0 };
 }
 
 export async function getVeterinarians() {
@@ -184,6 +190,7 @@ export async function searchPetsForAppointment(query: string) {
 // ---- Mutations ----
 
 export async function createAppointment(data: z.infer<typeof appointmentSchema>) {
+  const userId = await requireUserId();
   const parsed = appointmentSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.flatten() };
 
@@ -207,6 +214,7 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
       endTime,
       notes: parsed.data.notes || null,
       status: AppointmentStatus.SCHEDULED,
+      createdById: userId,
     },
     include: {
       pet: {
@@ -228,11 +236,12 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
 
 // Drag & drop / resize in the calendar; in the per-room day view a drop can also move rooms
 export async function updateAppointmentTime(id: string, startTime: Date, endTime: Date, roomId?: string | null) {
+  const userId = await requireUserId();
   // Ignore anything that is not an existing room rather than failing the whole move
   if (roomId && !(await prisma.room.findUnique({ where: { id: roomId }, select: { id: true } }))) roomId = undefined;
   await prisma.appointment.update({
     where: { id },
-    data: { startTime, endTime, ...(roomId !== undefined ? { roomId } : {}) },
+    data: { startTime, endTime, updatedById: userId, ...(roomId !== undefined ? { roomId } : {}) },
   });
   revalidatePath("/appointments");
 }
@@ -240,15 +249,23 @@ export async function updateAppointmentTime(id: string, startTime: Date, endTime
 export async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
   const parsed = updateStatusSchema.safeParse({ status });
   if (!parsed.success) return { error: "Invalid status" };
+  const userId = await requireUserId();
 
+  // Checking in starts the waiting time; going back to "scheduled" clears it
+  const arrived = parsed.data.status === "ARRIVED";
   await prisma.appointment.update({
     where: { id },
-    data: { status: parsed.data.status },
+    data: {
+      status: parsed.data.status,
+      updatedById: userId,
+      ...(arrived ? { arrivedAt: new Date() } : parsed.data.status === "SCHEDULED" ? { arrivedAt: null } : {}),
+    },
   });
   revalidatePath("/appointments");
 }
 
 export async function updateAppointment(id: string, data: Partial<z.infer<typeof appointmentSchema>>) {
+  const userId = await requireUserId();
   const extraIds = "extraServiceIds" in data ? z.array(z.string().cuid()).max(10).parse(data.extraServiceIds ?? []) : undefined;
   // Main service for de-duplication: the new one if it is being changed, otherwise the stored one
   const mainId = !extraIds
@@ -269,6 +286,7 @@ export async function updateAppointment(id: string, data: Partial<z.infer<typeof
       ...(data.startTime ? { startTime: new Date(data.startTime) } : {}),
       ...(data.endTime ? { endTime: new Date(data.endTime) } : {}),
       ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+      updatedById: userId,
     },
     include: {
       pet: {
@@ -335,6 +353,7 @@ export async function createAppointmentWithNewPatient(
 
   const { petName, petSpecies, ownerFirstName, ownerLastName, ownerPhone, existingOwnerId, existingPetId } = parsedPrimary.data;
 
+  const userId = await requireUserId();
   const appointment = await prisma.$transaction(async (tx) => {
     let resolvedPetId: string;
 
@@ -368,6 +387,7 @@ export async function createAppointmentWithNewPatient(
         endTime,
         notes: parsedAppt.data.notes || null,
         status: AppointmentStatus.SCHEDULED,
+        createdById: userId,
       },
       include: {
         pet: {
@@ -465,6 +485,8 @@ export type PetQuickInfo = {
   weight: number | null;
   sterilized: boolean | null;
   microchipNumber: string | null;
+  alerts: string | null;
+  conditions: string[];
   vaccinations: { vaccineName: string; dateAdministered: Date; nextDueDate: Date | null }[];
 };
 
@@ -483,6 +505,8 @@ export async function getPetQuickInfo(petId: string): Promise<PetQuickInfo | nul
       weight: true,
       sterilized: true,
       microchipNumber: true,
+      alerts: true,
+      conditions: true,
       vaccinations: {
         select: { vaccineName: true, dateAdministered: true, nextDueDate: true },
         orderBy: { dateAdministered: "desc" },
@@ -500,4 +524,127 @@ export async function getPetQuickInfo(petId: string): Promise<PetQuickInfo | nul
     return true;
   });
   return { ...pet, gender: pet.gender as PetQuickInfo["gender"], vaccinations };
+}
+
+// ---- Appointment list for a date range ----
+
+export type AppointmentListRow = {
+  id: string;
+  number: number;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  status: AppointmentStatus;
+  arrivedAt: Date | null;
+  pet: { id: string; name: string; species: Species; alerts: string | null; owner: { firstName: string; lastName: string; phone: string } };
+  veterinarian: { id: string; name: string };
+  services: string[];
+  room: { name: string; color: string } | null;
+  invoice: { id: string; status: "PENDING" | "PAID" | "CANCELLED"; totalAmount: number; paidAmount: number } | null;
+  hasRecord: boolean;
+  createdBy: string | null;
+  updatedBy: string | null;
+};
+
+const listFilterSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  veterinarianId: z.string().optional(),
+  status: z.nativeEnum(AppointmentStatus).optional(),
+  search: z.string().max(100).optional(),
+});
+
+// Appointments from day A to day B (both included) for the list view and its totals / export
+export async function getAppointmentList(filters: z.infer<typeof listFilterSchema>): Promise<AppointmentListRow[]> {
+  await requireUserId();
+  const f = listFilterSchema.parse(filters);
+  const from = new Date(f.from);
+  const to = new Date(f.to);
+  const q = f.search?.trim();
+  const rows = await prisma.appointment.findMany({
+    where: {
+      startTime: { gte: from, lte: to },
+      ...(f.veterinarianId ? { veterinarianId: f.veterinarianId } : {}),
+      ...(f.status ? { status: f.status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" as const } },
+              { pet: { name: { contains: q, mode: "insensitive" as const } } },
+              { pet: { owner: { firstName: { contains: q, mode: "insensitive" as const } } } },
+              { pet: { owner: { lastName: { contains: q, mode: "insensitive" as const } } } },
+              { pet: { owner: { phone: { contains: q } } } },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      startTime: true,
+      endTime: true,
+      status: true,
+      arrivedAt: true,
+      pet: { select: { id: true, name: true, species: true, alerts: true, owner: { select: { firstName: true, lastName: true, phone: true } } } },
+      veterinarian: { select: { id: true, name: true } },
+      service: { select: { name: true, translations: true } },
+      extraServices: { orderBy: { sortOrder: "asc" }, select: { service: { select: { name: true, translations: true } } } },
+      room: { select: { name: true, color: true } },
+      invoice: { select: { id: true, status: true, totalAmount: true, paidAmount: true } },
+      medicalRecords: { select: { id: true }, take: 1 },
+      createdBy: { select: { name: true } },
+      updatedBy: { select: { name: true } },
+    },
+    orderBy: { startTime: "asc" },
+    take: 2000,
+  });
+  const localize = await getServiceRelationLocalizer();
+  return rows.map((r) => ({
+    id: r.id,
+    number: r.number,
+    title: r.title,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    status: r.status,
+    arrivedAt: r.arrivedAt,
+    pet: r.pet,
+    veterinarian: r.veterinarian,
+    services: [r.service, ...r.extraServices.map((x) => x.service)]
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .map((x) => localize({ service: x }).service!.name),
+    room: r.room,
+    invoice: r.invoice,
+    hasRecord: r.medicalRecords.length > 0,
+    createdBy: r.createdBy?.name ?? null,
+    updatedBy: r.updatedBy?.name ?? null,
+  }));
+}
+
+export type VisitDocuments = {
+  invoice: { id: string; number: number; createdAt: Date; status: string; totalAmount: number; paidAmount: number } | null;
+  prescriptions: { id: string; number: number; items: string[] }[];
+  record: { id: string; diagnosis: string | null } | null;
+};
+
+// What was already written for a visit (shown in its menu): its albarán, prescriptions and record
+export async function getVisitDocuments(appointmentId: string): Promise<VisitDocuments> {
+  await requireUserId();
+  const [invoice, prescriptions, record] = await Promise.all([
+    prisma.invoice.findUnique({
+      where: { appointmentId },
+      select: { id: true, number: true, createdAt: true, status: true, totalAmount: true, paidAmount: true },
+    }),
+    prisma.prescription.findMany({
+      where: { appointmentId, items: { some: {} } },
+      select: { id: true, number: true, items: { select: { medicationName: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.medicalRecord.findFirst({ where: { appointmentId }, select: { id: true, diagnosis: true }, orderBy: { date: "desc" } }),
+  ]);
+  return {
+    invoice,
+    prescriptions: prescriptions.map((p) => ({ id: p.id, number: p.number, items: p.items.map((i) => i.medicationName) })),
+    record,
+  };
 }

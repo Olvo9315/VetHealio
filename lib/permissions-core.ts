@@ -24,6 +24,8 @@ export const PERMISSIONS = {
   "medical.delete": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
   // Prescriptions: only veterinarians may prescribe
   "prescription.write": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
+  // Join an owner entered twice into one (moves pets and documents, removes the duplicate)
+  "owners.merge": ["ADMIN", "HEAD_VET", "VETERINARIAN", "RECEPTIONIST"],
   // Inventory items: names, units, costs, suppliers (stock adjustments are open to all staff)
   "inventory.manage": ["ADMIN", "HEAD_VET", "VETERINARIAN"],
 } as const;

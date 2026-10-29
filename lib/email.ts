@@ -77,3 +77,30 @@ export async function sendCertExpiryEmail(params: {
     `,
   });
 }
+
+// E-mail with files (e.g. the invoice book for the tax adviser). Returns whether it was sent: false
+// when this instance has no e-mail service configured.
+export async function sendWithAttachments(params: {
+  to: string;
+  replyTo?: string;
+  subject: string;
+  html: string;
+  attachments: { filename: string; content: Buffer }[];
+}): Promise<boolean> {
+  const resend = getResend();
+  if (!resend) return false;
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.to,
+    ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+    subject: params.subject,
+    html: params.html,
+    attachments: params.attachments,
+  });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export function emailConfigured() {
+  return !!process.env.RESEND_API_KEY;
+}
