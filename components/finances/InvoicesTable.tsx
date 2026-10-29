@@ -193,14 +193,14 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
         </div>
       </div>
 
-      {/* Status filter tabs */}
-      <div className="flex rounded-lg border border-border overflow-hidden w-fit">
+      {/* Status filter tabs: on a phone they share the width so "Cancelado" fits */}
+      <div className="grid grid-cols-4 rounded-lg border border-border overflow-hidden sm:flex sm:w-fit">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => handleStatusChange(tab.value)}
             className={cn(
-              "px-3 py-1.5 text-sm transition-colors",
+              "px-1 sm:px-3 py-1.5 text-xs sm:text-sm min-w-0 truncate transition-colors",
               statusFilter === tab.value
                 ? "bg-primary text-primary-foreground"
                 : "bg-background text-muted-foreground hover:bg-muted"
