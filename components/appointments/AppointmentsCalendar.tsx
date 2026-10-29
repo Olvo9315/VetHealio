@@ -1293,6 +1293,8 @@ export function AppointmentsCalendar({
           <DnDCalendar
             localizer={localizer}
             events={calendarEvents}
+            // No browser tooltip on events: hovering already shows the appointment card
+            tooltipAccessor={null}
             view={view}
             date={date}
             onNavigate={setDate}
