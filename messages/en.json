@@ -284,7 +284,12 @@
     "doneToday": "Seen today: {count}",
     "createdBy": "Created by {name}",
     "updatedBy": "Changed by {name}",
-    "presvetPending": "Antibiotic prescription to report to PRESVET"
+    "presvetPending": "Antibiotic prescription to report to PRESVET",
+    "doneColumn": "Done",
+    "doneEmpty": "Nobody finished yet",
+    "completedTag": "Completed",
+    "paidTag": "Paid",
+    "unpaidTag": "Payment due"
   },
   "medicalRecords": {
     "title": "Medical Records",
@@ -397,7 +402,8 @@
       "musculoskeletal": "Musculoskeletal",
       "neuro": "Neurological"
     },
-    "legacyMedications": "Medicines noted earlier in this record"
+    "legacyMedications": "Medicines noted earlier in this record",
+    "homeCareSaveFirst": "Fill in the required fields before sending"
   },
   "finances": {
     "title": "Finances",

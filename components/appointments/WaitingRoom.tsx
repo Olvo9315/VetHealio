@@ -13,6 +13,7 @@ import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
 import { cn } from "@/lib/utils";
 
 // Today's flow at reception: who is expected, who is waiting (and for how long), who is being seen
+// and who is done (finished, paid, cancelled or not shown)
 export function WaitingRoom() {
   const t = useTranslations("appointments");
   const [rows, setRows] = useState<AppointmentListRow[] | null>(null);
@@ -54,13 +55,34 @@ export function WaitingRoom() {
     return <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
   }
 
-  const waiting = rows.filter((r) => r.status === "ARRIVED").sort((a, b) => +new Date(a.arrivedAt ?? 0) - +new Date(b.arrivedAt ?? 0));
-  const inRoom = rows.filter((r) => r.status === "IN_PROGRESS");
-  const expected = rows.filter((r) => r.status === "SCHEDULED");
-  const done = rows.filter((r) => r.status === "COMPLETED").length;
+  const paid = (r: AppointmentListRow) => r.invoice?.status === "PAID";
+  const closed = (r: AppointmentListRow) => r.status === "COMPLETED" || r.status === "CANCELLED" || r.status === "NO_SHOW" || paid(r);
+  const waiting = rows.filter((r) => r.status === "ARRIVED" && !paid(r)).sort((a, b) => +new Date(a.arrivedAt ?? 0) - +new Date(b.arrivedAt ?? 0));
+  const inRoom = rows.filter((r) => r.status === "IN_PROGRESS" && !paid(r));
+  const expected = rows.filter((r) => r.status === "SCHEDULED" && !paid(r));
+  // Finished, paid, cancelled or not shown: the day's history, newest at the top
+  const done = rows.filter(closed).sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime));
+  const seen = done.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW").length;
 
+  // Left to right like a to-do board: expected → waiting → in consultation → done
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <Column title={t("expectedToday")} count={expected.length} icon={LogIn}>
+        {expected.map((r) => (
+          <Card key={r.id} row={r}>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 flex-1" disabled={busyId === r.id} onClick={() => setStatus(r, "ARRIVED")}>
+                <LogIn className="w-4 h-4" />{t("checkIn")}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" disabled={busyId === r.id} onClick={() => setStatus(r, "NO_SHOW")}>
+                {t("noShow")}
+              </Button>
+            </div>
+          </Card>
+        ))}
+        {!expected.length && <Empty text={t("expectedEmpty")} />}
+      </Column>
+
       <Column title={t("waitingNow")} count={waiting.length} icon={DoorOpen} accent>
         {waiting.map((r) => {
           const minutes = r.arrivedAt ? differenceInMinutes(now, new Date(r.arrivedAt)) : 0;
@@ -89,22 +111,44 @@ export function WaitingRoom() {
         {!inRoom.length && <Empty text={t("inRoomEmpty")} />}
       </Column>
 
-      <Column title={t("expectedToday")} count={expected.length} icon={LogIn} footer={done ? t("doneToday", { count: done }) : undefined}>
-        {expected.map((r) => (
-          <Card key={r.id} row={r}>
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 flex-1" disabled={busyId === r.id} onClick={() => setStatus(r, "ARRIVED")}>
-                <LogIn className="w-4 h-4" />{t("checkIn")}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-muted-foreground" disabled={busyId === r.id} onClick={() => setStatus(r, "NO_SHOW")}>
-                {t("noShow")}
-              </Button>
-            </div>
-          </Card>
-        ))}
-        {!expected.length && <Empty text={t("expectedEmpty")} />}
+      <Column title={t("doneColumn")} count={done.length} icon={CheckCircle2} footer={seen ? t("doneToday", { count: seen }) : undefined}>
+        {done.map((r) => {
+          const off = r.status === "CANCELLED" || r.status === "NO_SHOW";
+          const due = !off && r.invoice && r.invoice.status !== "PAID" && r.invoice.totalAmount - r.invoice.paidAmount > 0.005;
+          return (
+            <Card key={r.id} row={r} muted={off}>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {off ? (
+                  <Tag tone="muted">{r.status === "CANCELLED" ? t("cancelled") : t("noShow")}</Tag>
+                ) : (
+                  <>
+                    {r.status === "COMPLETED" && <Tag tone="muted">{t("completedTag")}</Tag>}
+                    {paid(r) && <Tag tone="ok">{t("paidTag")}</Tag>}
+                    {due && <Tag tone="warn">{t("unpaidTag")}</Tag>}
+                  </>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+        {!done.length && <Empty text={t("doneEmpty")} />}
       </Column>
     </div>
+  );
+}
+
+function Tag({ tone, children }: { tone: "ok" | "warn" | "muted"; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "text-[11px] px-2 py-0.5 rounded-full font-medium",
+        tone === "ok" && "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+        tone === "warn" && "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+        tone === "muted" && "bg-muted text-muted-foreground"
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -136,9 +180,9 @@ function Column({
   );
 }
 
-function Card({ row, children }: { row: AppointmentListRow; children?: React.ReactNode }) {
+function Card({ row, muted, children }: { row: AppointmentListRow; muted?: boolean; children?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-background p-2.5">
+    <div className={cn("rounded-lg border bg-background p-2.5", muted && "opacity-60 [&_a_p]:line-through")}>
       <Link href={`/patients/${row.pet.id}?appointment=${row.id}`} className="flex items-start gap-2">
         <SpeciesBadge species={row.pet.species} />
         <div className="flex-1 min-w-0">

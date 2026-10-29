@@ -19,6 +19,7 @@ import { ExamChecklist } from "./ExamChecklist";
 import { DEFAULT_EXAM_KEYS, examRows, type ExamRow } from "@/lib/exam";
 import type { MedicalRecordDraft } from "@/lib/actions/medicalRecords";
 import { RecordRxSection } from "./RecordRxSection";
+import { HomeCareShare } from "./HomeCareShare";
 import { formatAppointmentId } from "@/lib/utils";
 import { DeleteButton } from "@/components/common/DeleteButton";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -44,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck, Home, Wand2, AlertTriangle } from "lucide-react";
+import { Search, PawPrint, Trash2, Loader2, Pill, CalendarCheck, Home, Wand2, AlertTriangle } from "lucide-react";
 
 // ---- Schema ----
 const prescriptionSchema = z.object({
@@ -209,6 +210,10 @@ export function MedicalRecordDialog({
   const [template, setTemplate] = useState<string[]>([...DEFAULT_EXAM_KEYS]);
   // Prescriptions written here before the record existed: linked when it is saved
   const [linkIds, setLinkIds] = useState<string[]>([]);
+  // A new record saved from inside the dialog (to send the home-care instructions) and the last
+  // saved version, handed to the parent when the dialog closes
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const lastSaved = useRef<MedicalRecordFull | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
@@ -279,8 +284,12 @@ export function MedicalRecordDialog({
 
   // Re-initialize on open
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (lastSaved.current) { onSaved(lastSaved.current); lastSaved.current = null; }
+      return;
+    }
     setLinkIds([]);
+    setSavedId(null);
     if (isEdit && record) {
       form.reset(valuesFromRecord(record, template));
     } else if (draft) {
@@ -336,21 +345,44 @@ export function MedicalRecordDialog({
   }, [petQuery]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function save(data: any): Promise<MedicalRecordFull | null> {
+    data = { ...data, linkPrescriptionIds: linkIds };
+    const id = record?.id ?? savedId;
+    if (id) {
+      const result = await updateMedicalRecord(id, data as MedicalRecordFormData);
+      if ("error" in result) { toast.error(t("errorUpdate")); return null; }
+      return result.record;
+    }
+    const result = await createMedicalRecord(data as MedicalRecordFormData);
+    if ("error" in result) { toast.error(t("errorCreate")); return null; }
+    setSavedId(result.record.id);
+    setLinkIds([]);
+    return result.record;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function handleSubmit(data: any) {
     startSave(async () => {
-      data = { ...data, linkPrescriptionIds: linkIds };
-      if (isEdit) {
-        const result = await updateMedicalRecord(record.id, data as MedicalRecordFormData);
-        if ("error" in result) { toast.error(t("errorUpdate")); return; }
-        toast.success(t("updated"));
-        onSaved(result.record);
-      } else {
-        const result = await createMedicalRecord(data as MedicalRecordFormData);
-        if ("error" in result) { toast.error(t("errorCreate")); return; }
-        toast.success(t("created"));
-        onSaved(result.record);
-      }
+      const saved = await save(data);
+      if (!saved) return;
+      toast.success(isEdit || savedId ? t("updated") : t("created"));
+      lastSaved.current = null;
+      onSaved(saved);
       onOpenChange(false);
+    });
+  }
+
+  // Before sending or printing the home-care instructions: save what is on screen
+  function saveForShare(): Promise<string | null> {
+    return new Promise((resolve) => {
+      form.handleSubmit(
+        async (data) => {
+          const saved = await save(data);
+          if (saved) lastSaved.current = saved;
+          resolve(saved?.id ?? null);
+        },
+        () => { toast.error(t("homeCareSaveFirst")); resolve(null); },
+      )();
     });
   }
 
@@ -612,6 +644,7 @@ export function MedicalRecordDialog({
             </div>
             <p className="text-xs text-muted-foreground">{t("homeCareHint")}</p>
             <Textarea id="homeCare" rows={4} className="bg-background" placeholder={t("homeCarePlaceholder")} {...bindField(form, "homeCare")} />
+            <HomeCareShare prepare={saveForShare} className="bg-background" />
           </div>
 
           {/* Notes */}

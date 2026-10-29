@@ -284,7 +284,12 @@
     "doneToday": "Принято сегодня: {count}",
     "createdBy": "Создал(а): {name}",
     "updatedBy": "Изменил(а): {name}",
-    "presvetPending": "Рецепт с антибиотиком нужно передать в PRESVET"
+    "presvetPending": "Рецепт с антибиотиком нужно передать в PRESVET",
+    "doneColumn": "Завершённые",
+    "doneEmpty": "Пока никто не закончил",
+    "completedTag": "Завершён",
+    "paidTag": "Оплачено",
+    "unpaidTag": "Ожидает оплаты"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -397,7 +402,8 @@
       "musculoskeletal": "Опорно-двигательный аппарат",
       "neuro": "Неврологический статус"
     },
-    "legacyMedications": "Препараты, записанные ранее в этой истории"
+    "legacyMedications": "Препараты, записанные ранее в этой истории",
+    "homeCareSaveFirst": "Заполните обязательные поля перед отправкой"
   },
   "finances": {
     "title": "Финансы",

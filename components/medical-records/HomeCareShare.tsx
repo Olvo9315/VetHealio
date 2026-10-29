@@ -11,7 +11,17 @@ import { cn } from "@/lib/utils";
 const LANGS = ["es", "ru", "en"] as const;
 
 // Give the owner their home-care instructions: print / PDF, WhatsApp, e-mail or copy, in their language
-export function HomeCareShare({ recordId, className }: { recordId: string; className?: string }) {
+// `prepare` runs first (e.g. saves the record being edited, so what is sent is what is on screen) and
+// returns the record id to send, or null to stop
+export function HomeCareShare({
+  recordId,
+  prepare,
+  className,
+}: {
+  recordId?: string;
+  prepare?: () => Promise<string | null>;
+  className?: string;
+}) {
   const t = useTranslations("medicalRecords");
   const uiLocale = useLocale();
   const [lang, setLang] = useState<string>(LANGS.includes(uiLocale as never) ? uiLocale : "es");
@@ -19,7 +29,9 @@ export function HomeCareShare({ recordId, className }: { recordId: string; class
 
   function withMessage(fn: (m: NonNullable<Awaited<ReturnType<typeof getHomeCareMessage>>>) => void) {
     startBusy(async () => {
-      const message = await getHomeCareMessage(recordId, lang);
+      const id = prepare ? await prepare() : recordId;
+      if (!id) return;
+      const message = await getHomeCareMessage(id, lang);
       if (message) fn(message);
     });
   }
@@ -44,7 +56,17 @@ export function HomeCareShare({ recordId, className }: { recordId: string; class
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" onClick={() => window.open(`/print/home-care/${recordId}?lang=${lang}`, "_blank")}>
+        <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy}
+          onClick={() => {
+            if (!prepare) { window.open(`/print/home-care/${recordId}?lang=${lang}`, "_blank"); return; }
+            // Open the tab now (inside the click, so it is not blocked) and point it at the print once saved
+            const w = window.open("about:blank", "_blank");
+            startBusy(async () => {
+              const id = await prepare();
+              if (!id) { w?.close(); return; }
+              if (w) w.location.href = `/print/home-care/${id}?lang=${lang}`;
+            });
+          }}>
           <Printer className="w-4 h-4" />
           {t("homeCarePrint")}
         </Button>

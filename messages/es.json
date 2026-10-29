@@ -284,7 +284,12 @@
     "doneToday": "Atendidos hoy: {count}",
     "createdBy": "Creada por {name}",
     "updatedBy": "Modificada por {name}",
-    "presvetPending": "Receta de antibiótico por comunicar a PRESVET"
+    "presvetPending": "Receta de antibiótico por comunicar a PRESVET",
+    "doneColumn": "Terminados",
+    "doneEmpty": "Aún nadie ha terminado",
+    "completedTag": "Completada",
+    "paidTag": "Pagado",
+    "unpaidTag": "Pendiente de pago"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
@@ -397,7 +402,8 @@
       "musculoskeletal": "Aparato locomotor",
       "neuro": "Neurológico"
     },
-    "legacyMedications": "Medicamentos anotados antes en este historial"
+    "legacyMedications": "Medicamentos anotados antes en este historial",
+    "homeCareSaveFirst": "Revisa los campos obligatorios antes de enviar"
   },
   "finances": {
     "title": "Finanzas",
