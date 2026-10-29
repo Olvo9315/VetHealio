@@ -290,7 +290,13 @@
     "completedTag": "Completed",
     "paidTag": "Paid",
     "unpaidTag": "Payment due",
-    "createEstimate": "Create estimate"
+    "createEstimate": "Create estimate",
+    "visitDocuments": "Already written for this visit",
+    "docPaid": "Paid",
+    "docCancelled": "Cancelled",
+    "docDue": "Due {amount}",
+    "docRecord": "Medical record",
+    "printPrescription": "Print prescription"
   },
   "medicalRecords": {
     "title": "Medical Records",

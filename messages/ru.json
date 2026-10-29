@@ -290,7 +290,13 @@
     "completedTag": "Завершён",
     "paidTag": "Оплачено",
     "unpaidTag": "Ожидает оплаты",
-    "createEstimate": "Создать смету"
+    "createEstimate": "Создать смету",
+    "visitDocuments": "Уже создано по этой сите",
+    "docPaid": "Оплачен",
+    "docCancelled": "Отменён",
+    "docDue": "Долг {amount}",
+    "docRecord": "История болезни",
+    "printPrescription": "Печать рецепта"
   },
   "medicalRecords": {
     "title": "Медицинские карты",

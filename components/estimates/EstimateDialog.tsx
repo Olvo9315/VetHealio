@@ -18,6 +18,7 @@ import { getBillingDefaults } from "@/lib/actions/billing";
 import { taxBreakdown } from "@/lib/billing";
 import { estimateState, ESTIMATE_STATE_STYLE } from "@/lib/estimates";
 import { ServicePicker } from "@/components/services/ServicePicker";
+import { InvoiceSheetHost } from "@/components/finances/InvoiceSheetHost";
 import { ServiceQuickAddDialog } from "@/components/services/ServiceQuickAddDialog";
 import { ProductPicker } from "@/components/finances/ProductPicker";
 import { TaxRateChips } from "@/components/finances/TaxRateChips";
@@ -102,6 +103,13 @@ export function EstimateDialog({
   // Just written: the dialog stays open and points at printing / sending it to the owner
   const [justCreated, setJustCreated] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
+  // The albarán made from it, opened here when the caller doesn't open bills itself
+  const [billId, setBillId] = useState<string | null>(null);
+
+  function openBill(id: string) {
+    if (onBilled) { onOpenChange(false); onBilled(id); }
+    else setBillId(id);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -239,8 +247,8 @@ export function EstimateDialog({
         const r = await billEstimate(e.id);
         if ("error" in r) { toast.error(t("errorSave")); return; }
         toast.success(t("billed"));
-        onOpenChange(false);
-        onBilled?.(r.invoiceId);
+        setCurrent((c) => (c ? { ...c, invoiceId: r.invoiceId } : c));
+        openBill(r.invoiceId);
       });
     });
   }
@@ -389,8 +397,8 @@ export function EstimateDialog({
                 </Button>
               </div>
             )}
-            {state === "BILLED" && current?.invoice && (
-              <button type="button" onClick={() => { onOpenChange(false); onBilled?.(current.invoice!.id); }} className="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-muted/40">
+            {state === "BILLED" && current?.invoiceId && (
+              <button type="button" onClick={() => openBill(current.invoiceId!)} className="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-muted/40">
                 {t("billedAs")}
               </button>
             )}
@@ -412,6 +420,8 @@ export function EstimateDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      <InvoiceSheetHost invoiceId={billId} onClose={() => setBillId(null)} />
 
       <ServiceQuickAddDialog
         open={!!quickAddRow}

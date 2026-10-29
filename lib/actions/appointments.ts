@@ -620,3 +620,31 @@ export async function getAppointmentList(filters: z.infer<typeof listFilterSchem
     updatedBy: r.updatedBy?.name ?? null,
   }));
 }
+
+export type VisitDocuments = {
+  invoice: { id: string; number: number; createdAt: Date; status: string; totalAmount: number; paidAmount: number } | null;
+  prescriptions: { id: string; number: number; items: string[] }[];
+  record: { id: string; diagnosis: string | null } | null;
+};
+
+// What was already written for a visit (shown in its menu): its albarán, prescriptions and record
+export async function getVisitDocuments(appointmentId: string): Promise<VisitDocuments> {
+  await requireUserId();
+  const [invoice, prescriptions, record] = await Promise.all([
+    prisma.invoice.findUnique({
+      where: { appointmentId },
+      select: { id: true, number: true, createdAt: true, status: true, totalAmount: true, paidAmount: true },
+    }),
+    prisma.prescription.findMany({
+      where: { appointmentId, items: { some: {} } },
+      select: { id: true, number: true, items: { select: { medicationName: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.medicalRecord.findFirst({ where: { appointmentId }, select: { id: true, diagnosis: true }, orderBy: { date: "desc" } }),
+  ]);
+  return {
+    invoice,
+    prescriptions: prescriptions.map((p) => ({ id: p.id, number: p.number, items: p.items.map((i) => i.medicationName) })),
+    record,
+  };
+}

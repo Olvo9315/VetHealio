@@ -290,7 +290,13 @@
     "completedTag": "Completada",
     "paidTag": "Pagado",
     "unpaidTag": "Pendiente de pago",
-    "createEstimate": "Crear presupuesto"
+    "createEstimate": "Crear presupuesto",
+    "visitDocuments": "Ya creado en esta cita",
+    "docPaid": "Pagado",
+    "docCancelled": "Anulado",
+    "docDue": "Debe {amount}",
+    "docRecord": "Historial médico",
+    "printPrescription": "Imprimir receta"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
