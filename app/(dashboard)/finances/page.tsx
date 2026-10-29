@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
 import { BookOpenCheck, FileText, Receipt, ShieldCheck, Wallet } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
+import { ViewTabs } from "@/components/layout/ViewTabs";
 import {
   getInvoices,
   getInvoiceStats,
@@ -17,7 +17,6 @@ import { InvoiceBookView } from "@/components/finances/InvoiceBookView";
 import { VerifactuView } from "@/components/finances/VerifactuView";
 import { EstimatesView } from "@/components/estimates/EstimatesView";
 import { can } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 
 type Tab = "bills" | "estimates" | "cash" | "book" | "verifactu";
 
@@ -47,21 +46,7 @@ export default async function FinancesPage({ searchParams }: { searchParams: { t
     <div className="flex flex-col min-h-full">
       <TopBar user={session?.user ?? {}} title={t("title")} />
       <div className="flex-1 p-4 md:p-6 space-y-5">
-        <nav className="flex gap-1 rounded-lg border p-0.5 bg-muted/40 w-fit max-w-full overflow-x-auto no-scrollbar print:hidden">
-          {tabs.map(({ id, icon: Icon, label }) => (
-            <Link
-              key={id}
-              href={id === "bills" ? "/finances" : `/finances?tab=${id}`}
-              className={cn(
-                "flex items-center gap-1.5 px-3 h-8 text-sm rounded-md transition-colors whitespace-nowrap shrink-0",
-                tab === id ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <ViewTabs active={tab} tabs={tabs.map((x) => ({ ...x, href: x.id === "bills" ? "/finances" : `/finances?tab=${x.id}` }))} />
         {tab === "estimates" ? <EstimatesView /> : tab === "cash" ? <CashReportView /> : tab === "book" ? <InvoiceBookView /> : tab === "verifactu" ? <VerifactuView /> : <Bills />}
       </div>
     </div>

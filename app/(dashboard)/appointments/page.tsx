@@ -6,6 +6,7 @@ import { CalendarDays, DoorOpen, List, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { getPresvetDeadline } from "@/lib/actions/presvet";
 import { TopBar } from "@/components/layout/TopBar";
+import { ViewTabs } from "@/components/layout/ViewTabs";
 import { getAppointments, getCalendarLeaves, getVeterinarians } from "@/lib/actions/appointments";
 import { getServicesFlat } from "@/lib/actions/services";
 import { getRooms } from "@/lib/actions/rooms";
@@ -32,22 +33,10 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     <div className="flex flex-col min-h-full">
       <TopBar user={session?.user ?? {}} title={t("title")} />
       <div className="flex-1 p-4 md:p-6 flex flex-col min-h-0 gap-4">
-        {/* On a phone the three views share the width, icon above the name, so every name is readable */}
-        <nav className="grid grid-cols-3 w-full gap-1 rounded-lg border p-0.5 bg-muted/40 sm:flex sm:w-auto sm:self-start">
-          {tabs.map(({ id, icon: Icon, label }) => (
-            <Link
-              key={id}
-              href={id === "calendar" ? "/appointments" : `/appointments?view=${id}`}
-              className={cn(
-                "flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] leading-tight text-center rounded-md transition-colors sm:flex-row sm:gap-1.5 sm:px-3 sm:py-0 sm:h-8 sm:text-sm sm:whitespace-nowrap",
-                view === id ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <ViewTabs
+          active={view}
+          tabs={tabs.map((tab) => ({ ...tab, href: tab.id === "calendar" ? "/appointments" : `/appointments?view=${tab.id}` }))}
+        />
         <PresvetDeadline />
         {view === "calendar" ? <CalendarView /> : view === "list" ? <AppointmentsList vets={await getVeterinarians()} /> : <WaitingRoom />}
       </div>

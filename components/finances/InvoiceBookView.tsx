@@ -222,14 +222,14 @@ export function InvoiceBookView() {
         {rows.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-10">{t("noDocsMonth")}</p>
         ) : (
-          <table className="w-full text-sm min-w-[680px]">
+          <table className="w-full text-sm sm:min-w-[680px]">
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th className="text-left font-medium px-3 py-2">{t("docNumber")}</th>
-                <th className="text-left font-medium px-3 py-2">{t("date")}</th>
-                <th className="text-left font-medium px-3 py-2">{t("customerName")}</th>
-                <th className="text-right font-medium px-3 py-2">{t("taxBase")}</th>
-                <th className="text-right font-medium px-3 py-2">IVA</th>
+                <th className="text-left font-medium px-3 py-2 hidden sm:table-cell">{t("date")}</th>
+                <th className="text-left font-medium px-3 py-2 hidden sm:table-cell">{t("customerName")}</th>
+                <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">{t("taxBase")}</th>
+                <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">IVA</th>
                 <th className="text-right font-medium px-3 py-2">{t("total")}</th>
                 <th className="w-8 print:hidden" />
               </tr>
@@ -238,25 +238,33 @@ export function InvoiceBookView() {
               {rows.map((r) => (
                 <tr key={r.id} className={cn(r.replacedBy && "text-muted-foreground")}>
                   <td className="px-3 py-2">
-                    <span className={cn("font-mono", r.replacedBy && "line-through")}>{r.docNumber}</span>
+                    <span className={cn("font-mono whitespace-nowrap", r.replacedBy && "line-through")}>{r.docNumber}</span>
                     <p className="text-[11px] text-muted-foreground">
                       {t(kindLabel[r.kind])}
                       {r.replacedBy && ` · ${t("replacedBy", { doc: r.replacedBy })}`}
                       {r.rectifiedBy && !r.replacedBy && ` · ${t("rectifiedBy", { doc: r.rectifiedBy })}`}
                       {r.replaces && !r.replacedBy && ` · ${r.kind === "RECTIFYING" ? t("rectifiesDoc", { doc: r.replaces }) : t("replacesDoc", { doc: r.replaces })}`}
                     </p>
+                    {/* On a phone date and base / VAT go here, so the table fits without scrolling sideways */}
+                    <p className="sm:hidden text-xs">
+                      {r.customerName}
+                      {r.customerNif && <span className="text-muted-foreground"> · {r.customerNif}</span>}
+                    </p>
+                    <p className="sm:hidden text-[11px] text-muted-foreground">
+                      {format(new Date(r.issuedAt), "dd/MM/yyyy")} · {t("taxBase")} {formatEur(r.taxBase)} · IVA {formatEur(r.taxAmount)}
+                    </p>
                     {r.sentAt && (
                       <p className="text-[11px] text-emerald-700 dark:text-emerald-400">✓ {ta("sentOn", { date: format(new Date(r.sentAt), "dd/MM/yyyy") })}</p>
                     )}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{format(new Date(r.issuedAt), "dd/MM/yyyy")}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 whitespace-nowrap hidden sm:table-cell">{format(new Date(r.issuedAt), "dd/MM/yyyy")}</td>
+                  <td className="px-3 py-2 hidden sm:table-cell">
                     {r.customerName}
                     {r.customerNif && <span className="text-xs text-muted-foreground"> · {r.customerNif}</span>}
                   </td>
-                  <td className="px-3 py-2 text-right">{formatEur(r.taxBase)}</td>
-                  <td className="px-3 py-2 text-right">{formatEur(r.taxAmount)}</td>
-                  <td className={cn("px-3 py-2 text-right font-medium", r.total < 0 && "text-red-600")}>{formatEur(r.total)}</td>
+                  <td className="px-3 py-2 text-right hidden sm:table-cell">{formatEur(r.taxBase)}</td>
+                  <td className="px-3 py-2 text-right hidden sm:table-cell">{formatEur(r.taxAmount)}</td>
+                  <td className={cn("px-3 py-2 text-right font-medium whitespace-nowrap align-top", r.total < 0 && "text-red-600")}>{formatEur(r.total)}</td>
                   <td className="px-1 print:hidden">
                     <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => window.open(`/print/invoice/${r.id}`, "_blank")}>
                       <Printer className="w-4 h-4" />

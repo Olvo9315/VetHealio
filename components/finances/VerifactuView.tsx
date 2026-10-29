@@ -104,14 +104,14 @@ export function VerifactuView() {
             type="button"
             disabled={busy}
             onClick={() => startBusy(async () => setDetail(await getVerifactuRecord(r.id)))}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/40"
+            className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 text-left text-sm hover:bg-muted/40"
           >
-            <span className="font-mono text-xs text-muted-foreground w-8 shrink-0">#{r.seq}</span>
-            <span className="font-medium shrink-0">{r.numSerie}</span>
+            <span className="font-mono text-xs text-muted-foreground w-8 shrink-0 hidden sm:inline">#{r.seq}</span>
+            <span className="font-medium min-w-0 truncate">{r.numSerie}</span>
             <span className="text-xs rounded bg-muted px-1.5 py-0.5 shrink-0" title={t(`type_${r.invoiceType}`)}>{r.invoiceType}</span>
             <span className="text-xs text-muted-foreground hidden sm:inline">{r.issueDate}</span>
             <span className="font-mono text-[11px] text-muted-foreground truncate flex-1 min-w-0 hidden md:inline">{r.hash}</span>
-            <span className="ml-auto font-medium shrink-0">{r.totalAmount.replace(".", ",")} €</span>
+            <span className="ml-auto font-medium shrink-0 whitespace-nowrap">{r.totalAmount.replace(".", ",")} €</span>
             <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0", r.status === "PENDING" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200")}>
               {t(`status_${r.status}`)}
             </span>

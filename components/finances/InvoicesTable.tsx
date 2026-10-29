@@ -47,7 +47,7 @@ function StatusBadge({ inv, className, label, small }: { inv: InvoiceFull; class
   return (
     <span
       className={cn(
-        "font-medium rounded-full",
+        "font-medium rounded-full whitespace-nowrap",
         small ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5",
         partial ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" : className
       )}
@@ -303,12 +303,11 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                     <SpeciesBadge species={inv.pet.species} size="sm" />
                   </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? t("noAppointment")}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  {/* Badge, number and date each kept whole; the date goes to the next line when short of room */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 [&>*]:whitespace-nowrap">
                     <StatusBadge inv={inv} className={stCfg.className} label={t(stCfg.label)} small />
-                    <span className="text-xs text-muted-foreground">
-                      <span className="font-mono mr-1">{formatInvoiceId(inv.number, inv.createdAt)}</span>
-                      {format(new Date(inv.createdAt), "d MMM yyyy", { locale: dateLocale })}
-                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">{formatInvoiceId(inv.number, inv.createdAt)}</span>
+                    <span className="text-xs text-muted-foreground">{format(new Date(inv.createdAt), "d MMM yyyy", { locale: dateLocale })}</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">

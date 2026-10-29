@@ -113,17 +113,17 @@ export function CashReportView() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs text-muted-foreground">
                   <tr>
-                    <th className="text-left font-medium px-3 py-2 w-16">{t("time")}</th>
+                    <th className="text-left font-medium px-2 sm:px-3 py-2 w-12 sm:w-16">{t("time")}</th>
                     <th className="text-left font-medium px-3 py-2">{t("owner")}</th>
                     <th className="text-left font-medium px-3 py-2 hidden md:table-cell">{t("receivedBy")}</th>
-                    <th className="text-left font-medium px-3 py-2">{t("paymentMethod")}</th>
+                    <th className="text-left font-medium px-3 py-2 hidden sm:table-cell">{t("paymentMethod")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("amount")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {report.payments.map((p) => (
                     <tr key={p.id} className={cn(p.kind !== "payment" && "bg-red-50/60 dark:bg-red-950/20")}>
-                      <td className="px-3 py-2 text-muted-foreground">{format(new Date(p.at), "HH:mm")}</td>
+                      <td className="px-2 sm:px-3 py-2 text-muted-foreground align-top">{format(new Date(p.at), "HH:mm")}</td>
                       <td className="px-3 py-2">
                         <Link href={`/patients/${p.petId}`} className="hover:underline">{p.customer}</Link>
                         <span className="text-xs text-muted-foreground"> · {p.petName}</span>
@@ -133,12 +133,14 @@ export function CashReportView() {
                           </p>
                         )}
                         {p.voided && <p className="text-xs text-muted-foreground">{t("voidedLater")}</p>}
+                        {/* On a phone the payment method goes under the name instead of its own column */}
+                        <span className="sm:hidden inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-muted">{t(paymentLabel[p.method])}</span>
                       </td>
                       <td className="px-3 py-2 hidden md:table-cell text-muted-foreground">{p.by ?? "—"}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 hidden sm:table-cell">
                         <span className={cn("text-xs px-2 py-0.5 rounded-full bg-muted")}>{t(paymentLabel[p.method])}</span>
                       </td>
-                      <td className={cn("px-3 py-2 text-right font-medium", p.amount < 0 && "text-red-600 dark:text-red-400")}>{formatEur(p.amount)}</td>
+                      <td className={cn("px-2 sm:px-3 py-2 text-right font-medium whitespace-nowrap align-top", p.amount < 0 && "text-red-600 dark:text-red-400")}>{formatEur(p.amount)}</td>
                     </tr>
                   ))}
                 </tbody>

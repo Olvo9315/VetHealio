@@ -233,7 +233,8 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           </Select>
         </div>
 
-        <div className="flex gap-2 shrink-0">
+        {/* Wraps onto two lines on a phone instead of running off the screen */}
+        <div className="flex flex-wrap gap-2 sm:shrink-0">
           <Button variant="outline" className="gap-1.5" onClick={() => setDeliveryOpen(true)}>
             <PackagePlus className="w-4 h-4" />
             {t("receiveDelivery")}
