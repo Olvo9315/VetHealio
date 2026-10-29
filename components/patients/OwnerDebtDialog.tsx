@@ -53,7 +53,7 @@ export function OwnerDebtDialog({ ownerId, ownerName, open, onOpenChange }: { ow
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>{t("debtOf", { name: ownerName })}</DialogTitle>
         </DialogHeader>
@@ -74,7 +74,7 @@ export function OwnerDebtDialog({ ownerId, ownerName, open, onOpenChange }: { ow
                       {b.paid > 0 && ` · ${t("paidSoFarShort", { amount: formatEur(b.paid) })}`}
                     </p>
                   </div>
-                  <span className={cn("text-sm font-semibold", selected.has(b.id) ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>{formatEur(b.due)}</span>
+                  <span className={cn("text-sm font-semibold shrink-0", selected.has(b.id) ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>{formatEur(b.due)}</span>
                 </label>
               ))}
             </div>

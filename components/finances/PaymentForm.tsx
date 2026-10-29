@@ -35,7 +35,8 @@ export function PaymentForm({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Two per row: "Transferencia" does not fit four across in a narrow dialog */}
+      <div className="grid grid-cols-2 gap-1.5">
         {PAYMENT_METHODS.map(({ id, label }) => {
           const Icon = ICONS[id];
           return (
@@ -44,12 +45,12 @@ export function PaymentForm({
               type="button"
               onClick={() => setMethod(id)}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-lg border py-2 text-xs transition-colors",
+                "flex items-center justify-center gap-1.5 min-w-0 rounded-lg border px-2 py-2 text-xs transition-colors",
                 method === id ? "border-primary bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted"
               )}
             >
-              <Icon className="w-4 h-4" />
-              {t(label)}
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{t(label)}</span>
             </button>
           );
         })}
