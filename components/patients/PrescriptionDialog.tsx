@@ -16,6 +16,7 @@ import { Loader2, Plus, Trash2, Pill } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PresvetFields } from "./PresvetFields";
+import { MedicationInput } from "./MedicationInput";
 import { isAntibioticIngredient } from "@/lib/presvet";
 
 interface PrescriptionDialogProps {
@@ -26,6 +27,8 @@ interface PrescriptionDialogProps {
   veterinarianId?: string;
   appointmentId?: string;
   appointmentTitle?: string;
+  // Written from a medical record: belongs to it
+  medicalRecordId?: string;
   record?: PrescriptionFull;
   onSaved: (p: PrescriptionFull) => void;
   onDeleted?: (id: string) => void;
@@ -56,6 +59,7 @@ export function PrescriptionDialog({
   veterinarianId,
   appointmentId,
   appointmentTitle,
+  medicalRecordId,
   record,
   onSaved,
   onDeleted,
@@ -140,6 +144,7 @@ export function PrescriptionDialog({
       petId,
       veterinarianId: vetId || undefined,
       appointmentId: appointmentId || undefined,
+      medicalRecordId: medicalRecordId || undefined,
       items: items.map((i) => ({
         medicationName: i.medicationName.trim(),
         units: i.units?.trim() || undefined,
@@ -235,12 +240,20 @@ export function PrescriptionDialog({
                   {/* Medicamento */}
                   <div className="col-span-2 space-y-1">
                     <Label className="text-xs">{t("medicationName")} *</Label>
-                    <Input
+                    <MedicationInput
                       value={item.medicationName}
-                      onChange={(e) => updateItem(item._key, "medicationName", e.target.value)}
+                      onChange={(v) => updateItem(item._key, "medicationName", v)}
+                      onPick={(m) => patchItem(item._key, {
+                        medicationName: m.name,
+                        activeIngredient: m.activeIngredient ?? item.activeIngredient,
+                        units: m.units ?? item.units,
+                        posology: item.posology || m.posology || "",
+                        nationalCode: m.nationalCode ?? item.nationalCode,
+                        ...(m.route ? { route: m.route as ItemState["route"] } : {}),
+                        antibiotic: item.antibiotic || m.antibiotic || isAntibioticIngredient(m.activeIngredient),
+                      })}
                       placeholder={t("medicationPlaceholder")}
                       autoFocus={idx === 0}
-                      required
                     />
                   </div>
 

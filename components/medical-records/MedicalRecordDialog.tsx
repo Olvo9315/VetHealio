@@ -18,7 +18,7 @@ import {
 import { ExamChecklist } from "./ExamChecklist";
 import { DEFAULT_EXAM_KEYS, examRows, type ExamRow } from "@/lib/exam";
 import type { MedicalRecordDraft } from "@/lib/actions/medicalRecords";
-import { RecordPrescriptions } from "./RecordPrescriptions";
+import { RecordRxSection } from "./RecordRxSection";
 import { formatAppointmentId } from "@/lib/utils";
 import { DeleteButton } from "@/components/common/DeleteButton";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -90,6 +90,8 @@ interface MedicalRecordDialogProps {
   draft?: MedicalRecordDraft;
   // The patient's visits, to fill a new record from one of them
   appointments?: VisitOption[];
+  // A prescription was added or changed from inside the record (e.g. the calendar's PRESVET icon)
+  onPrescriptionsChanged?: () => void;
 }
 
 type VisitOption = { id: string; number: number; title: string; startTime: Date };
@@ -195,6 +197,7 @@ export function MedicalRecordDialog({
   onDeleted,
   draft,
   appointments,
+  onPrescriptionsChanged,
 }: MedicalRecordDialogProps) {
   const isEdit = !!record;
   const canDelete = useCan("medical.delete");
@@ -204,6 +207,8 @@ export function MedicalRecordDialog({
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
   const [template, setTemplate] = useState<string[]>([...DEFAULT_EXAM_KEYS]);
+  // Prescriptions written here before the record existed: linked when it is saved
+  const [linkIds, setLinkIds] = useState<string[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
@@ -275,6 +280,7 @@ export function MedicalRecordDialog({
   // Re-initialize on open
   useEffect(() => {
     if (!open) return;
+    setLinkIds([]);
     if (isEdit && record) {
       form.reset(valuesFromRecord(record, template));
     } else if (draft) {
@@ -332,6 +338,7 @@ export function MedicalRecordDialog({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function handleSubmit(data: any) {
     startSave(async () => {
+      data = { ...data, linkPrescriptionIds: linkIds };
       if (isEdit) {
         const result = await updateMedicalRecord(record.id, data as MedicalRecordFormData);
         if ("error" in result) { toast.error(t("errorUpdate")); return; }
@@ -615,59 +622,48 @@ export function MedicalRecordDialog({
 
           <Separator />
 
-          {/* Prescriptions */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("prescriptions")}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setMedications([...medications, { medicationName: "", dosage: "", frequency: "", duration: "", notes: "" }])}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                {t("addMedication")}
-              </Button>
+          {/* Prescriptions: the visit's real prescriptions, opened and added with the prescription form */}
+          <RecordRxSection
+            petId={form.watch("petId")}
+            petName={selectedPet?.name ?? presetPetName ?? ""}
+            veterinarianId={watchVetId || undefined}
+            appointmentId={watchVisitId || undefined}
+            medicalRecordId={record?.id}
+            onCreated={(id) => setLinkIds((ids) => [...ids, id])}
+            onChanged={onPrescriptionsChanged}
+          />
+
+          {/* Medications typed inside older records, before prescriptions were one list */}
+          {medications.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{t("legacyMedications")}</p>
+              {medications.map((_, idx) => (
+                <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Pill className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
+                    </div>
+                    <button type="button" onClick={() => setMedications(medications.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                      <Input placeholder={t("medicationNamePlaceholder")} {...bindField(form, `prescriptions.${idx}.medicationName`)} />
+                      {form.formState.errors.prescriptions?.[idx]?.medicationName && (
+                        <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
+                      )}
+                    </div>
+                    <Input placeholder={t("dosagePlaceholder")} {...bindField(form, `prescriptions.${idx}.dosage`)} />
+                    <Input placeholder={t("frequencyPlaceholder")} {...bindField(form, `prescriptions.${idx}.frequency`)} />
+                    <Input placeholder={t("durationPlaceholder")} {...bindField(form, `prescriptions.${idx}.duration`)} />
+                    <Input placeholder={t("optionalNotes")} {...bindField(form, `prescriptions.${idx}.notes`)} />
+                  </div>
+                </div>
+              ))}
             </div>
-
-            {/* Prescriptions written in the visit (edited in Prescriptions) */}
-            {record && record.prescriptions.some((p) => p.items?.length) && (
-              <RecordPrescriptions prescriptions={record.prescriptions.filter((p) => p.items?.length)} />
-            )}
-
-            {medications.length === 0 && !record?.prescriptions.some((p) => p.items?.length) && (
-              <p className="text-sm text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
-                {t("noPrescriptions")}
-              </p>
-            )}
-
-            {medications.map((_, idx) => (
-              <div key={idx} className="border border-border rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Pill className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">{t("medicationN", { n: idx + 1 })}</span>
-                  </div>
-                  <button type="button" onClick={() => setMedications(medications.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <Input placeholder={t("medicationNamePlaceholder")} {...bindField(form, `prescriptions.${idx}.medicationName`)} />
-                    {form.formState.errors.prescriptions?.[idx]?.medicationName && (
-                      <p className="text-xs text-destructive mt-0.5">{translateMessage(tv, form.formState.errors.prescriptions[idx]?.medicationName?.message)}</p>
-                    )}
-                  </div>
-                  <Input placeholder={t("dosagePlaceholder")} {...bindField(form, `prescriptions.${idx}.dosage`)} />
-                  <Input placeholder={t("frequencyPlaceholder")} {...bindField(form, `prescriptions.${idx}.frequency`)} />
-                  <Input placeholder={t("durationPlaceholder")} {...bindField(form, `prescriptions.${idx}.duration`)} />
-                  <Input placeholder={t("optionalNotes")} {...bindField(form, `prescriptions.${idx}.notes`)} />
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             {isEdit && onDeleted && canDelete && (

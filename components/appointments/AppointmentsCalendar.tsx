@@ -15,7 +15,7 @@ import { format, parse, startOfWeek, getDay, addMonths, addWeeks, addDays, start
 import { useDateLocale } from "@/lib/date-locale";
 import { calendarLocales, useCalendarI18n } from "@/lib/calendar-i18n";
 import type { AppointmentFull, CalendarLeave } from "@/lib/actions/appointments";
-import { updateAppointmentTime } from "@/lib/actions/appointments";
+import { getAppointmentById, updateAppointmentTime } from "@/lib/actions/appointments";
 import { getEventStyleForAppointment, getTypeCfgForAppointment, typeConfig, statusConfig, cfgLabel } from "./AppointmentConfig";
 import { useTranslations } from "next-intl";
 import type { ServiceFlat } from "@/lib/actions/services";
@@ -865,6 +865,12 @@ export function AppointmentsCalendar({
     setEditDialogOpen(true);
   }
 
+  // A prescription or record changed: reload that appointment (e.g. its PRESVET icon)
+  async function refreshAppointment(id: string) {
+    const fresh = await getAppointmentById(id);
+    if (fresh) setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, presvetPending: fresh.presvetPending } : a)));
+  }
+
   function handleCreatePrescriptionFromDetail() {
     if (!selectedAppointment) return;
     setPrescriptionApt(selectedAppointment);
@@ -1397,7 +1403,13 @@ export function AppointmentsCalendar({
         />
 
         {/* Medical record of the appointment */}
-        <VisitMedicalRecordDialog appointmentId={recordVisitId} onClose={() => setRecordVisitId(null)} onDeleted={() => {}} />
+        <VisitMedicalRecordDialog
+          appointmentId={recordVisitId}
+          onClose={() => setRecordVisitId(null)}
+          onDeleted={() => {}}
+          onSaved={() => recordVisitId && refreshAppointment(recordVisitId)}
+          onPrescriptionsChanged={() => recordVisitId && refreshAppointment(recordVisitId)}
+        />
 
         {/* Prescription Dialog (from appointment) */}
         {prescriptionDialogOpen && prescriptionApt && (
@@ -1409,7 +1421,7 @@ export function AppointmentsCalendar({
             veterinarianId={prescriptionApt.veterinarianId}
             appointmentId={prescriptionApt.id}
             appointmentTitle={prescriptionApt.title}
-            onSaved={() => { setPrescriptionDialogOpen(false); }}
+            onSaved={() => { setPrescriptionDialogOpen(false); refreshAppointment(prescriptionApt.id); }}
           />
         )}
       </div>

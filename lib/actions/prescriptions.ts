@@ -179,3 +179,65 @@ export async function getPrescriptionForEdit(id: string) {
   if (!p) return null;
   return { prescription: p as unknown as PrescriptionFull, petId: p.pet?.id ?? p.petId ?? "", petName: p.pet?.name ?? "" };
 }
+
+// Prescriptions shown inside a medical record: those already linked to it and those written in
+// the same visit (they get linked when the record is saved)
+export async function getRecordPrescriptions(input: { medicalRecordId?: string; appointmentId?: string }): Promise<PrescriptionFull[]> {
+  const or = [
+    ...(input.medicalRecordId ? [{ medicalRecordId: input.medicalRecordId }] : []),
+    ...(input.appointmentId ? [{ appointmentId: input.appointmentId }] : []),
+  ];
+  if (!or.length) return [];
+  const rows = await prisma.prescription.findMany({
+    where: { OR: or, items: { some: {} } },
+    include: itemInclude,
+    orderBy: { createdAt: "asc" },
+  });
+  return rows as unknown as PrescriptionFull[];
+}
+
+export type MedicationSuggestion = {
+  name: string;
+  activeIngredient: string | null;
+  units: string | null;
+  posology: string | null;
+  nationalCode: string | null;
+  route: string | null;
+  antibiotic: boolean;
+  source: "history" | "stock";
+};
+
+// Suggestions while typing a medicine: what this clinic prescribed before (with the last dose
+// written) and what it has in stock
+export async function searchMedications(query: string): Promise<MedicationSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const [past, stock] = await Promise.all([
+    prisma.prescriptionItem.findMany({
+      where: { OR: [{ medicationName: { contains: q, mode: "insensitive" } }, { activeIngredient: { contains: q, mode: "insensitive" } }] },
+      orderBy: { prescription: { createdAt: "desc" } },
+      take: 40,
+      select: { medicationName: true, activeIngredient: true, units: true, posology: true, nationalCode: true, route: true, antibiotic: true },
+    }),
+    prisma.inventoryItem.findMany({
+      where: { OR: [{ name: { contains: q, mode: "insensitive" } }, { barcode: { contains: q } }] },
+      take: 8,
+      select: { name: true, barcode: true, unit: true },
+    }),
+  ]);
+  const seen = new Set<string>();
+  const out: MedicationSuggestion[] = [];
+  for (const p of past) {
+    const key = p.medicationName.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: p.medicationName, activeIngredient: p.activeIngredient, units: p.units, posology: p.posology, nationalCode: p.nationalCode, route: p.route, antibiotic: p.antibiotic, source: "history" });
+  }
+  for (const s of stock) {
+    const key = s.name.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: s.name, activeIngredient: null, units: null, posology: null, nationalCode: s.barcode, route: null, antibiotic: false, source: "stock" });
+  }
+  return out.slice(0, 8);
+}

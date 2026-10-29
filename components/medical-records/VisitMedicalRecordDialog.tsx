@@ -10,10 +10,11 @@ interface VisitMedicalRecordDialogProps {
   onClose: () => void;
   onSaved?: (record: MedicalRecordFull) => void;
   onDeleted?: (id: string) => void;
+  onPrescriptionsChanged?: () => void;
 }
 
 // The medical record of a visit: opens the existing one, or a new one filled in from the visit
-export function VisitMedicalRecordDialog({ appointmentId, onClose, onSaved, onDeleted }: VisitMedicalRecordDialogProps) {
+export function VisitMedicalRecordDialog({ appointmentId, onClose, onSaved, onDeleted, onPrescriptionsChanged }: VisitMedicalRecordDialogProps) {
   const [loaded, setLoaded] = useState<{ id: string; record?: MedicalRecordFull; draft?: MedicalRecordDraft } | null>(null);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function VisitMedicalRecordDialog({ appointmentId, onClose, onSaved, onDe
       presetPetName={loaded.record?.pet.name ?? loaded.draft?.petName}
       onSaved={(r) => onSaved?.(r)}
       onDeleted={onDeleted ? (id) => onDeleted(id) : undefined}
+      onPrescriptionsChanged={onPrescriptionsChanged}
     />
   );
 }

@@ -396,7 +396,8 @@
       "mouth": "Ротовая полость, зубы",
       "musculoskeletal": "Опорно-двигательный аппарат",
       "neuro": "Неврологический статус"
-    }
+    },
+    "legacyMedications": "Препараты, записанные ранее в этой истории"
   },
   "finances": {
     "title": "Финансы",
@@ -970,7 +971,10 @@
     "warningsPlaceholder": "Не применять при...",
     "notesPlaceholder": "Общие примечания к рецепту...",
     "prescribingVet": "Врач, выписывающий рецепт",
-    "chooseVet": "Выберите врача…"
+    "chooseVet": "Выберите врача…",
+    "presvetPendingShort": "Ожидает PRESVET",
+    "suggestHistory": "Назначался ранее",
+    "suggestStock": "На складе"
   },
   "services": {
     "title": "Услуги",

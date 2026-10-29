@@ -83,6 +83,8 @@ const medicalRecordSchema = z.object({
   homeCare: z.string().max(4000).optional().or(z.literal("")),
   prescriptions: z.array(prescriptionSchema).optional(),
   appointmentId: z.string().optional().or(z.literal("")),
+  // Prescriptions written from the record form before the record existed
+  linkPrescriptionIds: z.array(z.string()).max(50).optional(),
 });
 
 export type MedicalRecordFormData = z.infer<typeof medicalRecordSchema>;
@@ -125,6 +127,11 @@ async function linkVisitPrescriptions(recordId: string, appointmentId: string | 
     where: { appointmentId, medicalRecordId: null },
     data: { medicalRecordId: recordId },
   });
+}
+
+async function linkPrescriptions(recordId: string, petId: string, ids: string[] | undefined) {
+  if (!ids?.length) return;
+  await prisma.prescription.updateMany({ where: { id: { in: ids }, petId }, data: { medicalRecordId: recordId } });
 }
 
 // ---- Queries ----
@@ -248,6 +255,7 @@ export async function createMedicalRecord(data: MedicalRecordFormData) {
     },
   });
   await linkVisitPrescriptions(record.id, record.appointmentId);
+  await linkPrescriptions(record.id, record.petId, parsed.data.linkPrescriptionIds);
   await updatePetWeight(record.petId, record.weight);
   const full = await prisma.medicalRecord.findUniqueOrThrow({ where: { id: record.id }, include: fullInclude });
 
@@ -292,10 +300,12 @@ export async function updateMedicalRecord(id: string, data: MedicalRecordFormDat
   });
 
   await updatePetWeight(record.petId, record.weight);
+  await linkPrescriptions(id, record.petId, parsed.data.linkPrescriptionIds);
+  const full = await prisma.medicalRecord.findUniqueOrThrow({ where: { id }, include: fullInclude });
 
   revalidatePath("/medical-records");
   revalidatePath(`/patients/${parsed.data.petId}`);
-  return { record: record as unknown as MedicalRecordFull };
+  return { record: full as unknown as MedicalRecordFull };
 }
 
 export async function deleteMedicalRecord(id: string) {

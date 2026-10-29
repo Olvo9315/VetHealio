@@ -147,9 +147,12 @@ export async function getAppointmentById(id: string): Promise<AppointmentFull | 
       service: serviceInclude,
       extraServices: extraServicesInclude,
       room: roomInclude,
+      prescriptions: { where: { presvetStatus: { in: ["PENDING", "CHANGED"] } }, select: { id: true }, take: 1 },
     },
-  })) as unknown as AppointmentFull | null;
-  return row && (await getAppointmentLocalizer())(row);
+  })) as unknown as (AppointmentFull & { prescriptions: { id: string }[] }) | null;
+  if (!row) return null;
+  const { prescriptions, ...apt } = row;
+  return { ...(await getAppointmentLocalizer())(apt as AppointmentFull), presvetPending: prescriptions.length > 0 };
 }
 
 export async function getVeterinarians() {
