@@ -663,9 +663,16 @@ model StockMovement {
 // Data-protection (RGPD) consent of an owner: the text they accepted and how
 model Consent {
   id           String   @id @default(cuid())
+  // rgpd | general | surgery | hospitalization | euthanasia | necropsy (lib/consents.ts)
   kind         String   @default("rgpd")
   text         String
   marketing    Boolean  @default(false)
+  // Pets a treatment consent covers (one owner may sign for several at once)
+  petIds       String[] @default([])
+  // Treatment consents: { procedure, risks, alternatives, cost, vetName, vetLicense }
+  details      Json?
+  // Who signed, when it is not the owner (authorised person)
+  signerName   String?
   // SIGNATURE (drawn on screen) or CHECKBOX
   method       String
   signatureKey String?

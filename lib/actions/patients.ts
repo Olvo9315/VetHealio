@@ -328,3 +328,37 @@ export async function archivePet(id: string) {
   await prisma.pet.update({ where: { id }, data: { isActive: false } });
   revalidatePath("/patients");
 }
+
+// An owner with all their pets and bills: the place to see and settle everything for one family
+export async function getOwnerOverview(id: string) {
+  const owner = await prisma.owner.findUnique({
+    where: { id },
+    include: {
+      pets: {
+        select: { id: true, number: true, name: true, species: true, breed: true, birthDate: true, isActive: true, alerts: true, conditions: true },
+        orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      },
+    },
+  });
+  if (!owner) return null;
+  const bills = await prisma.invoice.findMany({
+    where: { pet: { ownerId: id } },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      totalAmount: true,
+      paidAmount: true,
+      createdAt: true,
+      pet: { select: { id: true, name: true } },
+      appointment: { select: { title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return { owner, bills };
+}
+
+export async function getOwnerPets(ownerId: string) {
+  return prisma.pet.findMany({ where: { ownerId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+}

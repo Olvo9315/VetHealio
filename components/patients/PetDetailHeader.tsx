@@ -26,9 +26,11 @@ import {
   Wallet,
   ShieldCheck,
   ShieldAlert,
+  FileSignature,
 } from "lucide-react";
 import { OwnerDebtDialog } from "./OwnerDebtDialog";
 import { ConsentDialog } from "./ConsentDialog";
+import { TreatmentConsentDialog } from "./TreatmentConsentDialog";
 import type { ConsentStatus } from "@/lib/actions/consents";
 import { formatEur } from "@/lib/format";
 import { ConditionChips } from "./ConditionsPicker";
@@ -50,9 +52,11 @@ interface PetDetailHeaderProps {
   // What the owner still owes across all their pets
   debt?: number;
   consent?: ConsentStatus;
+  // All active pets of the owner, for documents that cover several at once
+  ownerPets?: { id: string; name: string }[];
 }
 
-export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHeaderProps) {
+export function PetDetailHeader({ pet, debt = 0, consent = null, ownerPets }: PetDetailHeaderProps) {
   const t = useTranslations("patients");
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -60,8 +64,10 @@ export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHead
   const [isArchiving, startArchive] = useTransition();
   const [debtOpen, setDebtOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
+  const [treatmentOpen, setTreatmentOpen] = useState(false);
   const tf = useTranslations("finances");
   const tcons = useTranslations("consent");
+  const tp = useTranslations("owners");
   const ownerName = `${pet.owner.firstName} ${pet.owner.lastName}`;
 
   function handleArchive() {
@@ -176,9 +182,12 @@ export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHead
                   {t("owner")}
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <span className="font-medium text-sm">
+                  <Link href={`/owners/${pet.owner.id}`} className="font-medium text-sm hover:underline">
                     {pet.owner.firstName} {pet.owner.lastName}
-                  </span>
+                    {ownerPets && ownerPets.length > 1 && (
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{tp("ownerPetsCount", { count: ownerPets.length })}</span>
+                    )}
+                  </Link>
                   <a
                     href={`tel:${pet.owner.phone}`}
                     className="flex items-center gap-1 text-sm text-primary hover:underline"
@@ -249,6 +258,14 @@ export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHead
                       {tcons("signNow")}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setTreatmentOpen(true)}
+                    className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border hover:bg-muted"
+                  >
+                    <FileSignature className="w-3.5 h-3.5" />
+                    {tcons("treatmentButton")}
+                  </button>
                   {consent && (
                     <button type="button" onClick={() => setConsentOpen(true)} className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
                       {tcons("signAgain")}
@@ -297,6 +314,16 @@ export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHead
 
       {editOpen && <EditPetDialog pet={pet} open={editOpen} onOpenChange={setEditOpen} />}
       {debtOpen && <OwnerDebtDialog ownerId={pet.owner.id} ownerName={ownerName} open={debtOpen} onOpenChange={setDebtOpen} />}
+      {treatmentOpen && (
+        <TreatmentConsentDialog
+          ownerId={pet.owner.id}
+          ownerName={ownerName}
+          pets={ownerPets?.length ? ownerPets : [{ id: pet.id, name: pet.name }]}
+          presetPetIds={[pet.id]}
+          open={treatmentOpen}
+          onOpenChange={setTreatmentOpen}
+        />
+      )}
       {consentOpen && <ConsentDialog ownerId={pet.owner.id} ownerName={ownerName} open={consentOpen} onOpenChange={setConsentOpen} />}
       {editOwnerOpen && <EditOwnerDialog owner={pet.owner} open={editOwnerOpen} onOpenChange={setEditOwnerOpen} />}
     </>

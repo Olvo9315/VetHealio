@@ -55,7 +55,7 @@ type OwnerForm = z.infer<typeof ownerFormSchema>;
 type PetForm = z.infer<typeof petFormSchema>;
 
 // ---- Owner search result type ----
-type OwnerResult = {
+export type OwnerResult = {
   id: string;
   firstName: string;
   lastName: string;
@@ -67,12 +67,14 @@ interface NewPatientDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated: (pet: PetWithOwner) => void;
+  // Adding another pet to a known owner: skip straight to the pet step
+  presetOwner?: OwnerResult;
 }
 
 type Step = "owner" | "pet";
 type OwnerMode = "search" | "create";
 
-export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDialogProps) {
+export function NewPatientDialog({ open, onOpenChange, onCreated, presetOwner }: NewPatientDialogProps) {
   const t = useTranslations("patients");
   const tCommon = useTranslations("common");
   const tv = useTranslations("validation");
@@ -100,6 +102,13 @@ export function NewPatientDialog({ open, onOpenChange, onCreated }: NewPatientDi
 
   const watchPetSpecies = petForm.watch("species");
   const watchPetGender = petForm.watch("gender");
+
+  useEffect(() => {
+    if (open && presetOwner) {
+      setSelectedOwner(presetOwner);
+      setStep("pet");
+    }
+  }, [open, presetOwner]);
 
   // Reset on close
   useEffect(() => {

@@ -53,7 +53,7 @@ export function ConsentDialog({ ownerId, ownerName, open, onOpenChange }: { owne
       `[${marketing ? "x" : " "}] ${t("acceptMarketing")}`,
     ].join("\n");
     startSave(async () => {
-      const result = await recordConsent(ownerId, { text: full, method, signature, reminders, marketing });
+      const result = await recordConsent(ownerId, { text: full, method, signature, reminders, marketing, details: { lang } });
       if ("error" in result) { toast.error(t("errorSave")); return; }
       toast.success(t("saved"));
       onOpenChange(false);

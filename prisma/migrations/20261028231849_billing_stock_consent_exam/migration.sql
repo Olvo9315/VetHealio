@@ -209,6 +209,11 @@ ALTER TABLE "Appointment" ADD COLUMN     "reminderSentAt" TIMESTAMP(3);
 -- AlterTable
 ALTER TABLE "Vaccination" ADD COLUMN     "reminderSentAt" TIMESTAMP(3);
 
+-- AlterTable
+ALTER TABLE "Consent" ADD COLUMN     "details" JSONB,
+ADD COLUMN     "petIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "signerName" TEXT;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

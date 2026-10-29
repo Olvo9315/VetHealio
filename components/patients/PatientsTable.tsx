@@ -296,7 +296,13 @@ export function PatientsTable({ initialPets }: PatientsTableProps) {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{pet.breed ?? "—"}</TableCell>
                   <TableCell>
-                    {pet.owner.firstName} {pet.owner.lastName}
+                    <Link
+                      href={`/owners/${pet.ownerId}`}
+                      className="hover:underline hover:text-primary"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {pet.owner.firstName} {pet.owner.lastName}
+                    </Link>
                     <div className="text-xs text-muted-foreground">{pet.owner.phone}</div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
