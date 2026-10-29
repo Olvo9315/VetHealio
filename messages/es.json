@@ -283,7 +283,8 @@
     "checkIn": "Ha llegado",
     "doneToday": "Atendidos hoy: {count}",
     "createdBy": "Creada por {name}",
-    "updatedBy": "Modificada por {name}"
+    "updatedBy": "Modificada por {name}",
+    "presvetPending": "Receta de antibiótico por comunicar a PRESVET"
   },
   "medicalRecords": {
     "title": "Historiales médicos",
@@ -967,7 +968,9 @@
     "posologyPlaceholder": "1 comprimido cada 12h durante 7 días...",
     "indicationsPlaceholder": "Infección bacteriana...",
     "warningsPlaceholder": "No administrar en caso de...",
-    "notesPlaceholder": "Observaciones generales de la receta..."
+    "notesPlaceholder": "Observaciones generales de la receta...",
+    "prescribingVet": "Veterinario que prescribe",
+    "chooseVet": "Elegir veterinario…"
   },
   "services": {
     "title": "Servicios",
@@ -1624,6 +1627,11 @@
     "col_medication": "Medicamento",
     "col_type": "Tipo de receta",
     "col_posology": "Posología",
-    "field_vet": "Veterinario que prescribe"
+    "field_vet": "Veterinario que prescribe",
+    "filter_pending": "Por comunicar",
+    "filter_sent": "Comunicadas",
+    "filter_all": "Todas",
+    "deadlineSoon": "PRESVET: {count} recetas de antibióticos por comunicar, plazo hasta el {date}",
+    "deadlineOverdue": "PRESVET: {count} recetas de antibióticos sin comunicar, plazo superado hace {days} días"
   }
 }

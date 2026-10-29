@@ -283,7 +283,8 @@
     "checkIn": "Пришёл",
     "doneToday": "Принято сегодня: {count}",
     "createdBy": "Создал(а): {name}",
-    "updatedBy": "Изменил(а): {name}"
+    "updatedBy": "Изменил(а): {name}",
+    "presvetPending": "Рецепт с антибиотиком нужно передать в PRESVET"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -967,7 +968,9 @@
     "posologyPlaceholder": "1 таблетка каждые 12 ч в течение 7 дней...",
     "indicationsPlaceholder": "Бактериальная инфекция...",
     "warningsPlaceholder": "Не применять при...",
-    "notesPlaceholder": "Общие примечания к рецепту..."
+    "notesPlaceholder": "Общие примечания к рецепту...",
+    "prescribingVet": "Врач, выписывающий рецепт",
+    "chooseVet": "Выберите врача…"
   },
   "services": {
     "title": "Услуги",
@@ -1624,6 +1627,11 @@
     "col_medication": "Препарат",
     "col_type": "Тип рецепта",
     "col_posology": "Дозировка",
-    "field_vet": "Врач, выписавший рецепт"
+    "field_vet": "Врач, выписавший рецепт",
+    "filter_pending": "К передаче",
+    "filter_sent": "Переданные",
+    "filter_all": "Все",
+    "deadlineSoon": "PRESVET: рецептов с антибиотиками к передаче — {count}, срок до {date}",
+    "deadlineOverdue": "PRESVET: рецептов с антибиотиками не передано — {count}, срок прошёл {days} дн. назад"
   }
 }

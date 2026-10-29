@@ -56,33 +56,35 @@ export function ExamChecklist({ rows, onChange }: { rows: ExamRow[]; onChange: (
           </div>
           {rows.map((row, idx) => (
             <div key={row.key} className="py-1">
-              <div className="flex items-center gap-2">
-                <span className="flex-1 text-sm min-w-0 truncate">{examLabel(t, row.key)}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="flex-1 text-sm min-w-0 truncate" title={examLabel(t, row.key)}>{examLabel(t, row.key)}</span>
                 <button
                   type="button"
                   onClick={() => toggle(idx, "normal")}
+                  title={t("examNormal")}
                   className={cn(
-                    "h-7 px-2.5 rounded-md text-xs border flex items-center gap-1 transition-colors",
+                    "h-7 px-2 rounded-md text-xs border flex items-center gap-1 transition-colors shrink-0",
                     row.status === "normal"
                       ? "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-700 dark:text-emerald-200"
                       : "text-muted-foreground hover:bg-muted"
                   )}
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {t("examNormal")}
+                  <span className="hidden sm:inline">{t("examNormal")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => toggle(idx, "abnormal")}
+                  title={t("examAltered")}
                   className={cn(
-                    "h-7 px-2.5 rounded-md text-xs border flex items-center gap-1 transition-colors",
+                    "h-7 px-2 rounded-md text-xs border flex items-center gap-1 transition-colors shrink-0",
                     row.status === "abnormal"
                       ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-200"
                       : "text-muted-foreground hover:bg-muted"
                   )}
                 >
                   <CircleAlert className="w-3.5 h-3.5" />
-                  {t("examAltered")}
+                  <span className="hidden sm:inline">{t("examAltered")}</span>
                 </button>
               </div>
               {(row.status === "abnormal" || row.note) && (

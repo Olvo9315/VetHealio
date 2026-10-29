@@ -283,7 +283,8 @@
     "checkIn": "Arrived",
     "doneToday": "Seen today: {count}",
     "createdBy": "Created by {name}",
-    "updatedBy": "Changed by {name}"
+    "updatedBy": "Changed by {name}",
+    "presvetPending": "Antibiotic prescription to report to PRESVET"
   },
   "medicalRecords": {
     "title": "Medical Records",
@@ -967,7 +968,9 @@
     "posologyPlaceholder": "1 tablet every 12h for 7 days...",
     "indicationsPlaceholder": "Bacterial infection...",
     "warningsPlaceholder": "Do not administer if...",
-    "notesPlaceholder": "General prescription remarks..."
+    "notesPlaceholder": "General prescription remarks...",
+    "prescribingVet": "Prescribing vet",
+    "chooseVet": "Choose vet…"
   },
   "services": {
     "title": "Services",
@@ -1624,6 +1627,11 @@
     "col_medication": "Medicine",
     "col_type": "Prescription type",
     "col_posology": "Posology",
-    "field_vet": "Prescribing vet"
+    "field_vet": "Prescribing vet",
+    "filter_pending": "To report",
+    "filter_sent": "Reported",
+    "filter_all": "All",
+    "deadlineSoon": "PRESVET: {count} antibiotic prescriptions to report, due by {date}",
+    "deadlineOverdue": "PRESVET: {count} antibiotic prescriptions not reported, {days} days overdue"
   }
 }

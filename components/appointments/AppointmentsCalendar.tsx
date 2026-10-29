@@ -26,7 +26,7 @@ import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
 import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
 import { VisitMedicalRecordDialog } from "@/components/medical-records/VisitMedicalRecordDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User, Stethoscope, AlertTriangle, DoorOpen, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Room } from "@/lib/actions/rooms";
@@ -168,6 +168,12 @@ function AppointmentCard({
           <p className="text-xs opacity-70 leading-tight" style={{ color: typeCfg.color }}>
             {apt.title}
           </p>
+          {apt.presvetPending && (
+            <p className="text-[11px] leading-tight text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+              <ShieldAlert className="w-3 h-3" />
+              {t("presvetPending")}
+            </p>
+          )}
           {!!apt.extraServices?.length && (
             <p className="text-[11px] leading-tight text-muted-foreground mt-0.5">
               + {apt.extraServices.map((s) => serviceLabel(s.id, s.name)).join(", ")}
@@ -958,6 +964,7 @@ export function AppointmentsCalendar({
                 {isMonthView ? (
                   <div className="flex items-center gap-1 overflow-hidden">
                     {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                     <span className="truncate font-semibold text-xs leading-none">{apt.pet.name}</span>
                   </div>
                 ) : (
@@ -966,6 +973,7 @@ export function AppointmentsCalendar({
                     <div className="min-w-0 flex-1 flex flex-col gap-px">
                       <div className="flex items-center gap-1 overflow-hidden">
                         {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                         <span className="font-semibold text-[11px] leading-tight truncate">{apt.pet.name}</span>
                       </div>
                       <span className="text-[10px] leading-tight truncate opacity-80">{apt.veterinarian.name}</span>
@@ -988,6 +996,7 @@ export function AppointmentsCalendar({
                   <div className="h-full flex flex-col justify-start gap-px overflow-hidden">
                     <div className="flex items-center gap-1 overflow-hidden">
                       {hasConflict && <AlertTriangle className="w-2.5 h-2.5 shrink-0 text-red-500 flex-none" />}
+                        {apt.presvetPending && <ShieldAlert className="w-2.5 h-2.5 shrink-0 text-amber-600 flex-none" />}
                       <span className="font-semibold text-[11px] leading-tight truncate">
                         {apt.pet.name}
                       </span>

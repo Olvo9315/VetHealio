@@ -2,7 +2,9 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
 import { startOfMonth, endOfMonth, addMonths } from "date-fns";
-import { CalendarDays, DoorOpen, List } from "lucide-react";
+import { CalendarDays, DoorOpen, List, ShieldAlert } from "lucide-react";
+import { format } from "date-fns";
+import { getPresvetDeadline } from "@/lib/actions/presvet";
 import { TopBar } from "@/components/layout/TopBar";
 import { getAppointments, getCalendarLeaves, getVeterinarians } from "@/lib/actions/appointments";
 import { getServicesFlat } from "@/lib/actions/services";
@@ -45,9 +47,38 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
             </Link>
           ))}
         </nav>
+        <PresvetDeadline />
         {view === "calendar" ? <CalendarView /> : view === "list" ? <AppointmentsList vets={await getVeterinarians()} /> : <WaitingRoom />}
       </div>
     </div>
+  );
+}
+
+// Reminder above the calendar when reporting antibiotic prescriptions to PRESVET is due (3 days ahead)
+async function PresvetDeadline() {
+  const d = await getPresvetDeadline();
+  if (!d) return null;
+  const daysLeft = Math.ceil((d.due.getTime() - Date.now()) / (24 * 3600 * 1000));
+  if (daysLeft > 3) return null;
+  const t = await getTranslations("presvet");
+  return (
+    <Link
+      href="/medical-records/presvet"
+      className={cn(
+        "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm",
+        daysLeft < 0
+          ? "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"
+          : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+      )}
+    >
+      <ShieldAlert className="w-4 h-4 shrink-0" />
+      <span className="flex-1">
+        {daysLeft < 0
+          ? t("deadlineOverdue", { count: d.count, days: -daysLeft })
+          : t("deadlineSoon", { count: d.count, date: format(d.due, "dd/MM") })}
+      </span>
+      <span className="font-medium underline">{t("open")}</span>
+    </Link>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { createPrescription, updatePrescription, deletePrescription } from "@/lib/actions/prescriptions";
+import { getVeterinarians } from "@/lib/actions/appointments";
 import { DeleteButton } from "@/components/common/DeleteButton";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import type { PrescriptionFull, PrescriptionItemData } from "@/lib/actions/prescriptions";
@@ -67,6 +68,10 @@ export function PrescriptionDialog({
   const isEdit = !!record;
 
   const [notes, setNotes] = useState(record?.notes ?? "");
+  // Prescribing vet (required on the prescription and for PRESVET)
+  const [vetId, setVetId] = useState(record?.veterinarianId ?? veterinarianId ?? "");
+  const [vets, setVets] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { getVeterinarians().then(setVets); }, []);
   function mapItems(src: PrescriptionFull["items"]): ItemState[] {
     return src.length
       ? src.map((i) => ({
@@ -93,6 +98,7 @@ export function PrescriptionDialog({
   useEffect(() => {
     if (open) {
       setNotes(record?.notes ?? "");
+      setVetId(record?.veterinarianId ?? veterinarianId ?? "");
       setItems(mapItems(record?.items ?? []));
     }
   }, [open, record]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -123,7 +129,7 @@ export function PrescriptionDialog({
     setItems((prev) => prev.filter((it) => it._key !== key));
   }
 
-  const canSave = items.length > 0 && items.every((i) => i.medicationName.trim() && i.posology.trim());
+  const canSave = !!vetId && items.length > 0 && items.every((i) => i.medicationName.trim() && i.posology.trim());
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -132,7 +138,7 @@ export function PrescriptionDialog({
     const data = {
       notes: notes.trim() || undefined,
       petId,
-      veterinarianId: veterinarianId || undefined,
+      veterinarianId: vetId || undefined,
       appointmentId: appointmentId || undefined,
       items: items.map((i) => ({
         medicationName: i.medicationName.trim(),
@@ -183,6 +189,17 @@ export function PrescriptionDialog({
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-1">
+            <Label className="text-xs">{t("prescribingVet")} *</Label>
+            <select
+              className={cn("h-9 w-full rounded-md border bg-background px-2 text-sm", !vetId && "border-amber-400")}
+              value={vetId}
+              onChange={(e) => setVetId(e.target.value)}
+            >
+              <option value="">{t("chooseVet")}</option>
+              {vets.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
 
           {/* Medications */}
           <div className="space-y-3">

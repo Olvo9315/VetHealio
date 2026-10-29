@@ -98,3 +98,15 @@ export async function markPresvetSent(prescriptionIds: string[], ref: string) {
   });
   revalidatePath("/medical-records/presvet");
 }
+
+// PRESVET asks for reports at least every 15 days: how many are waiting and by when the oldest
+// one should go out. Shown above the calendar when the date is near or past.
+export async function getPresvetDeadline(): Promise<{ count: number; due: Date } | null> {
+  await requireUserId();
+  const [count, oldest] = await Promise.all([
+    prisma.prescription.count({ where: { presvetStatus: { in: ["PENDING", "CHANGED"] } } }),
+    prisma.prescription.findFirst({ where: { presvetStatus: { in: ["PENDING", "CHANGED"] } }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+  ]);
+  if (!count || !oldest) return null;
+  return { count, due: new Date(oldest.createdAt.getTime() + 15 * 24 * 3600 * 1000) };
+}

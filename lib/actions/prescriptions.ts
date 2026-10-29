@@ -169,3 +169,13 @@ export async function deletePrescription(id: string) {
   revalidatePath("/patients");
   return { ok: true };
 }
+
+// One prescription with its patient, to open it from lists outside the patient page (PRESVET)
+export async function getPrescriptionForEdit(id: string) {
+  const p = await prisma.prescription.findUnique({
+    where: { id },
+    include: { ...itemInclude, pet: { select: { id: true, name: true } } },
+  });
+  if (!p) return null;
+  return { prescription: p as unknown as PrescriptionFull, petId: p.pet?.id ?? p.petId ?? "", petName: p.pet?.name ?? "" };
+}

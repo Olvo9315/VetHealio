@@ -31,6 +31,8 @@ export type AppointmentFull = {
   room: { id: string; name: string; color: string } | null;
   pet: { id: string; name: string; species: string; owner: { firstName: string; lastName: string; phone: string } };
   veterinarian: { id: string; name: string };
+  // A prescription of this visit still has to be reported to PRESVET
+  presvetPending?: boolean;
 };
 
 // ---- Validation ----
@@ -109,6 +111,7 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       startTime: { gte: from, lte: to },
     },
     include: {
+      prescriptions: { where: { presvetStatus: { in: ["PENDING", "CHANGED"] } }, select: { id: true }, take: 1 },
       pet: {
         select: {
           id: true,
@@ -123,9 +126,9 @@ export async function getAppointments(from: Date, to: Date): Promise<Appointment
       room: roomInclude,
     },
     orderBy: { startTime: "asc" },
-  })) as unknown as AppointmentFull[];
+  })) as unknown as (AppointmentFull & { prescriptions: { id: string }[] })[];
   const localize = await getAppointmentLocalizer();
-  return rows.map(localize);
+  return rows.map(({ prescriptions, ...a }) => ({ ...localize(a as AppointmentFull), presvetPending: prescriptions.length > 0 }));
 }
 
 export async function getAppointmentById(id: string): Promise<AppointmentFull | null> {

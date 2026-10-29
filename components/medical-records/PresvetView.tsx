@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { endOfMonth, format, startOfMonth, subDays } from "date-fns";
 import { AlertTriangle, CheckCircle2, Download, FlaskConical, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { getPresvetRows, markPresvetSent, type PresvetRow } from "@/lib/actions/presvet";
+import { getPrescriptionForEdit } from "@/lib/actions/prescriptions";
+import { PrescriptionDialog } from "@/components/patients/PrescriptionDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadCsv } from "@/lib/format";
@@ -23,18 +24,23 @@ export function PresvetView() {
   // PRESVET asks for reports at least every two weeks: start with the last 15 days
   const [from, setFrom] = useState(() => format(subDays(new Date(), 14), DAY));
   const [to, setTo] = useState(() => format(new Date(), DAY));
-  const [onlyPending, setOnlyPending] = useState(true);
+  const [filter, setFilter] = useState<"pending" | "sent" | "all">("pending");
+  const [editing, setEditing] = useState<Awaited<ReturnType<typeof getPrescriptionForEdit>>>(null);
   const [rows, setRows] = useState<PresvetRow[]>([]);
   const [province, setProvince] = useState<string | null>(null);
   const [isLoading, startLoad] = useTransition();
   const [isBusy, startBusy] = useTransition();
 
   const load = () => startLoad(async () => {
-    const r = await getPresvetRows(from, to, onlyPending);
-    setRows(r.rows);
+    const r = await getPresvetRows(from, to, filter === "pending");
+    setRows(filter === "sent" ? r.rows.filter((x) => x.status === "SENT") : r.rows);
     setProvince(r.clinicProvince);
   });
-  useEffect(() => { if (from && to && from <= to) load(); }, [from, to, onlyPending]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (from && to && from <= to) load(); }, [from, to, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function open(row: PresvetRow) {
+    startBusy(async () => setEditing(await getPrescriptionForEdit(row.prescriptionId)));
+  }
 
   const ready = rows.filter((r) => !r.missing.length && r.status !== "SENT");
   const incomplete = rows.filter((r) => r.missing.length && r.status !== "SENT");
@@ -97,10 +103,13 @@ export function PresvetView() {
           <Input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} className="h-9 w-[150px]" />
         </label>
         <Button variant="ghost" size="sm" onClick={() => { setFrom(format(startOfMonth(new Date()), DAY)); setTo(format(endOfMonth(new Date()), DAY)); }}>{t("thisMonth")}</Button>
-        <label className="flex items-center gap-1.5 text-sm ml-auto cursor-pointer">
-          <input type="checkbox" className="accent-primary" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} />
-          {t("onlyPending")}
-        </label>
+        <div className="flex rounded-lg border p-0.5 bg-muted/40 ml-auto">
+          {(["pending", "sent", "all"] as const).map((f) => (
+            <button key={f} type="button" onClick={() => setFilter(f)} className={cn("px-3 h-8 text-sm rounded-md whitespace-nowrap", filter === f ? "bg-background shadow-sm font-medium" : "text-muted-foreground")}>
+              {t(`filter_${f}`)}
+            </button>
+          ))}
+        </div>
         {isLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
       </div>
 
@@ -132,7 +141,12 @@ export function PresvetView() {
       <div className="rounded-xl border bg-card divide-y">
         {!rows.length && <p className="text-sm text-muted-foreground text-center py-10">{t("empty")}</p>}
         {rows.map((r, i) => (
-          <div key={`${r.prescriptionId}-${i}`} className="p-3 space-y-1">
+          <button
+            type="button"
+            key={`${r.prescriptionId}-${i}`}
+            onClick={() => open(r)}
+            className="w-full text-left p-3 space-y-1 hover:bg-muted/40 transition-colors"
+          >
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground">{formatPrescriptionId(r.number)}</span>
               <span className="text-xs text-muted-foreground">{format(new Date(r.date), "dd/MM/yyyy")}</span>
@@ -151,7 +165,7 @@ export function PresvetView() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {r.petId ? <Link href={`/patients/${r.petId}`} className="hover:underline">{r.petName}</Link> : r.petName}
+              {r.petName}
               {r.species && ` (${tp(r.species.toLowerCase())})`} · {r.ownerName} · {r.vetName}
               {r.nationalCode && ` · CN ${r.nationalCode}`}
               {r.packages ? ` · ${t("packagesShort", { n: r.packages })}` : ""}
@@ -166,9 +180,20 @@ export function PresvetView() {
               </p>
             )}
             {r.sentAt && <p className="text-xs text-emerald-700 dark:text-emerald-400">✓ {t("sentOn", { date: format(new Date(r.sentAt), "dd/MM/yyyy") })}</p>}
-          </div>
+          </button>
         ))}
       </div>
+      {editing && (
+        <PrescriptionDialog
+          open={!!editing}
+          onOpenChange={(v) => !v && setEditing(null)}
+          petId={editing.petId}
+          petName={editing.petName}
+          record={editing.prescription}
+          onSaved={() => { setEditing(null); load(); }}
+          onDeleted={() => { setEditing(null); load(); }}
+        />
+      )}
     </div>
   );
 }

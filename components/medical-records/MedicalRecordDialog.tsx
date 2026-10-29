@@ -349,14 +349,14 @@ export function MedicalRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? t("editRecord") : t("newRecord")}</DialogTitle>
         </DialogHeader>
 
         <form
           ref={formRef}
-          className="space-y-5 mt-2"
+          className="space-y-5 mt-2 min-w-0"
           onSubmit={(e) => {
             e.preventDefault();
             if (formRef.current) {
