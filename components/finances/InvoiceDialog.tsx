@@ -24,7 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays } from "lucide-react";
+import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays, Package } from "lucide-react";
+import { ProductPicker } from "./ProductPicker";
+import { TaxRateChips } from "./TaxRateChips";
+import { getBillingDefaults } from "@/lib/actions/billing";
 import { cn } from "@/lib/utils";
 import { NumberInput } from "@/components/common/NumberInput";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -38,13 +41,18 @@ interface ItemData {
   unitPrice: number;
   type: ItemType;
   serviceId: string | null;
+  taxRate: number;
+  // Product sold from stock (taken out of stock when the bill is saved)
+  inventoryItemId: string | null;
+  stockLeft?: number;
+  stockUnit?: string;
 }
 
 let _id = 0;
 const nextId = () => String(++_id);
 
-function newItem(): ItemData {
-  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE", serviceId: null };
+function newItem(taxRate = 21): ItemData {
+  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE", serviceId: null, taxRate, inventoryItemId: null };
 }
 
 function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
@@ -55,6 +63,8 @@ function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
     unitPrice: item.unitPrice,
     type: (item.type as ItemType) ?? "SERVICE",
     serviceId: item.serviceId ?? null,
+    taxRate: item.taxRate,
+    inventoryItemId: item.inventoryItemId ?? null,
   };
 }
 
@@ -96,7 +106,14 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
         </div>
       </div>
 
-      {/* Service picker */}
+      {item.inventoryItemId ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Package className="w-3.5 h-3.5" />
+          {t("fromStock")}
+          {item.stockLeft !== undefined && <span>· {t("stockLeft", { qty: item.stockLeft, unit: item.stockUnit ?? "" })}</span>}
+        </p>
+      ) : (
+      /* Service picker */
       <ServicePicker
         services={services}
         value={item.serviceId}
@@ -114,6 +131,7 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
         onAddNew={() => onAddNewService(item.id)}
         compact
       />
+      )}
 
       <div>
         <Input
@@ -148,6 +166,7 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
           />
         </div>
       </div>
+      <TaxRateChips label={t("vat")} value={item.taxRate} onChange={(taxRate) => onUpdate(item.id, { taxRate })} />
     </div>
   );
 });
@@ -184,6 +203,16 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
     invoice?.items.length ? invoice.items.map(itemFromInvoice) : [newItem()]
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [defaultTax, setDefaultTax] = useState(21);
+  const [productOpen, setProductOpen] = useState(false);
+
+  useEffect(() => {
+    getBillingDefaults().then(({ defaultTaxRate }) => {
+      setDefaultTax(defaultTaxRate);
+      // Lines added before the setting arrived follow the clinic's rate
+      setItems((prev) => prev.map((i) => (!i.inventoryItemId && i.taxRate === 21 ? { ...i, taxRate: defaultTaxRate } : i)));
+    });
+  }, []);
 
   // Service quick-add
   const [localServices, setLocalServices] = useState<ServiceFlat[]>(services);
@@ -227,11 +256,12 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
         setSelectedApt(null);
         setAptQuery("");
         setAptResults([]);
-        setItems([newItem()]);
+        setItems([newItem(defaultTax)]);
         setErrors({});
+        setProductOpen(false);
       }, 150);
     }
-  }, [open, invoiceProp]);
+  }, [open, invoiceProp, defaultTax]);
 
   // Appointment search
   useEffect(() => {
@@ -271,6 +301,8 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
         unitPrice: svc.price ?? localServices.find((s) => s.id === svc.id)?.price ?? 0,
         type: "SERVICE" as const,
         serviceId: svc.id,
+        taxRate: defaultTax,
+        inventoryItemId: null,
       })));
     }
   }
@@ -309,12 +341,14 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
     startSave(async () => {
       const data = {
         appointmentId,
-        items: items.map(({ description, quantity, unitPrice, type, serviceId }) => ({
+        items: items.map(({ description, quantity, unitPrice, type, serviceId, taxRate, inventoryItemId }) => ({
           description,
           quantity,
           unitPrice: unitPrice || 0.01,
           type,
           serviceId: serviceId ?? null,
+          taxRate,
+          inventoryItemId,
         })),
       };
       if (isEdit) {
@@ -431,17 +465,58 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {t("lineItems")}
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setItems((prev) => [...prev, newItem()])}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                {t("addItem")}
-              </Button>
+              <div className="flex gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setProductOpen((o) => !o)}
+                >
+                  <Package className="w-3.5 h-3.5 mr-1" />
+                  {t("addProduct")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setItems((prev) => [...prev, newItem(defaultTax)])}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {t("addItem")}
+                </Button>
+              </div>
             </div>
+
+            {productOpen && (
+              <ProductPicker
+                autoFocus
+                onPick={(p) => {
+                  if ("newName" in p) return;
+                  setItems((prev) => {
+                    // Replace the empty starter line instead of leaving it behind
+                    const base = prev.length === 1 && !prev[0].description && !prev[0].unitPrice ? [] : prev;
+                    return [
+                      ...base,
+                      {
+                        id: nextId(),
+                        description: p.name,
+                        quantity: 1,
+                        unitPrice: p.salePrice ?? 0,
+                        type: "MEDICATION" as const,
+                        serviceId: null,
+                        taxRate: p.taxRate ?? defaultTax,
+                        inventoryItemId: p.id,
+                        stockLeft: p.quantity,
+                        stockUnit: p.unit,
+                      },
+                    ];
+                  });
+                  setProductOpen(false);
+                }}
+              />
+            )}
 
             {items.map((item, idx) => (
               <ItemRow

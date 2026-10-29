@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ItemTrace } from "./ItemTrace";
 import { Separator } from "@/components/ui/separator";
 import {
   Pencil,
@@ -291,6 +292,9 @@ export function InventoryDetailSheet({
               </div>
             )}
           </div>
+
+          <Separator />
+          <ItemTrace itemId={item.id} unit={item.unit} version={item.quantity} />
 
           <div className="text-xs text-muted-foreground pt-2">
             {t("updatedAt", { date: format(new Date(item.updatedAt), "d MMM yyyy · HH:mm", { locale: dateLocale }) })}

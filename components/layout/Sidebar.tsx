@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Bell,
 } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
@@ -34,6 +35,7 @@ const baseNavItems = [
   { href: "/patients", icon: PawPrint, key: "patients" },
   { href: "/appointments", icon: Calendar, key: "appointments" },
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
+  { href: "/reminders", icon: Bell, key: "reminders" },
   { href: "/finances", icon: DollarSign, key: "finances" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/services", icon: Scissors, key: "services" },

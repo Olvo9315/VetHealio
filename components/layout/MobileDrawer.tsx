@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { FileText, Package, Scissors, Settings, X, LogOut, Users } from "lucide-react";
+import { FileText, Package, Scissors, Settings, X, LogOut, Users, Bell } from "lucide-react";
 import { ClinicMark, type ClinicBrand } from "@/components/layout/ClinicMark";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 
 const extraNav = [
   { href: "/medical-records", icon: FileText, key: "medicalRecords" },
+  { href: "/reminders", icon: Bell, key: "reminders" },
   { href: "/inventory", icon: Package, key: "inventory" },
   { href: "/services", icon: Scissors, key: "services" },
   { href: "/settings", icon: Settings, key: "settings" },

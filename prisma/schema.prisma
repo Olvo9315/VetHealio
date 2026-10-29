@@ -33,6 +33,8 @@ enum AppointmentStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+  // Checked in at reception: in the waiting room
+  ARRIVED
 }
 
 enum AppointmentType {
@@ -54,6 +56,14 @@ enum PaymentMethod {
   CASH
   CARD
   TRANSFER
+  BIZUM
+}
+
+// Spanish fiscal documents: simplified (ticket), full (with the customer's NIF), rectifying
+enum InvoiceKind {
+  SIMPLIFIED
+  FULL
+  RECTIFYING
 }
 
 enum InvoiceItemType {
@@ -105,7 +115,7 @@ model User {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  appointments        Appointment[]   @relation("VeterinarianAppointments")
+  appointments        Appointment[]       @relation("VeterinarianAppointments")
   medicalRecords      MedicalRecord[]
   vaccinations        Vaccination[]
   prescriptions       Prescription[]
@@ -116,31 +126,37 @@ model User {
   reviewedLeaves      LeaveRequest[]      @relation("LeaveReviewer")
   performanceReviews  PerformanceReview[] @relation("PerformanceReviewer")
   staffAuditLogs      StaffAuditLog[]     @relation("StaffAuditor")
+  appointmentsCreated Appointment[]       @relation("AppointmentCreatedBy")
+  appointmentsUpdated Appointment[]       @relation("AppointmentUpdatedBy")
+  paymentsReceived    Payment[]
+  fiscalDocuments     FiscalDocument[]
+  stockMovements      StockMovement[]
+  consentsRecorded    Consent[]
 }
 
 model StaffProfile {
-  id             String       @id @default(cuid())
-  userId         String       @unique
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  specialization String?
-  licenseNumber  String?
-  education      String?
-  diplomaPath    String?
-  contractPath   String?
-  salaryAmount   Float?
-  salaryType     SalaryType   @default(MONTHLY)
-  hireDate       DateTime?
-  contractType   ContractType @default(FULL_TIME)
-  isActive       Boolean      @default(true)
-  canManageStaff Boolean      @default(false)
-  annualLeaveDays Int         @default(21)
-  weeklyTemplate Json?
-  emergencyName  String?
-  emergencyPhone String?
-  notes          String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  specialization  String?
+  licenseNumber   String?
+  education       String?
+  diplomaPath     String?
+  contractPath    String?
+  salaryAmount    Float?
+  salaryType      SalaryType   @default(MONTHLY)
+  hireDate        DateTime?
+  contractType    ContractType @default(FULL_TIME)
+  isActive        Boolean      @default(true)
+  canManageStaff  Boolean      @default(false)
+  annualLeaveDays Int          @default(21)
+  weeklyTemplate  Json?
+  emergencyName   String?
+  emergencyPhone  String?
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   leaveRequests      LeaveRequest[]
   certifications     StaffCertification[]
@@ -161,20 +177,20 @@ model StaffShift {
 }
 
 model LeaveRequest {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   staffProfileId String
   staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
   type           LeaveType
   startDate      DateTime
   endDate        DateTime
   reason         String?
-  status         LeaveStatus @default(PENDING)
+  status         LeaveStatus  @default(PENDING)
   reviewedById   String?
-  reviewedBy     User?       @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  reviewedBy     User?        @relation("LeaveReviewer", fields: [reviewedById], references: [id])
   reviewedAt     DateTime?
   reviewNote     String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([staffProfileId, status])
 }
@@ -253,18 +269,24 @@ model VerificationToken {
 }
 
 model Owner {
-  id         String   @id @default(cuid())
-  firstName  String
-  lastName   String
-  phone      String
-  phone2     String?
-  email      String?
-  postalCode String?
-  address    String?
-  notes      String?
-  createdAt  DateTime @default(now())
+  id               String   @id @default(cuid())
+  firstName        String
+  lastName         String
+  phone            String
+  phone2           String?
+  email            String?
+  postalCode       String?
+  address          String?
+  notes            String?
+  // DNI/NIE/NIF, needed on full invoices
+  nif              String?
+  // Communications the owner agreed to
+  marketingConsent Boolean  @default(false)
+  remindersConsent Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
-  pets Pet[]
+  pets     Pet[]
+  consents Consent[]
 }
 
 model Pet {
@@ -281,6 +303,10 @@ model Pet {
   passportNumber  String?
   sterilized      Boolean?
   photoUrl        String?
+  // Shown prominently wherever the patient is open (aggressive, allergic to...)
+  alerts          String?
+  // Chronic conditions / groups (keys from lib/pet-conditions.ts or free text)
+  conditions      String[]  @default([])
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -298,28 +324,36 @@ model Pet {
 }
 
 model Appointment {
-  id            String             @id @default(cuid())
-  number        Int                @default(autoincrement())
-  title         String
-  startTime     DateTime
-  endTime       DateTime
-  status        AppointmentStatus  @default(SCHEDULED)
-  type          AppointmentType?   @default(CONSULTATION)
-  notes         String?
-  googleEventId String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id             String            @id @default(cuid())
+  number         Int               @default(autoincrement())
+  title          String
+  startTime      DateTime
+  endTime        DateTime
+  status         AppointmentStatus @default(SCHEDULED)
+  type           AppointmentType?  @default(CONSULTATION)
+  notes          String?
+  googleEventId  String?
+  // When the patient was checked in (status ARRIVED)
+  arrivedAt      DateTime?
+  // Owner was reminded of the appointment
+  reminderSentAt DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdById    String?
+  createdBy      User?             @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById    String?
+  updatedBy      User?             @relation("AppointmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   petId          String
-  pet            Pet      @relation(fields: [petId], references: [id])
+  pet            Pet                  @relation(fields: [petId], references: [id])
   veterinarianId String
-  veterinarian   User     @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
+  veterinarian   User                 @relation("VeterinarianAppointments", fields: [veterinarianId], references: [id])
   // First (main) service: drives the calendar colour; further services are in extraServices
   serviceId      String?
-  service        Service? @relation(fields: [serviceId], references: [id])
+  service        Service?             @relation(fields: [serviceId], references: [id])
   extraServices  AppointmentService[]
   roomId         String?
-  room           Room?    @relation(fields: [roomId], references: [id])
+  room           Room?                @relation(fields: [roomId], references: [id])
   invoice        Invoice?
   prescriptions  Prescription[]
   medicalRecords MedicalRecord[]
@@ -343,17 +377,24 @@ model AppointmentService {
 }
 
 model MedicalRecord {
-  id             String   @id @default(cuid())
-  date           DateTime @default(now())
-  chiefComplaint String
-  diagnosis      String?
-  treatment      String?
-  weight         Float?
-  temperature    Float?
-  heartRate      Int?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  date                 DateTime @default(now())
+  chiefComplaint       String
+  diagnosis            String?
+  treatment            String?
+  weight               Float?
+  temperature          Float?
+  heartRate            Int?
+  notes                String?
+  // Symptoms / clinical signs and the working diagnosis before the definitive one
+  clinicalSigns        String?
+  presumptiveDiagnosis String?
+  // Physical exam: [{ key, label?, status: "normal" | "abnormal" | null, note? }]
+  exam                 Json?
+  // Instructions for the owner at home (printed / sent)
+  homeCare             String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   petId          String
   pet            Pet            @relation(fields: [petId], references: [id])
@@ -416,6 +457,8 @@ model Vaccination {
   nextDueDate      DateTime?
   batchNumber      String?
   notes            String?
+  // Owner was reminded of nextDueDate (WhatsApp / e-mail)
+  reminderSentAt   DateTime?
   createdAt        DateTime  @default(now())
 
   petId          String
@@ -442,53 +485,117 @@ model Invoice {
   number        Int            @default(autoincrement())
   status        InvoiceStatus  @default(PENDING)
   totalAmount   Float
+  // Sum of payments; PAID once it reaches totalAmount
+  paidAmount    Float          @default(0)
+  // Method of the last payment
   paymentMethod PaymentMethod?
   paidAt        DateTime?
   createdAt     DateTime       @default(now())
 
+  payments       Payment[]
+  documents      FiscalDocument[]
+  stockMovements StockMovement[]
+
   petId         String
-  pet           Pet            @relation(fields: [petId], references: [id])
-  appointmentId String?        @unique
-  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
+  pet           Pet           @relation(fields: [petId], references: [id])
+  appointmentId String?       @unique
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
   items         InvoiceItem[]
 
   @@index([petId])
   @@index([status, createdAt])
 }
 
+// Fiscal document issued for a bill (Spain): a numbered, never edited snapshot.
+// SIMPLIFIED = ticket; FULL = with the customer's NIF (may replace a ticket); RECTIFYING = cancels
+// or corrects an earlier document, with negative amounts.
+model FiscalDocument {
+  id              String      @id @default(cuid())
+  kind            InvoiceKind
+  series          String
+  year            Int
+  number          Int
+  issuedAt        DateTime    @default(now())
+  customerName    String
+  customerNif     String?
+  customerAddress String?
+  // [{ description, quantity, unitPrice, taxRate, total }], VAT included in prices
+  lines           Json
+  // [{ rate, base, tax }]
+  taxBreakdown    Json
+  taxBase         Float
+  taxAmount       Float
+  total           Float
+  reason          String?
+
+  invoiceId  String
+  invoice    Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  replacesId String?
+  replaces   FiscalDocument?  @relation("Replaces", fields: [replacesId], references: [id])
+  replacedBy FiscalDocument[] @relation("Replaces")
+  issuedById String?
+  issuedBy   User?            @relation(fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@unique([series, year, number])
+  @@index([issuedAt])
+  @@index([invoiceId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  amount    Float
+  method    PaymentMethod
+  paidAt    DateTime      @default(now())
+  note      String?
+  createdAt DateTime      @default(now())
+
+  invoiceId    String
+  invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  receivedById String?
+  receivedBy   User?   @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([paidAt])
+}
+
 model InvoiceItem {
-  id          String           @id @default(cuid())
-  description String
-  quantity    Int
-  unitPrice   Float
-  total       Float
-  type        InvoiceItemType? @default(SERVICE)
-  serviceId   String?
-  service     Service?         @relation(fields: [serviceId], references: [id])
+  id              String           @id @default(cuid())
+  description     String
+  quantity        Int
+  unitPrice       Float
+  total           Float
+  type            InvoiceItemType? @default(SERVICE)
+  // VAT included in unitPrice, %
+  taxRate         Float            @default(21)
+  serviceId       String?
+  service         Service?         @relation(fields: [serviceId], references: [id])
+  // Product from stock: saving the invoice takes it out of stock
+  inventoryItemId String?
+  inventoryItem   InventoryItem?   @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model Service {
-  id        String    @id @default(cuid())
+  id           String    @id @default(cuid())
   // Official name, in the clinic's data language (used on invoices and documents)
-  name      String
+  name         String
   // Optional display names for other UI languages: { "ru": "...", "en": "..." }
   translations Json?
-  price     Float?
-  color     String?
-  isActive  Boolean   @default(true)
-  sortOrder Int       @default(0)
-  parentId  String?
-  parent    Service?  @relation("ServiceTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children  Service[] @relation("ServiceTree")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  price        Float?
+  color        String?
+  isActive     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  parentId     String?
+  parent       Service?  @relation("ServiceTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Service[] @relation("ServiceTree")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  appointments Appointment[]
+  appointments      Appointment[]
   appointmentExtras AppointmentService[]
-  invoiceItems InvoiceItem[]
+  invoiceItems      InvoiceItem[]
 }
 
 model InventoryItem {
@@ -502,8 +609,75 @@ model InventoryItem {
   expiryDate DateTime?
   supplier   String?
   notes      String?
+  // Barcode / national code (CN) to find it when receiving or selling
+  barcode    String?
+  salePrice  Float?
+  taxRate    Float?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+
+  batches      InventoryBatch[]
+  movements    StockMovement[]
+  invoiceItems InvoiceItem[]
+}
+
+// Stock of one lot of an item (traceability and expiry)
+model InventoryBatch {
+  id         String    @id @default(cuid())
+  lot        String?
+  expiryDate DateTime?
+  quantity   Float
+  createdAt  DateTime  @default(now())
+
+  itemId String
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([expiryDate])
+}
+
+// Every change of stock: RECEIPT (supplier delivery), SALE (invoice line), ADJUST (manual)
+model StockMovement {
+  id         String    @id @default(cuid())
+  delta      Float
+  reason     String
+  lot        String?
+  expiryDate DateTime?
+  unitCost   Float?
+  supplier   String?
+  // Supplier's invoice / delivery note number
+  document   String?
+  createdAt  DateTime  @default(now())
+
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  invoiceId String?
+  invoice   Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([itemId, createdAt])
+  @@index([invoiceId])
+}
+
+// Data-protection (RGPD) consent of an owner: the text they accepted and how
+model Consent {
+  id           String   @id @default(cuid())
+  kind         String   @default("rgpd")
+  text         String
+  marketing    Boolean  @default(false)
+  // SIGNATURE (drawn on screen) or CHECKBOX
+  method       String
+  signatureKey String?
+  signedAt     DateTime @default(now())
+  userAgent    String?
+
+  ownerId      String
+  owner        Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  recordedById String?
+  recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 // Singleton row (id = "default") with this clinic's identity, used for branding and invoices
@@ -525,6 +699,14 @@ model ClinicSettings {
   iban               String?
   defaultTaxRate     Float    @default(21)
   invoiceFooter      String?
+  // Physical exam rows offered in a medical record (keys of lib/exam.ts or custom labels)
+  examTemplate       Json?
+  // RGPD text owners accept (a default from messages when empty)
+  consentText        String?
+  // Prefixes of the fiscal invoice series
+  seriesSimplified   String   @default("T")
+  seriesFull         String   @default("F")
+  seriesRectifying   String   @default("R")
   // Signed module license (see lib/license.ts)
   licenseKey         String?
   // Language of official data (service names, invoices, documents): es | ru | en

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { format } from "date-fns";
 import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
@@ -10,6 +10,7 @@ import { getInventoryItems } from "@/lib/actions/inventory";
 // Plain helpers: importing them via the "use server" actions file would turn them into server calls
 import { getStockStatus, getExpiryStatus } from "@/lib/utils/inventoryHelpers";
 import { InventoryDialog } from "./InventoryDialog";
+import { DeliveryDialog } from "./DeliveryDialog";
 import { InventoryDetailSheet } from "./InventoryDetailSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,7 @@ import {
   Package,
   ChevronRight,
   Download,
-  Minus,
-} from "lucide-react";
+  Minus, PackagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adjustStock } from "@/lib/actions/inventory";
 import { toast } from "sonner";
@@ -103,6 +103,8 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
   const t = useTranslations("inventory");
   const canManage = useCan("inventory.manage");
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
+  // A received delivery refreshes the page data
+  useEffect(() => setItems(initialItems), [initialItems]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [stockFilter, setStockFilter] = useState<StockStatus | "ALL">("ALL");
@@ -112,6 +114,7 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
@@ -231,6 +234,10 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
         </div>
 
         <div className="flex gap-2 shrink-0">
+          <Button variant="outline" className="gap-1.5" onClick={() => setDeliveryOpen(true)}>
+            <PackagePlus className="w-4 h-4" />
+            {t("receiveDelivery")}
+          </Button>
           <Button variant="outline" size="sm" className="h-9" onClick={() => exportCSV(items, t)}>
             <Download className="w-4 h-4 mr-1.5" />
             CSV
@@ -395,6 +402,8 @@ export function InventoryTable({ initialItems, categories }: InventoryTableProps
           {t("totalValueIs", { amount: fmtCurrency(items.reduce((s, i) => s + (i.unitCost ?? 0) * i.quantity, 0)) })}
         </p>
       )}
+
+      <DeliveryDialog open={deliveryOpen} onOpenChange={setDeliveryOpen} />
 
       {/* Create dialog */}
       <InventoryDialog

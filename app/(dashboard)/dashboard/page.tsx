@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { TopBar } from "@/components/layout/TopBar";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
-import { Calendar, Users, Euro, TrendingUp, Plus, Clock, AlertTriangle } from "lucide-react";
+import { Calendar, Users, Euro, TrendingUp, Plus, Clock, AlertTriangle, DoorOpen, Wallet, PackageX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -118,6 +118,68 @@ export default async function DashboardPage() {
               ))}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Waiting room, debts, expiring lots */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link href="/appointments?view=waiting">
+            <Card className="h-full hover:border-primary/40 transition-colors">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <DoorOpen className="w-4 h-4 text-primary" />
+                  {t("waitingRoom")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{data.waiting}</p>
+                <p className="text-xs text-muted-foreground">{data.waiting ? t("waitingNow") : t("waitingNobody")}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-red-500" />
+                {t("debts")}
+                {data.debts.total > 0 && <span className="ml-auto text-sm text-red-600 dark:text-red-400">{currency.format(data.debts.total)}</span>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              {data.debts.top.length === 0 && <p className="text-sm text-muted-foreground">{t("noDebts")}</p>}
+              {data.debts.top.map((d) => (
+                <Link key={d.petId + d.name} href={`/patients/${d.petId}`} className="flex items-center justify-between text-sm hover:underline">
+                  <span className="truncate">{d.name}</span>
+                  <span className="font-medium text-red-600 dark:text-red-400 shrink-0 ml-2">{currency.format(d.amount)}</span>
+                </Link>
+              ))}
+              {data.debts.count > data.debts.top.length && (
+                <p className="text-xs text-muted-foreground">{t("moreDebts", { count: data.debts.count - data.debts.top.length })}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {data.inventoryEnabled && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <PackageX className="w-4 h-4 text-amber-500" />
+                  {t("expiringLots")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {data.expiringLots.length === 0 && <p className="text-sm text-muted-foreground">{t("noExpiringLots")}</p>}
+                {data.expiringLots.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between text-sm gap-2">
+                    <span className="truncate">{b.name}{b.lot ? <span className="text-muted-foreground"> · {b.lot}</span> : null}</span>
+                    <span className={`text-xs font-medium shrink-0 ${b.expired ? "text-destructive" : "text-amber-600"}`}>
+                      {b.expiryDate ? new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit" }).format(b.expiryDate) : ""}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Alerts row */}

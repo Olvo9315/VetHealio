@@ -17,6 +17,9 @@ const ownerSchema = z.object({
   postalCode: z.string().max(10).optional().or(z.literal("")),
   address: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
+  nif: z.string().max(20).optional().or(z.literal("")),
+  marketingConsent: z.boolean().optional(),
+  remindersConsent: z.boolean().optional(),
 });
 
 const petSchema = z.object({
@@ -30,6 +33,8 @@ const petSchema = z.object({
   microchipNumber: z.string().max(30).optional().or(z.literal("")),
   passportNumber: z.string().max(30).optional().or(z.literal("")),
   sterilized: z.boolean().optional(),
+  alerts: z.string().max(500).optional().or(z.literal("")),
+  conditions: z.array(z.string().min(1).max(60)).max(30).optional(),
   ownerId: z.string().min(1),
 });
 
@@ -166,6 +171,9 @@ export async function updateOwner(id: string, data: z.infer<typeof ownerSchema>)
       postalCode: parsed.data.postalCode || null,
       address: parsed.data.address || null,
       notes: parsed.data.notes || null,
+      ...(parsed.data.nif !== undefined ? { nif: parsed.data.nif.trim().toUpperCase() || null } : {}),
+      ...(parsed.data.marketingConsent !== undefined ? { marketingConsent: parsed.data.marketingConsent } : {}),
+      ...(parsed.data.remindersConsent !== undefined ? { remindersConsent: parsed.data.remindersConsent } : {}),
     },
   });
   revalidatePath("/patients");
@@ -304,6 +312,8 @@ export async function updatePet(id: string, data: z.infer<typeof petUpdateSchema
         ? { passportNumber: parsed.data.passportNumber || null }
         : {}),
       ...(parsed.data.sterilized !== undefined ? { sterilized: parsed.data.sterilized ?? null } : {}),
+      ...(parsed.data.alerts !== undefined ? { alerts: parsed.data.alerts?.trim() || null } : {}),
+      ...(parsed.data.conditions !== undefined ? { conditions: parsed.data.conditions } : {}),
       ...(typeof parsed.data.isActive === "boolean" ? { isActive: parsed.data.isActive } : {}),
     },
     include: { owner: true },

@@ -6,6 +6,7 @@ import { differenceInMonths, differenceInYears, format } from "date-fns";
 import { Loader2, Syringe } from "lucide-react";
 import { getPetQuickInfo, type PetQuickInfo as PetInfo } from "@/lib/actions/appointments";
 import { cn } from "@/lib/utils";
+import { ConditionChips } from "./ConditionsPicker";
 
 const SPECIES_EMOJI: Record<string, string> = { DOG: "🐕", CAT: "🐈", BIRD: "🦜", RABBIT: "🐇", REPTILE: "🦎", OTHER: "🐾" };
 
@@ -71,6 +72,10 @@ export function PetQuickInfo({ petId, className }: { petId: string; className?: 
         {SPECIES_EMOJI[pet.species] ?? "🐾"} {t(speciesKey)}
         {pet.breed && <span className="font-normal text-muted-foreground"> · {pet.breed}</span>}
       </p>
+      {pet.alerts && (
+        <p className="text-xs rounded-md bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200 px-2 py-1 whitespace-pre-line">⚠ {pet.alerts}</p>
+      )}
+      <ConditionChips conditions={pet.conditions} />
       <Row label={tp("age")}>{age}</Row>
       <Row label={t("weight")}>{pet.weight != null ? `${pet.weight} kg` : "—"}</Row>
       <Row label={t("gender")}>{pet.gender ? t(pet.gender === "MALE" ? "male" : "female") : "—"}</Row>

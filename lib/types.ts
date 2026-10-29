@@ -21,6 +21,10 @@ export type PetFull = Pet & {
     temperature: number | null;
     heartRate: number | null;
     notes: string | null;
+    clinicalSigns: string | null;
+    presumptiveDiagnosis: string | null;
+    homeCare: string | null;
+    exam: unknown;
     createdAt: Date;
     veterinarian: { name: string };
     prescriptions: Array<{

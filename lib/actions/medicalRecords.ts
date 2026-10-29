@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/permissions";
 import { getAppointmentById } from "@/lib/actions/appointments";
 import { getServicesFlat } from "@/lib/actions/services";
 import { servicePath } from "@/lib/service-path";
+import { filledExam, templateKeys } from "@/lib/exam";
 
 // ---- Types ----
 
@@ -21,6 +22,10 @@ export type MedicalRecordFull = {
   temperature: number | null;
   heartRate: number | null;
   notes: string | null;
+  clinicalSigns: string | null;
+  presumptiveDiagnosis: string | null;
+  exam: unknown;
+  homeCare: string | null;
   createdAt: Date;
   updatedAt: Date;
   petId: string;
@@ -31,7 +36,8 @@ export type MedicalRecordFull = {
     id: string;
     name: string;
     species: Species;
-    owner: { firstName: string; lastName: string; phone: string };
+    alerts?: string | null;
+    owner: { firstName: string; lastName: string; phone: string; email?: string | null };
   };
   veterinarian: { id: string; name: string };
   prescriptions: {
@@ -68,6 +74,13 @@ const medicalRecordSchema = z.object({
   temperature: z.coerce.number().positive().optional().or(z.literal("")),
   heartRate: z.coerce.number().int().positive().optional().or(z.literal("")),
   notes: z.string().max(1000).optional().or(z.literal("")),
+  clinicalSigns: z.string().max(2000).optional().or(z.literal("")),
+  presumptiveDiagnosis: z.string().max(500).optional().or(z.literal("")),
+  exam: z
+    .array(z.object({ key: z.string().min(1).max(80), status: z.enum(["normal", "abnormal"]).nullable(), note: z.string().max(300) }))
+    .max(60)
+    .optional(),
+  homeCare: z.string().max(4000).optional().or(z.literal("")),
   prescriptions: z.array(prescriptionSchema).optional(),
   appointmentId: z.string().optional().or(z.literal("")),
 });
@@ -82,7 +95,8 @@ const fullInclude = {
       id: true,
       name: true,
       species: true,
-      owner: { select: { firstName: true, lastName: true, phone: true } },
+      alerts: true,
+      owner: { select: { firstName: true, lastName: true, phone: true, email: true } },
     },
   },
   veterinarian: { select: { id: true, name: true } },
@@ -193,6 +207,16 @@ export async function getMedicalRecordForAppointment(
 
 // ---- Mutations ----
 
+// Clinical fields shared by create and update
+function clinicalData(d: MedicalRecordFormData) {
+  return {
+    clinicalSigns: d.clinicalSigns || null,
+    presumptiveDiagnosis: d.presumptiveDiagnosis || null,
+    exam: d.exam ? filledExam(d.exam) : undefined,
+    homeCare: d.homeCare || null,
+  };
+}
+
 export async function createMedicalRecord(data: MedicalRecordFormData) {
   await requirePermission("medical.write");
   const parsed = medicalRecordSchema.safeParse(data);
@@ -210,6 +234,7 @@ export async function createMedicalRecord(data: MedicalRecordFormData) {
       temperature: parsed.data.temperature ? Number(parsed.data.temperature) : null,
       heartRate: parsed.data.heartRate ? Number(parsed.data.heartRate) : null,
       notes: parsed.data.notes || null,
+      ...clinicalData(parsed.data),
       appointmentId: parsed.data.appointmentId || null,
       prescriptions: {
         create: (parsed.data.prescriptions ?? []).map((p) => ({
@@ -252,6 +277,7 @@ export async function updateMedicalRecord(id: string, data: MedicalRecordFormDat
       temperature: parsed.data.temperature ? Number(parsed.data.temperature) : null,
       heartRate: parsed.data.heartRate ? Number(parsed.data.heartRate) : null,
       notes: parsed.data.notes || null,
+      ...clinicalData(parsed.data),
       prescriptions: {
         create: (parsed.data.prescriptions ?? []).map((p) => ({
           medicationName: p.medicationName,
@@ -278,4 +304,10 @@ export async function deleteMedicalRecord(id: string) {
   revalidatePath("/medical-records");
   revalidatePath(`/patients/${record.petId}`);
   return { success: true };
+}
+
+// Rows of the physical exam this clinic uses (Settings), or the default list
+export async function getExamTemplate(): Promise<string[]> {
+  const settings = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { examTemplate: true } });
+  return templateKeys(settings?.examTemplate);
 }

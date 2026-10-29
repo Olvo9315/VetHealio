@@ -40,9 +40,11 @@ function fmt(v: number) {
 
 interface PetDetailTabsProps {
   pet: PetFull;
+  // Opened from a link (appointment list, waiting room): show this appointment right away
+  initialAppointmentId?: string;
 }
 
-export function PetDetailTabs({ pet }: PetDetailTabsProps) {
+export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps) {
   const t = useTranslations("patients");
   const canMedical = useCan("medical.write");
   const canPrescribe = useCan("prescription.write");
@@ -52,7 +54,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
   const tm = useTranslations("medicalRecords");
   const tp = useTranslations("prescriptions");
 
-  const [activeTab, setActiveTab] = useState<Tab>("medical");
+  const [activeTab, setActiveTab] = useState<Tab>(initialAppointmentId ? "appointments" : "medical");
   const [vets, setVets] = useState<Vet[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [, startVetLoad] = useTransition();
@@ -110,6 +112,11 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
     setServices(list);
     return list;
   }
+
+  useEffect(() => {
+    if (initialAppointmentId) openAppointment(initialAppointmentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAppointmentId]);
 
   async function openAppointment(id: string) {
     const [apt] = await Promise.all([getAppointmentById(id), loadServices()]);
@@ -223,6 +230,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
 
   const appointmentStatusColors: Record<string, string> = {
     SCHEDULED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    ARRIVED: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
     IN_PROGRESS: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
     COMPLETED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
     CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
@@ -231,6 +239,7 @@ export function PetDetailTabs({ pet }: PetDetailTabsProps) {
 
   const appointmentStatusLabel: Record<string, string> = {
     SCHEDULED: ta("scheduled"),
+    ARRIVED: ta("arrived"),
     IN_PROGRESS: ta("inProgress"),
     COMPLETED: ta("completed"),
     CANCELLED: ta("cancelled"),

@@ -24,6 +24,8 @@ import {
 import { Search, Plus, Loader2, Receipt, ChevronRight, Download } from "lucide-react";
 import { cn, formatInvoiceId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
+import { paymentLabel } from "@/lib/payment-methods";
+import { dueOf } from "@/lib/billing";
 
 const STATUS_TABS: { value: InvoiceStatus | "ALL"; label: string }[] = [
   { value: "ALL", label: "all" },
@@ -38,6 +40,24 @@ const statusConfig: Record<InvoiceStatus, { label: string; className: string }> 
   CANCELLED: { label: "cancelled", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
+// "Partly paid" is a pending bill with some payments on it
+function StatusBadge({ inv, className, label, small }: { inv: InvoiceFull; className: string; label: string; small?: boolean }) {
+  const t = useTranslations("finances");
+  const partial = inv.status === "PENDING" && inv.paidAmount > 0;
+  return (
+    <span
+      className={cn(
+        "font-medium rounded-full",
+        small ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-0.5",
+        partial ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" : className
+      )}
+    >
+      {partial ? t("partiallyPaid") : label}
+      {inv.documents.length > 0 && " · 🧾"}
+    </span>
+  );
+}
+
 function fmt(v: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v);
 }
@@ -45,7 +65,7 @@ function fmt(v: number) {
 type FinanceT = (key: string, values?: Record<string, string | number>) => string;
 
 function exportCSV(invoices: InvoiceFull[], t: FinanceT) {
-  const methodLabel: Record<string, string> = { CASH: t("cash"), CARD: t("card"), TRANSFER: t("transfer") };
+  const methodLabel: Record<string, string> = { CASH: t("cash"), CARD: t("card"), TRANSFER: t("transfer"), BIZUM: t("bizum") };
   const rows = [
     [t("date"), t("patient"), t("owner"), t("appointment"), t("status"), t("paymentMethod"), t("total")],
     ...invoices.map((inv) => [
@@ -239,18 +259,16 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                       <p className="truncate">{inv.appointment?.title ?? t("noAppointment")}</p>
                     </TableCell>
                     <TableCell>
-                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", stCfg.className)}>
-                        {t(stCfg.label)}
-                      </span>
+                      <StatusBadge inv={inv} className={stCfg.className} label={t(stCfg.label)} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {inv.paymentMethod === "CASH" && t("cash")}
-                      {inv.paymentMethod === "CARD" && t("card")}
-                      {inv.paymentMethod === "TRANSFER" && t("transfer")}
-                      {!inv.paymentMethod && "—"}
+                      {inv.paymentMethod ? t(paymentLabel[inv.paymentMethod]) : "—"}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-sm">
                       {fmt(inv.totalAmount)}
+                      {dueOf(inv) > 0 && inv.paidAmount > 0 && (
+                        <p className="text-xs font-normal text-red-600 dark:text-red-400">{t("dueShort", { amount: fmt(dueOf(inv)) })}</p>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -286,9 +304,7 @@ export function InvoicesTable({ initialInvoices, services }: InvoicesTableProps)
                   </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.appointment?.title ?? t("noAppointment")}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", stCfg.className)}>
-                      {t(stCfg.label)}
-                    </span>
+                    <StatusBadge inv={inv} className={stCfg.className} label={t(stCfg.label)} small />
                     <span className="text-xs text-muted-foreground">
                       <span className="font-mono mr-1">{formatInvoiceId(inv.number, inv.createdAt)}</span>
                       {format(new Date(inv.createdAt), "d MMM yyyy", { locale: dateLocale })}

@@ -15,6 +15,8 @@ import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { ConditionsPicker } from "./ConditionsPicker";
 
 interface EditPetDialogProps {
   pet: PetFull;
@@ -40,6 +42,8 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
   const [microchipNumber, setMicrochipNumber] = useState(pet.microchipNumber ?? "");
   const [passportNumber, setPassportNumber] = useState(pet.passportNumber ?? "");
   const [sterilized, setSterilized] = useState(pet.sterilized ?? false);
+  const [alerts, setAlerts] = useState(pet.alerts ?? "");
+  const [conditions, setConditions] = useState<string[]>(pet.conditions ?? []);
 
   useEffect(() => {
     if (open) {
@@ -53,6 +57,8 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
       setMicrochipNumber(pet.microchipNumber ?? "");
       setPassportNumber(pet.passportNumber ?? "");
       setSterilized(pet.sterilized ?? false);
+      setAlerts(pet.alerts ?? "");
+      setConditions(pet.conditions ?? []);
     }
   }, [open, pet]);
 
@@ -72,6 +78,8 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
         microchipNumber: microchipNumber || undefined,
         passportNumber: passportNumber || undefined,
         sterilized,
+        alerts,
+        conditions,
       });
       if ("error" in result) {
         toast.error(t("errorUpdatePet"));
@@ -221,6 +229,22 @@ export function EditPetDialog({ pet, open, onOpenChange }: EditPetDialogProps) {
                 {sterilized ? t("sterilized") : t("notSterilized")}
               </button>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="editAlerts" className="text-red-700 dark:text-red-400">{t("alerts")}</Label>
+            <Textarea
+              id="editAlerts"
+              rows={2}
+              value={alerts}
+              onChange={(e) => setAlerts(e.target.value)}
+              placeholder={t("alertsPlaceholder")}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label>{t("conditionsLabel")}</Label>
+            <ConditionsPicker value={conditions} onChange={setConditions} />
           </div>
 
           <div className="flex gap-2 pt-2">

@@ -203,6 +203,7 @@ export function DirectInvoiceDialog({
           unitPrice: unitPrice || 0.01,
           type,
           serviceId: null,
+          inventoryItemId: null,
         })),
       });
       if ("error" in result) { toast.error(t("errorSave")); return; }

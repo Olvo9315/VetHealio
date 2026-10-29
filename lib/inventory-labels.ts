@@ -32,3 +32,6 @@ export function unitLabel(t: T, value: string) {
   const key = UNIT_KEYS[value];
   return key ? t(`unit_${key}`) : value;
 }
+
+export const INVENTORY_CATEGORIES = Object.keys(CATEGORY_KEYS);
+export const INVENTORY_UNITS = Object.keys(UNIT_KEYS);

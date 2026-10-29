@@ -13,7 +13,10 @@ import {
   updateMedicalRecord,
   deleteMedicalRecord,
   getMedicalRecordForAppointment,
+  getExamTemplate,
 } from "@/lib/actions/medicalRecords";
+import { ExamChecklist } from "./ExamChecklist";
+import { DEFAULT_EXAM_KEYS, examRows, type ExamRow } from "@/lib/exam";
 import type { MedicalRecordDraft } from "@/lib/actions/medicalRecords";
 import { RecordPrescriptions } from "./RecordPrescriptions";
 import { formatAppointmentId } from "@/lib/utils";
@@ -41,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck } from "lucide-react";
+import { Search, PawPrint, Plus, Trash2, Loader2, Pill, CalendarCheck, Home, Wand2, AlertTriangle } from "lucide-react";
 
 // ---- Schema ----
 const prescriptionSchema = z.object({
@@ -63,6 +66,10 @@ const schema = z.object({
   temperature: z.coerce.number().positive().optional().or(z.literal("")),
   heartRate: z.coerce.number().int().positive().optional().or(z.literal("")),
   notes: z.string().max(1000).optional().or(z.literal("")),
+  clinicalSigns: z.string().max(2000).optional().or(z.literal("")),
+  presumptiveDiagnosis: z.string().max(500).optional().or(z.literal("")),
+  homeCare: z.string().max(4000).optional().or(z.literal("")),
+  exam: z.array(z.object({ key: z.string(), status: z.enum(["normal", "abnormal"]).nullable(), note: z.string() })).optional(),
   prescriptions: z.array(prescriptionSchema).optional(),
   appointmentId: z.string().optional().or(z.literal("")),
 });
@@ -100,7 +107,7 @@ function inlineMedications(record: MedicalRecordFull) {
     }));
 }
 
-function valuesFromRecord(record: MedicalRecordFull): FormData {
+function valuesFromRecord(record: MedicalRecordFull, template: string[]): FormData {
   return {
     petId: record.petId,
     veterinarianId: record.veterinarianId,
@@ -112,12 +119,16 @@ function valuesFromRecord(record: MedicalRecordFull): FormData {
     temperature: record.temperature ?? "",
     heartRate: record.heartRate ?? "",
     notes: record.notes ?? "",
+    clinicalSigns: record.clinicalSigns ?? "",
+    presumptiveDiagnosis: record.presumptiveDiagnosis ?? "",
+    homeCare: record.homeCare ?? "",
+    exam: examRows(record.exam, template),
     prescriptions: inlineMedications(record),
     appointmentId: record.appointmentId ?? "",
   };
 }
 
-function valuesFromDraft(d: MedicalRecordDraft): FormData {
+function valuesFromDraft(d: MedicalRecordDraft, template: string[]): FormData {
   return {
     petId: d.petId,
     veterinarianId: d.veterinarianId,
@@ -129,9 +140,49 @@ function valuesFromDraft(d: MedicalRecordDraft): FormData {
     temperature: "",
     heartRate: "",
     notes: d.notes,
+    clinicalSigns: "",
+    presumptiveDiagnosis: "",
+    homeCare: "",
+    exam: examRows(null, template),
     prescriptions: [],
     appointmentId: d.appointmentId,
   };
+}
+
+function emptyValues(petId: string, vetId: string, template: string[]): FormData {
+  return {
+    petId,
+    veterinarianId: vetId,
+    date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    chiefComplaint: "",
+    diagnosis: "",
+    treatment: "",
+    weight: "",
+    temperature: "",
+    heartRate: "",
+    notes: "",
+    clinicalSigns: "",
+    presumptiveDiagnosis: "",
+    homeCare: "",
+    exam: examRows(null, template),
+    prescriptions: [],
+    appointmentId: "",
+  };
+}
+
+// Instructions for the owner, gathered from the treatment and the medications of the record
+function suggestHomeCare(values: FormData, record?: MedicalRecordFull) {
+  const lines: string[] = [];
+  if (values.treatment?.trim()) lines.push(values.treatment.trim());
+  for (const m of values.prescriptions ?? []) {
+    if (!m.medicationName.trim()) continue;
+    const parts = [m.dosage, m.frequency, m.duration].map((x) => x?.trim()).filter(Boolean);
+    lines.push(`• ${m.medicationName.trim()}${parts.length ? `: ${parts.join(", ")}` : ""}`);
+  }
+  for (const p of record?.prescriptions ?? []) {
+    for (const i of p.items ?? []) lines.push(`• ${i.medicationName}${i.units ? ` ${i.units}` : ""}: ${i.posology}`);
+  }
+  return Array.from(new Set(lines)).join("\n");
 }
 
 export function MedicalRecordDialog({
@@ -152,6 +203,7 @@ export function MedicalRecordDialog({
   const tv = useTranslations("validation");
   const [isSaving, startSave] = useTransition();
   const [vets, setVets] = useState<Vet[]>([]);
+  const [template, setTemplate] = useState<string[]>([...DEFAULT_EXAM_KEYS]);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Pet search
@@ -164,24 +216,12 @@ export function MedicalRecordDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
     defaultValues: record
-      ? valuesFromRecord(record)
+      ? valuesFromRecord(record, template)
       : draft
-      ? valuesFromDraft(draft)
-      : {
-          petId: presetPetId ?? "",
-          veterinarianId: "",
-          date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-          chiefComplaint: "",
-          diagnosis: "",
-          treatment: "",
-          weight: "",
-          temperature: "",
-          heartRate: "",
-          notes: "",
-          prescriptions: [],
-          appointmentId: "",
-        },
+      ? valuesFromDraft(draft, template)
+      : emptyValues(presetPetId ?? "", "", template),
   });
+  const exam = (form.watch("exam") ?? []) as ExamRow[];
 
   // Medications typed in the record. Not a useFieldArray: with controlled inputs its rows were
   // re-created on every keystroke and the field lost focus after each character.
@@ -192,6 +232,12 @@ export function MedicalRecordDialog({
   // Load vets
   useEffect(() => {
     getVeterinarians().then(setVets);
+    getExamTemplate().then((keys) => {
+      setTemplate(keys);
+      // Rows of the clinic's own list, keeping anything already marked
+      form.setValue("exam", examRows(form.getValues("exam")?.filter((r) => r.status || r.note), keys));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const watchVetId = form.watch("veterinarianId");
@@ -212,11 +258,12 @@ export function MedicalRecordDialog({
         toast.info(t("visitHasRecord"));
         return;
       }
-      const values = valuesFromDraft(res.draft);
+      const values = valuesFromDraft(res.draft, template);
       // Keep what was already typed; fill in the rest from the visit
       const current = form.getValues();
       (Object.keys(values) as (keyof FormData)[]).forEach((k) => {
         const cur = current[k];
+        if (k === "exam") return;
         if (k === "appointmentId" || cur === "" || cur === undefined || (Array.isArray(cur) && cur.length === 0)) {
           form.setValue(k, values[k] as never, { shouldDirty: true });
         }
@@ -229,24 +276,11 @@ export function MedicalRecordDialog({
   useEffect(() => {
     if (!open) return;
     if (isEdit && record) {
-      form.reset(valuesFromRecord(record));
+      form.reset(valuesFromRecord(record, template));
     } else if (draft) {
-      form.reset(valuesFromDraft(draft));
+      form.reset(valuesFromDraft(draft, template));
     } else {
-      form.reset({
-        petId: presetPetId ?? "",
-        veterinarianId: vets[0]?.id ?? "",
-        date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-        chiefComplaint: "",
-        diagnosis: "",
-        treatment: "",
-        weight: "",
-        temperature: "",
-        heartRate: "",
-        notes: "",
-        prescriptions: [],
-        appointmentId: "",
-      });
+      form.reset(emptyValues(presetPetId ?? "", vets[0]?.id ?? "", template));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -487,6 +521,13 @@ export function MedicalRecordDialog({
             )
           )}
 
+          {record?.pet?.alerts && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="whitespace-pre-line">{record.pet.alerts}</span>
+            </div>
+          )}
+
           <Separator />
 
           {/* Chief complaint */}
@@ -498,16 +539,10 @@ export function MedicalRecordDialog({
             )}
           </div>
 
-          {/* Diagnosis + Treatment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
-              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...bindField(form, "diagnosis")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="treatment">{t("treatment")}</Label>
-              <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...bindField(form, "treatment")} />
-            </div>
+          {/* Symptoms */}
+          <div className="space-y-1.5">
+            <Label htmlFor="clinicalSigns">{t("clinicalSigns")}</Label>
+            <Textarea id="clinicalSigns" rows={2} placeholder={t("clinicalSignsPlaceholder")} {...bindField(form, "clinicalSigns")} />
           </div>
 
           {/* Vitals */}
@@ -527,6 +562,49 @@ export function MedicalRecordDialog({
                 <Input id="heartRate" type="number" placeholder="80" {...bindField(form, "heartRate")} />
               </div>
             </div>
+          </div>
+
+          {/* Physical exam */}
+          <ExamChecklist rows={exam} onChange={(rows) => form.setValue("exam", rows, { shouldDirty: true })} />
+
+          {/* Diagnosis: working, then definitive */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="presumptiveDiagnosis">{t("presumptiveDiagnosis")}</Label>
+              <Textarea id="presumptiveDiagnosis" rows={2} placeholder={t("presumptiveDiagnosisPlaceholder")} {...bindField(form, "presumptiveDiagnosis")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="diagnosis">{t("diagnosis")}</Label>
+              <Textarea id="diagnosis" rows={2} placeholder={t("diagnosisPlaceholder")} {...bindField(form, "diagnosis")} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="treatment">{t("treatment")}</Label>
+            <Textarea id="treatment" rows={2} placeholder={t("treatmentPlaceholder")} {...bindField(form, "treatment")} />
+          </div>
+
+          {/* Instructions for the owner at home */}
+          <div className="space-y-1.5 rounded-lg border border-primary/25 bg-primary/5 p-3">
+            <div className="flex items-center gap-2">
+              <Home className="w-4 h-4 text-primary" />
+              <Label htmlFor="homeCare" className="flex-1">{t("homeCare")}</Label>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+                onClick={() => {
+                  const text = suggestHomeCare(form.getValues(), record);
+                  if (!text) { toast.info(t("homeCareNothing")); return; }
+                  const cur = form.getValues("homeCare")?.trim();
+                  form.setValue("homeCare", cur ? `${cur}\n${text}` : text, { shouldDirty: true });
+                }}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                {t("homeCareFill")}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("homeCareHint")}</p>
+            <Textarea id="homeCare" rows={4} className="bg-background" placeholder={t("homeCarePlaceholder")} {...bindField(form, "homeCare")} />
           </div>
 
           {/* Notes */}

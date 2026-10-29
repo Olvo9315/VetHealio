@@ -41,8 +41,8 @@ function trend(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 100);
 }
 
-function sumPaid(rows: { totalAmount: number }[]) {
-  return rows.reduce((sum, r) => sum + r.totalAmount, 0);
+function sumPaid(rows: { amount: number }[]) {
+  return rows.reduce((sum, r) => sum + r.amount, 0);
 }
 
 export async function getDashboardData() {
@@ -79,6 +79,9 @@ export async function getDashboardData() {
     upcoming,
     stockItems,
     vaccinations,
+    unpaid,
+    expiringLots,
+    waiting,
   ] = await Promise.all([
     prisma.appointment.count({
       where: { startTime: { gte: todayStart, lt: tomorrowStart }, status: activeStatus },
@@ -86,17 +89,17 @@ export async function getDashboardData() {
     prisma.appointment.count({
       where: { startTime: { gte: weekAgoStart, lt: weekAgoEnd }, status: activeStatus },
     }),
-    prisma.invoice.findMany({
-      where: { status: "PAID", paidAt: { gte: chartStart } },
-      select: { totalAmount: true, paidAt: true },
+    prisma.payment.findMany({
+      where: { paidAt: { gte: chartStart }, invoice: { status: { not: "CANCELLED" } } },
+      select: { amount: true, paidAt: true },
     }),
-    prisma.invoice.findMany({
-      where: { status: "PAID", paidAt: { gte: monthStart } },
-      select: { totalAmount: true },
+    prisma.payment.findMany({
+      where: { paidAt: { gte: monthStart }, invoice: { status: { not: "CANCELLED" } } },
+      select: { amount: true },
     }),
-    prisma.invoice.findMany({
-      where: { status: "PAID", paidAt: { gte: prevMonthStart, lt: prevMonthSameDay } },
-      select: { totalAmount: true },
+    prisma.payment.findMany({
+      where: { paidAt: { gte: prevMonthStart, lt: prevMonthSameDay }, invoice: { status: { not: "CANCELLED" } } },
+      select: { amount: true },
     }),
     prisma.pet.count({ where: { createdAt: { gte: monthStart } } }),
     prisma.pet.count({ where: { createdAt: { gte: prevMonthStart, lt: prevMonthSameDay } } }),
@@ -121,14 +124,36 @@ export async function getDashboardData() {
       take: 5,
       select: { id: true, vaccineName: true, nextDueDate: true, pet: { select: { name: true } } },
     }),
+    prisma.invoice.findMany({
+      where: { status: "PENDING" },
+      select: { totalAmount: true, paidAmount: true, petId: true, pet: { select: { ownerId: true, owner: { select: { firstName: true, lastName: true } } } } },
+    }),
+    prisma.inventoryBatch.findMany({
+      where: inventoryEnabled
+        ? { quantity: { gt: 0 }, expiryDate: { lt: startOfLocalDay(addDays(todayKey, 60)) } }
+        : { id: "" },
+      orderBy: { expiryDate: "asc" },
+      take: 6,
+      select: { id: true, lot: true, expiryDate: true, quantity: true, item: { select: { name: true, unit: true } } },
+    }),
+    prisma.appointment.count({ where: { status: "ARRIVED" } }),
   ]);
+
+  // Owners with money owed, largest first
+  const owed = new Map<string, { name: string; petId: string; amount: number }>();
+  for (const inv of unpaid) {
+    const due = inv.totalAmount - inv.paidAmount;
+    if (due <= 0.005) continue;
+    const cur = owed.get(inv.pet.ownerId) ?? { name: `${inv.pet.owner.firstName} ${inv.pet.owner.lastName}`, petId: inv.petId, amount: 0 };
+    owed.set(inv.pet.ownerId, { ...cur, amount: Math.round((cur.amount + due) * 100) / 100 });
+  }
+  const debts = Array.from(owed.values()).sort((a, b) => b.amount - a.amount);
 
   // Daily revenue series for the chart
   const byDay = new Map<string, number>();
-  for (const inv of paidLast30) {
-    if (!inv.paidAt) continue;
-    const key = localDateKey(inv.paidAt);
-    byDay.set(key, (byDay.get(key) ?? 0) + inv.totalAmount);
+  for (const p of paidLast30) {
+    const key = localDateKey(p.paidAt);
+    byDay.set(key, (byDay.get(key) ?? 0) + p.amount);
   }
   const revenueSeries = Array.from({ length: 30 }, (_, i) => {
     const key = addDays(todayKey, i - 29);
@@ -155,6 +180,17 @@ export async function getDashboardData() {
       ownerName: a.pet.owner.lastName,
     })),
     inventoryEnabled,
+    waiting,
+    debts: { total: Math.round(debts.reduce((s, d) => s + d.amount, 0) * 100) / 100, count: debts.length, top: debts.slice(0, 5) },
+    expiringLots: expiringLots.map((b) => ({
+      id: b.id,
+      name: b.item.name,
+      lot: b.lot,
+      quantity: b.quantity,
+      unit: b.item.unit,
+      expired: !!b.expiryDate && b.expiryDate < now,
+      expiryDate: b.expiryDate,
+    })),
     lowStock: stockItems
       .filter((i) => i.quantity <= i.minStock)
       .sort((a, b) => a.quantity / a.minStock - b.quantity / b.minStock)

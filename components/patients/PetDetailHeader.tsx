@@ -22,7 +22,16 @@ import {
   Calendar,
   Weight,
   Cpu,
+  AlertTriangle,
+  Wallet,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
+import { OwnerDebtDialog } from "./OwnerDebtDialog";
+import { ConsentDialog } from "./ConsentDialog";
+import type { ConsentStatus } from "@/lib/actions/consents";
+import { formatEur } from "@/lib/format";
+import { ConditionChips } from "./ConditionsPicker";
 import { format, differenceInYears, differenceInMonths } from "date-fns";
 import { formatPetId } from "@/lib/utils";
 
@@ -38,14 +47,22 @@ function PetAge({ birthDate }: { birthDate: Date | null }) {
 
 interface PetDetailHeaderProps {
   pet: PetFull;
+  // What the owner still owes across all their pets
+  debt?: number;
+  consent?: ConsentStatus;
 }
 
-export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
+export function PetDetailHeader({ pet, debt = 0, consent = null }: PetDetailHeaderProps) {
   const t = useTranslations("patients");
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [editOwnerOpen, setEditOwnerOpen] = useState(false);
   const [isArchiving, startArchive] = useTransition();
+  const [debtOpen, setDebtOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const tf = useTranslations("finances");
+  const tcons = useTranslations("consent");
+  const ownerName = `${pet.owner.firstName} ${pet.owner.lastName}`;
 
   function handleArchive() {
     if (!confirm(t("archiveConfirm", { name: pet.name }))) return;
@@ -66,6 +83,16 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
         <ChevronLeft className="w-4 h-4" />
         {t("title")}
       </Link>
+
+      {pet.alerts && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide">{t("alerts")}</p>
+            <p className="text-sm whitespace-pre-line">{pet.alerts}</p>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4 md:p-6">
@@ -92,6 +119,8 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                   </span>
                 )}
               </div>
+
+              <ConditionChips conditions={pet.conditions ?? []} className="mb-2" />
 
               {/* Details grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
@@ -189,6 +218,43 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
                     </span>
                   )}
                 </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {debt > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDebtOpen(true)}
+                      className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      {tf("debtBadge", { amount: formatEur(debt) })}
+                    </button>
+                  )}
+                  {consent ? (
+                    <a
+                      href={`/print/consent/${consent.id}`}
+                      target="_blank"
+                      className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200"
+                      title={tcons("viewSigned")}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      {tcons("signedOn", { date: format(new Date(consent.signedAt), "dd/MM/yyyy") })}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConsentOpen(true)}
+                      className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      {tcons("signNow")}
+                    </button>
+                  )}
+                  {consent && (
+                    <button type="button" onClick={() => setConsentOpen(true)} className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+                      {tcons("signAgain")}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -230,6 +296,8 @@ export function PetDetailHeader({ pet }: PetDetailHeaderProps) {
       </Card>
 
       {editOpen && <EditPetDialog pet={pet} open={editOpen} onOpenChange={setEditOpen} />}
+      {debtOpen && <OwnerDebtDialog ownerId={pet.owner.id} ownerName={ownerName} open={debtOpen} onOpenChange={setDebtOpen} />}
+      {consentOpen && <ConsentDialog ownerId={pet.owner.id} ownerName={ownerName} open={consentOpen} onOpenChange={setConsentOpen} />}
       {editOwnerOpen && <EditOwnerDialog owner={pet.owner} open={editOwnerOpen} onOpenChange={setEditOwnerOpen} />}
     </>
   );
