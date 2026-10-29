@@ -252,6 +252,9 @@ ALTER TABLE "FiscalDocument" ADD CONSTRAINT "FiscalDocument_exportId_fkey" FOREI
 -- AddForeignKey
 ALTER TABLE "AdviserExport" ADD CONSTRAINT "AdviserExport_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- AlterTable
+ALTER TABLE "ClinicSettings" ADD COLUMN     "pricesIncludeTax" BOOLEAN NOT NULL DEFAULT true;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

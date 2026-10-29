@@ -735,6 +735,8 @@ model ClinicSettings {
   logoKey            String?
   iban               String?
   defaultTaxRate     Float    @default(21)
+  // Prices in the catalogue and on bills are entered with VAT included (consumer prices) or before VAT
+  pricesIncludeTax   Boolean  @default(true)
   invoiceFooter      String?
   // Physical exam rows offered in a medical record (keys of lib/exam.ts or custom labels)
   examTemplate       Json?

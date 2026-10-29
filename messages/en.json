@@ -585,7 +585,11 @@
     "cashKind_refund": "Refund",
     "cashKind_void": "Payment voided",
     "voidedLater": "voided later (see correction)",
-    "cancelSentWarning": "This invoice was already sent to the adviser. The corrective invoice is dated today and falls in the current period: send it with the next package. Continue?"
+    "cancelSentWarning": "This invoice was already sent to the adviser. The corrective invoice is dated today and falls in the current period: send it with the next package. Continue?",
+    "unitPriceGross": "Unit price incl. VAT (€)",
+    "unitPriceNet": "Unit price excl. VAT (€)",
+    "pricesGrossHint": "Prices include VAT: the total is what the customer pays and the base is worked out from it.",
+    "pricesNetHint": "Prices exclude VAT: VAT is added to the total."
   },
   "inventory": {
     "title": "Inventory",
@@ -1081,7 +1085,11 @@
     "invalidValue": "Invalid value",
     "sectionLanguage": "Data language",
     "dataLocale": "Clinic's official language",
-    "dataLocaleHint": "Language of service names, invoices, prescriptions and documents. Each staff member can still use the interface in their own language."
+    "dataLocaleHint": "Language of service names, invoices, prescriptions and documents. Each staff member can still use the interface in their own language.",
+    "pricesIncludeTax": "Prices are entered",
+    "pricesWithTax": "Including VAT (final customer price)",
+    "pricesWithoutTax": "Excluding VAT (VAT added when billing)",
+    "pricesIncludeTaxHint": "Applies to the service list, product sale prices and bills. Consumers must be shown the final price including VAT."
   },
   "validation": {
     "required": "Required",

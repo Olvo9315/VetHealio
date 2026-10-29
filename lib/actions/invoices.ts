@@ -355,17 +355,22 @@ export async function searchAppointmentsWithoutInvoice(
 // ---- Mutations ----
 
 async function buildItems(items: z.infer<typeof invoiceItemSchema>[]) {
-  const { defaultTaxRate } = await getClinic();
-  return items.map((item) => ({
+  const { defaultTaxRate, pricesIncludeTax } = await getClinic();
+  return items.map((item) => {
+    const taxRate = item.taxRate ?? defaultTaxRate;
+    // Lines are stored with VAT included; a clinic that prices before VAT has it added here
+    const unitPrice = pricesIncludeTax ? item.unitPrice : cents(item.unitPrice * (1 + taxRate / 100));
+    return {
     description: item.description,
     quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    total: cents(item.quantity * item.unitPrice),
+    unitPrice,
+    total: cents(item.quantity * unitPrice),
     type: item.type as InvoiceItemType | undefined,
-    taxRate: item.taxRate ?? defaultTaxRate,
+    taxRate,
     serviceId: item.serviceId ?? null,
     inventoryItemId: item.inventoryItemId ?? null,
-  }));
+    };
+  });
 }
 
 // A bill with fiscal documents is closed: it is corrected with a rectifying document instead

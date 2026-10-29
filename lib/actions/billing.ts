@@ -648,8 +648,8 @@ export async function loadFiscalDocument(id: string) {
 // Clinic defaults the bill form needs on the client
 export async function getBillingDefaults() {
   await requireUserId();
-  const s = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { defaultTaxRate: true } });
-  return { defaultTaxRate: s?.defaultTaxRate ?? 21 };
+  const s = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { defaultTaxRate: true, pricesIncludeTax: true } });
+  return { defaultTaxRate: s?.defaultTaxRate ?? 21, pricesIncludeTax: s?.pricesIncludeTax ?? true };
 }
 
 // ---- Tax adviser ----

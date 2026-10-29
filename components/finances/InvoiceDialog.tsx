@@ -28,6 +28,7 @@ import { Search, Plus, Trash2, Loader2, Receipt, CalendarDays, Package } from "l
 import { ProductPicker } from "./ProductPicker";
 import { TaxRateChips } from "./TaxRateChips";
 import { getBillingDefaults } from "@/lib/actions/billing";
+import { taxBreakdown } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 import { NumberInput } from "@/components/common/NumberInput";
 import { useCan } from "@/components/layout/PermissionsProvider";
@@ -46,6 +47,8 @@ interface ItemData {
   inventoryItemId: string | null;
   stockLeft?: number;
   stockUnit?: string;
+  // Price still as stored (VAT included), not yet shown the clinic's way
+  fromSaved?: boolean;
 }
 
 let _id = 0;
@@ -65,6 +68,7 @@ function itemFromInvoice(item: InvoiceFull["items"][0]): ItemData {
     serviceId: item.serviceId ?? null,
     taxRate: item.taxRate,
     inventoryItemId: item.inventoryItemId ?? null,
+    fromSaved: true,
   };
 }
 
@@ -81,11 +85,14 @@ interface ItemRowProps {
   onAddNewService: (rowId: string) => void;
   isOnly: boolean;
   descriptionError?: string;
+  // Prices typed before VAT
+  netPrices?: boolean;
 }
 
-const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove, onAddNewService, isOnly, descriptionError }: ItemRowProps) {
+const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove, onAddNewService, isOnly, descriptionError, netPrices }: ItemRowProps) {
   const t = useTranslations("finances");
-  const lineTotal = item.quantity * item.unitPrice;
+  // What the line will cost the customer
+  const lineTotal = item.quantity * item.unitPrice * (netPrices ? 1 + item.taxRate / 100 : 1);
 
   return (
     <div className="border border-border rounded-lg p-3 space-y-2.5 bg-card">
@@ -158,7 +165,7 @@ const ItemRow = memo(function ItemRow({ idx, item, services, onUpdate, onRemove,
         </div>
 
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t("unitPriceLabel")}</Label>
+          <Label className="text-xs text-muted-foreground">{netPrices ? t("unitPriceNet") : t("unitPriceGross")}</Label>
           <NumberInput
             className="h-8 text-sm"
             value={item.unitPrice}
@@ -204,11 +211,18 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [defaultTax, setDefaultTax] = useState(21);
+  // Prices typed before VAT (the server adds it); stored lines always include VAT
+  const [netPrices, setNetPrices] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
 
   useEffect(() => {
-    getBillingDefaults().then(({ defaultTaxRate }) => {
+    getBillingDefaults().then(({ defaultTaxRate, pricesIncludeTax }) => {
       setDefaultTax(defaultTaxRate);
+      if (!pricesIncludeTax) {
+        setNetPrices(true);
+        // Lines loaded from a saved bill carry VAT: show them before VAT
+        setItems((prev) => prev.map((i) => (i.fromSaved ? { ...i, unitPrice: Math.round((i.unitPrice / (1 + i.taxRate / 100)) * 100) / 100, fromSaved: false } : i)));
+      }
       // Lines added before the setting arrived follow the clinic's rate
       setItems((prev) => prev.map((i) => (!i.inventoryItemId && i.taxRate === 21 ? { ...i, taxRate: defaultTaxRate } : i)));
     });
@@ -323,7 +337,14 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
     setQuickAddOpen(true);
   }, []);
 
-  const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  // Summary the way the bill will be stored: VAT-included lines, base and VAT per rate
+  const summary = taxBreakdown(
+    items.map((i) => {
+      const unit = netPrices ? i.unitPrice * (1 + i.taxRate / 100) : i.unitPrice;
+      return { description: "", quantity: i.quantity, unitPrice: unit, taxRate: i.taxRate, total: Math.round(i.quantity * unit * 100) / 100 };
+    })
+  );
+  const total = summary.total;
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
@@ -383,12 +404,12 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? t("editInvoice") : t("newInvoice")}</DialogTitle>
         </DialogHeader>
 
-        <form className="space-y-5 mt-2" onSubmit={handleSubmit}>
+        <form className="space-y-5 mt-2 min-w-0" onSubmit={handleSubmit}>
           {/* Appointment selector */}
           <div className="space-y-1.5">
             <Label>{t("appointment")} *</Label>
@@ -461,11 +482,11 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
 
           {/* Line items */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {t("lineItems")}
               </p>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <Button
                   type="button"
                   variant="outline"
@@ -529,15 +550,29 @@ export function InvoiceDialog({ open, onOpenChange, invoice: invoiceProp, servic
                 onAddNewService={openQuickAdd}
                 isOnly={items.length === 1}
                 descriptionError={errors[`${item.id}.desc`]}
+                netPrices={netPrices}
               />
             ))}
 
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t("total")}</span>
+            <div className="pt-2 border-t border-border space-y-0.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{t("taxBase")}</span>
+                <span>{fmt(summary.base)}</span>
               </div>
-              <span className="text-lg font-bold text-primary">{fmt(total)}</span>
+              {summary.rows.filter((r) => r.tax).map((r) => (
+                <div key={r.rate} className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{t("vatShort", { rate: r.rate })}</span>
+                  <span>{fmt(r.tax)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t("total")}</span>
+                </div>
+                <span className="text-lg font-bold text-primary">{fmt(total)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{netPrices ? t("pricesNetHint") : t("pricesGrossHint")}</p>
             </div>
           </div>
 

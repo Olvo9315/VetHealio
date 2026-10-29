@@ -25,6 +25,9 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2, Loader2, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NumberInput } from "@/components/common/NumberInput";
+import { TaxRateChips } from "@/components/finances/TaxRateChips";
+import { getBillingDefaults } from "@/lib/actions/billing";
+import { taxBreakdown } from "@/lib/billing";
 
 type ItemType = "CONSULTATION" | "MEDICATION" | "SERVICE" | "OTHER";
 const ITEM_TYPES: ItemType[] = ["CONSULTATION", "MEDICATION", "SERVICE", "OTHER"];
@@ -34,6 +37,7 @@ interface ItemData {
   description: string;
   quantity: number;
   unitPrice: number;
+  taxRate: number;
   type: ItemType;
 }
 
@@ -41,7 +45,7 @@ let _id = 0;
 const nextId = () => String(++_id);
 
 function newItem(): ItemData {
-  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE" };
+  return { id: nextId(), description: "", quantity: 1, unitPrice: 0, type: "SERVICE", taxRate: 21 };
 }
 
 function fmt(v: number) {
@@ -55,13 +59,14 @@ interface ItemRowProps {
   onRemove: (id: string) => void;
   isOnly: boolean;
   descriptionError?: string;
+  netPrices?: boolean;
 }
 
 // React.memo ensures this only re-renders when its own item data changes.
 // Changing type in row A will NOT re-render row B.
-const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, descriptionError }: ItemRowProps) {
+const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, descriptionError, netPrices }: ItemRowProps) {
   const t = useTranslations("finances");
-  const lineTotal = item.quantity * item.unitPrice;
+  const lineTotal = item.quantity * item.unitPrice * (netPrices ? 1 + item.taxRate / 100 : 1);
 
   const typeLabels: Record<ItemType, string> = {
     CONSULTATION: t("itemTypeConsultation"),
@@ -128,7 +133,7 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
         </div>
 
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t("unitPriceLabel")}</Label>
+          <Label className="text-xs text-muted-foreground">{netPrices ? t("unitPriceNet") : t("unitPriceGross")}</Label>
           <NumberInput
             className="h-8 text-sm"
             value={item.unitPrice}
@@ -136,6 +141,7 @@ const ItemRow = memo(function ItemRow({ idx, item, onUpdate, onRemove, isOnly, d
           />
         </div>
       </div>
+      <TaxRateChips label={t("vat")} value={item.taxRate} onChange={(taxRate) => onUpdate(item.id, { taxRate })} />
     </div>
   );
 });
@@ -160,11 +166,18 @@ export function DirectInvoiceDialog({
   const [isSaving, startSave] = useTransition();
   const [items, setItems] = useState<ItemData[]>(() => [newItem()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [defaultTax, setDefaultTax] = useState(21);
+  const [netPrices, setNetPrices] = useState(false);
 
   useEffect(() => {
     if (open) {
       setItems([newItem()]);
       setErrors({});
+      getBillingDefaults().then(({ defaultTaxRate, pricesIncludeTax }) => {
+        setDefaultTax(defaultTaxRate);
+        setNetPrices(!pricesIncludeTax);
+        setItems((prev) => prev.map((i) => ({ ...i, taxRate: defaultTaxRate })));
+      });
     }
   }, [open]);
 
@@ -180,7 +193,13 @@ export function DirectInvoiceDialog({
     setItems((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const summary = taxBreakdown(
+    items.map((i) => {
+      const unit = netPrices ? i.unitPrice * (1 + i.taxRate / 100) : i.unitPrice;
+      return { description: "", quantity: i.quantity, unitPrice: unit, taxRate: i.taxRate, total: Math.round(i.quantity * unit * 100) / 100 };
+    })
+  );
+  const total = summary.total;
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
@@ -197,7 +216,8 @@ export function DirectInvoiceDialog({
     startSave(async () => {
       const result = await createDirectInvoice({
         petId: presetPetId,
-        items: items.map(({ description, quantity, unitPrice, type }) => ({
+        items: items.map(({ description, quantity, unitPrice, type, taxRate }) => ({
+          taxRate,
           description,
           quantity,
           unitPrice: unitPrice || 0.01,
@@ -238,7 +258,7 @@ export function DirectInvoiceDialog({
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => setItems((prev) => [...prev, newItem()])}
+                onClick={() => setItems((prev) => [...prev, { ...newItem(), taxRate: defaultTax }])}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {t("addItem")}
@@ -255,16 +275,30 @@ export function DirectInvoiceDialog({
                   onRemove={removeItem}
                   isOnly={items.length === 1}
                   descriptionError={errors[`${item.id}.desc`]}
+                  netPrices={netPrices}
                 />
               ))}
             </div>
 
-            <div className="flex items-center justify-between pt-1 border-t border-border">
-              <div className="flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t("total")}</span>
+            <div className="pt-1 border-t border-border space-y-0.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{t("taxBase")}</span>
+                <span>{fmt(summary.base)}</span>
               </div>
-              <span className="text-xl font-bold text-primary">{fmt(total)}</span>
+              {summary.rows.filter((r) => r.tax).map((r) => (
+                <div key={r.rate} className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{t("vatShort", { rate: r.rate })}</span>
+                  <span>{fmt(r.tax)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t("total")}</span>
+                </div>
+                <span className="text-xl font-bold text-primary">{fmt(total)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{netPrices ? t("pricesNetHint") : t("pricesGrossHint")}</p>
             </div>
           </div>
 

@@ -585,7 +585,11 @@
     "cashKind_refund": "Devolución",
     "cashKind_void": "Anulación de pago",
     "voidedLater": "anulado después (ver corrección)",
-    "cancelSentWarning": "Esta factura ya se envió a la gestoría. La rectificativa llevará la fecha de hoy y entrará en el periodo actual: envíela con el próximo paquete. ¿Continuar?"
+    "cancelSentWarning": "Esta factura ya se envió a la gestoría. La rectificativa llevará la fecha de hoy y entrará en el periodo actual: envíela con el próximo paquete. ¿Continuar?",
+    "unitPriceGross": "Precio unit. con IVA (€)",
+    "unitPriceNet": "Precio unit. sin IVA (€)",
+    "pricesGrossHint": "Los precios incluyen IVA: el total es lo que paga el cliente y la base se calcula a partir de él.",
+    "pricesNetHint": "Los precios son sin IVA: el IVA se suma al total."
   },
   "inventory": {
     "title": "Inventario",
@@ -1081,7 +1085,11 @@
     "invalidValue": "Valor no válido",
     "sectionLanguage": "Idioma de los datos",
     "dataLocale": "Idioma oficial de la clínica",
-    "dataLocaleHint": "Idioma de los nombres de servicios, facturas, recetas y documentos. Cada empleado puede usar la interfaz en su propio idioma."
+    "dataLocaleHint": "Idioma de los nombres de servicios, facturas, recetas y documentos. Cada empleado puede usar la interfaz en su propio idioma.",
+    "pricesIncludeTax": "Los precios se indican",
+    "pricesWithTax": "Con IVA incluido (precio final al cliente)",
+    "pricesWithoutTax": "Sin IVA (el IVA se añade al facturar)",
+    "pricesIncludeTaxHint": "Vale para la tarifa de servicios, el PVP de productos y las cuentas. A los particulares se les debe mostrar el precio final con IVA."
   },
   "validation": {
     "required": "Obligatorio",
