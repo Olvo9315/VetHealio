@@ -728,7 +728,14 @@
     "noMovements": "Движений пока нет",
     "move_RECEIPT": "Приход",
     "move_SALE": "Продажа / расход",
-    "move_ADJUST": "Ручная правка"
+    "move_ADJUST": "Ручная правка",
+    "suggestInStock": "На складе: {qty} {unit}",
+    "suggestPrescribed": "Назначался ранее",
+    "suggestSold": "Продавался ранее",
+    "suggestExists": "Этот товар уже есть на складе ({qty} {unit}). Чтобы добавить количество, используйте «Приход товара» или откройте товар; новый создаст дубль.",
+    "suggestOpenExisting": "Открыть существующий товар",
+    "barcode": "Нац. код / штрихкод",
+    "barcodePlaceholder": "CN или штрихкод"
   },
   "settings": {
     "title": "Настройки",
