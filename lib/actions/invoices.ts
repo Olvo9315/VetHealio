@@ -61,6 +61,8 @@ export type InvoiceFull = {
     customerName: string;
     customerNif: string | null;
     replacesId: string | null;
+    // Already handed to the tax adviser
+    exportId: string | null;
   }[];
   appointmentId: string | null;
   appointment: {
@@ -170,6 +172,7 @@ const fullInclude = {
       customerName: true,
       customerNif: true,
       replacesId: true,
+      exportId: true,
     },
     orderBy: { issuedAt: "asc" as const },
   },

@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Prisma, PaymentMethod, type InvoiceKind } from "@prisma/client";
-import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
+import { endOfDay, startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, requireUserId } from "@/lib/permissions";
 import { cents } from "@/lib/format";
-import { dueOf, taxBreakdown, type DocLine } from "@/lib/billing";
+import { docNumber, dueOf, taxBreakdown, type DocLine } from "@/lib/billing";
 import { getInvoiceById, type InvoiceFull } from "@/lib/actions/invoices";
+import { buildAdviserPackage } from "@/lib/adviser-package";
+import { emailConfigured, sendWithAttachments } from "@/lib/email";
 
 type Tx = Prisma.TransactionClient;
 
@@ -235,6 +237,8 @@ async function issueDocument(
     tx.invoice.findUniqueOrThrow({
       where: { id: invoiceId },
       select: {
+        totalAmount: true,
+        appointment: { select: { title: true } },
         items: { select: { description: true, quantity: true, unitPrice: true, taxRate: true, total: true } },
         pet: { select: { owner: { select: { firstName: true, lastName: true, nif: true, address: true, postalCode: true } } } },
       },
@@ -242,7 +246,11 @@ async function issueDocument(
     tx.clinicSettings.upsert({ where: { id: "default" }, create: { id: "default" }, update: {} }),
   ]);
   const sign = opts.negate ? -1 : 1;
-  const lines: DocLine[] = inv.items.map((i) => ({
+  // Older bills may carry only a total: document it as one line at the clinic's VAT rate
+  const items = inv.items.length
+    ? inv.items
+    : [{ description: inv.appointment?.title || "Servicios veterinarios", quantity: 1, unitPrice: inv.totalAmount, taxRate: settings.defaultTaxRate, total: inv.totalAmount }];
+  const lines: DocLine[] = items.map((i) => ({
     description: i.description,
     quantity: sign * i.quantity,
     unitPrice: i.unitPrice,
@@ -360,11 +368,10 @@ export async function cancelBill(invoiceId: string, reason: string): Promise<{ i
 
 // Tickets for bills paid in a period that still have none (bills paid before this version, or
 // paid while ticketing was off) — the monthly "invoice all visits" step of older programs.
-export async function issuePendingTickets(month: string): Promise<{ issued: number }> {
+export async function issuePendingTickets(fromDay: string, toDay: string): Promise<{ issued: number }> {
   await requirePermission("invoice.write");
   const userId = await requireUserId();
-  const from = startOfMonth(new Date(`${month}-01T12:00:00`));
-  const to = endOfMonth(from);
+  const { from, to } = dayRange(fromDay, toDay);
   const bills = await prisma.invoice.findMany({
     where: { status: "PAID", paidAt: { gte: from, lte: to }, documents: { none: {} } },
     select: { id: true },
@@ -397,37 +404,64 @@ export type BookRow = {
   replaces: string | null;
   invoiceId: string;
   petId: string;
+  // When it first went to the tax adviser
+  sentAt: Date | null;
 };
 
-// Book of issued invoices for a month (libro registro de facturas emitidas), for the tax adviser.
+export type AdviserExportRow = { id: string; periodFrom: Date; periodTo: Date; method: string; sentTo: string | null; docCount: number; total: number; createdAt: Date; by: string | null };
+
+export type InvoiceBook = {
+  rows: BookRow[];
+  pendingTickets: number;
+  clinicNifMissing: boolean;
+  adviserEmail: string | null;
+  // Earlier hand-overs that overlap this period
+  exports: AdviserExportRow[];
+  // This instance can send e-mail
+  emailReady: boolean;
+};
+
+// Whole days, both included, from "yyyy-MM-dd"
+function dayRange(fromDay: string, toDay: string) {
+  return { from: startOfDay(new Date(`${fromDay}T12:00:00`)), to: endOfDay(new Date(`${toDay}T12:00:00`)) };
+}
+
+// Book of issued invoices for a period (libro registro de facturas emitidas), for the tax adviser.
 // Tickets replaced by a full invoice are listed but not counted in the totals.
-export async function getInvoiceBook(month: string): Promise<{ rows: BookRow[]; pendingTickets: number; clinicNifMissing: boolean }> {
+export async function getInvoiceBook(fromDay: string, toDay: string): Promise<InvoiceBook> {
   await requirePermission("invoice.write");
-  const from = startOfMonth(new Date(`${month}-01T12:00:00`));
-  const to = endOfMonth(from);
-  const [docs, pendingTickets] = await Promise.all([
+  const { from, to } = dayRange(fromDay, toDay);
+  const [docs, pendingTickets, settings, exports] = await Promise.all([
     prisma.fiscalDocument.findMany({
       where: { issuedAt: { gte: from, lte: to } },
       include: {
         replacedBy: { select: { series: true, year: true, number: true, kind: true } },
         replaces: { select: { series: true, year: true, number: true } },
         invoice: { select: { petId: true } },
+        export: { select: { createdAt: true } },
       },
-      orderBy: [{ series: "asc" }, { number: "asc" }],
+      orderBy: [{ series: "asc" }, { year: "asc" }, { number: "asc" }],
     }),
     prisma.invoice.count({ where: { status: "PAID", paidAt: { gte: from, lte: to }, documents: { none: {} } } }),
+    prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { nif: true, adviserEmail: true } }),
+    prisma.adviserExport.findMany({
+      where: { periodFrom: { lte: to }, periodTo: { gte: from } },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
-  const num = (d: { series: string; year: number; number: number }) => `${d.series}${d.year}-${String(d.number).padStart(6, "0")}`;
-  const settings = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { nif: true } });
   return {
     pendingTickets,
     clinicNifMissing: !settings?.nif,
+    adviserEmail: settings?.adviserEmail ?? null,
+    exports: exports.map((e) => ({ ...e, by: e.createdBy?.name ?? null })),
+    emailReady: emailConfigured(),
     rows: docs.map((d) => {
       const replacement = d.replacedBy.find((r) => r.kind === "FULL");
       return {
         id: d.id,
         kind: d.kind,
-        docNumber: num(d),
+        docNumber: docNumber(d),
         series: d.series,
         year: d.year,
         number: d.number,
@@ -438,13 +472,40 @@ export async function getInvoiceBook(month: string): Promise<{ rows: BookRow[]; 
         taxBase: d.taxBase,
         taxAmount: d.taxAmount,
         total: d.total,
-        replacedBy: replacement ? num(replacement) : null,
-        replaces: d.replaces ? num(d.replaces) : null,
+        replacedBy: replacement ? docNumber(replacement) : null,
+        replaces: d.replaces ? docNumber(d.replaces) : null,
         invoiceId: d.invoiceId,
         petId: d.invoice.petId,
+        sentAt: d.export?.createdAt ?? null,
       };
     }),
   };
+}
+
+// Records that the period went to the adviser: documents not sent before get this export
+export async function recordAdviserExport(fromDay: string, toDay: string, method: "EMAIL" | "MANUAL", sentTo?: string) {
+  await requirePermission("invoice.write");
+  const userId = await requireUserId();
+  const { from, to } = dayRange(fromDay, toDay);
+  const docs = await prisma.fiscalDocument.findMany({
+    where: { issuedAt: { gte: from, lte: to } },
+    select: { id: true, total: true, replacedBy: { select: { kind: true } } },
+  });
+  const counted = docs.filter((d) => !d.replacedBy.some((r) => r.kind === "FULL"));
+  const exp = await prisma.adviserExport.create({
+    data: {
+      periodFrom: from,
+      periodTo: to,
+      method,
+      sentTo: sentTo ?? null,
+      docCount: docs.length,
+      total: cents(counted.reduce((s, d) => s + d.total, 0)),
+      createdById: userId,
+    },
+  });
+  await prisma.fiscalDocument.updateMany({ where: { id: { in: docs.map((d) => d.id) }, exportId: null }, data: { exportId: exp.id } });
+  revalidatePath("/finances");
+  return { id: exp.id, docCount: docs.length };
 }
 
 export type CashRow = {
@@ -589,4 +650,49 @@ export async function getBillingDefaults() {
   await requireUserId();
   const s = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { defaultTaxRate: true } });
   return { defaultTaxRate: s?.defaultTaxRate ?? 21 };
+}
+
+// ---- Tax adviser ----
+
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+// Sends the period's package (PDF and Excel/CSV) to the adviser by e-mail and records it, so the
+// documents show as sent. The adviser's address is remembered for next time.
+export async function sendBookToAdviser(input: { from: string; to: string; email: string; includeInvoices: boolean; message?: string }) {
+  await requirePermission("invoice.write");
+  const email = input.email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "invalidEmail" as const };
+  if (!emailConfigured()) return { error: "emailNotConfigured" as const };
+  const pack = await buildAdviserPackage(input.from, input.to, input.includeInvoices);
+  const { l, clinic } = pack;
+  const html = `
+    <div style="font-family:Arial,sans-serif;font-size:14px;color:#222">
+      <p>${escapeHtml(input.message?.trim() || l.emailGreeting)}</p>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="padding:3px 16px 3px 0;color:#666">${escapeHtml(l.period)}</td><td><b>${escapeHtml(pack.periodLabel)}</b></td></tr>
+        <tr><td style="padding:3px 16px 3px 0;color:#666">${escapeHtml(l.docsCount)}</td><td>${pack.docCount}</td></tr>
+        <tr><td style="padding:3px 16px 3px 0;color:#666">${escapeHtml(l.taxBase)}</td><td>${pack.taxBase.toFixed(2).replace(".", ",")} €</td></tr>
+        <tr><td style="padding:3px 16px 3px 0;color:#666">${escapeHtml(l.vatShort)}</td><td>${pack.taxAmount.toFixed(2).replace(".", ",")} €</td></tr>
+        <tr><td style="padding:3px 16px 3px 0;color:#666">${escapeHtml(l.total)}</td><td><b>${pack.total.toFixed(2).replace(".", ",")} €</b></td></tr>
+      </table>
+      <p style="color:#666">${escapeHtml(l.emailAttached)}</p>
+      <p>${escapeHtml(clinic.legalName || clinic.name)}${clinic.nif ? ` · NIF ${escapeHtml(clinic.nif)}` : ""}<br>${escapeHtml([clinic.phone, clinic.email].filter(Boolean).join(" · "))}</p>
+    </div>`;
+  try {
+    await sendWithAttachments({
+      to: email,
+      replyTo: clinic.email ?? undefined,
+      subject: `${l.bookTitle} ${pack.periodLabel} — ${clinic.legalName || clinic.name}`,
+      html,
+      attachments: [
+        { filename: `${pack.fileBase}.pdf`, content: Buffer.from(pack.pdf) },
+        { filename: `${pack.fileBase}.csv`, content: Buffer.from(pack.csv, "utf-8") },
+      ],
+    });
+  } catch {
+    return { error: "sendFailed" as const };
+  }
+  await prisma.clinicSettings.update({ where: { id: "default" }, data: { adviserEmail: email } });
+  const exp = await recordAdviserExport(input.from, input.to, "EMAIL", email);
+  return { sent: true as const, docCount: exp.docCount };
 }

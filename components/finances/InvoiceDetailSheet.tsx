@@ -117,6 +117,8 @@ export function InvoiceDetailSheet({
   function handleCancel() {
     // A wrongly ticked payment is undone by removing the payment, not by cancelling the bill
     if (invoice.paidAmount > 0 && !confirm(t("cancelPaidWarning"))) return;
+    // The corrective invoice is dated today, so it goes to the adviser with the current period
+    if (invoice.documents.some((d) => d.exportId && !replaced.has(d.id)) && !confirm(t("cancelSentWarning"))) return;
     const reason = issued ? prompt(t("cancelReasonPrompt")) : confirm(t("cancelConfirm")) ? "" : null;
     if (reason === null) return;
     startUpdate(async () => {

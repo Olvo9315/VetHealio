@@ -222,6 +222,36 @@ ADD COLUMN     "voidedById" TEXT;
 -- AddForeignKey
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_voidedById_fkey" FOREIGN KEY ("voidedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- AlterTable
+ALTER TABLE "ClinicSettings" ADD COLUMN     "adviserEmail" TEXT;
+
+-- AlterTable
+ALTER TABLE "FiscalDocument" ADD COLUMN     "exportId" TEXT;
+
+-- CreateTable
+CREATE TABLE "AdviserExport" (
+    "id" TEXT NOT NULL,
+    "periodFrom" TIMESTAMP(3) NOT NULL,
+    "periodTo" TIMESTAMP(3) NOT NULL,
+    "method" TEXT NOT NULL,
+    "sentTo" TEXT,
+    "docCount" INTEGER NOT NULL,
+    "total" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdById" TEXT,
+
+    CONSTRAINT "AdviserExport_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "AdviserExport_createdAt_idx" ON "AdviserExport"("createdAt");
+
+-- AddForeignKey
+ALTER TABLE "FiscalDocument" ADD CONSTRAINT "FiscalDocument_exportId_fkey" FOREIGN KEY ("exportId") REFERENCES "AdviserExport"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AdviserExport" ADD CONSTRAINT "AdviserExport_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

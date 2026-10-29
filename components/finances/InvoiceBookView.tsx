@@ -2,37 +2,56 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { format, subMonths } from "date-fns";
-import { Download, FileCheck2, Loader2, Printer } from "lucide-react";
+import { endOfMonth, endOfQuarter, endOfYear, format, startOfMonth, startOfQuarter, startOfYear } from "date-fns";
+import { CheckCircle2, Download, FileCheck2, FileText, Loader2, Mail, Printer, Send } from "lucide-react";
 import { toast } from "sonner";
-import { getInvoiceBook, issuePendingTickets, type BookRow } from "@/lib/actions/billing";
-import { cents, downloadCsv, formatEur } from "@/lib/format";
+import { getInvoiceBook, issuePendingTickets, recordAdviserExport, sendBookToAdviser, type InvoiceBook } from "@/lib/actions/billing";
+import { cents, formatEur } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const kindLabel = { SIMPLIFIED: "docSimplified", FULL: "docFull", RECTIFYING: "docRectifying" } as const;
+type Mode = "month" | "quarter" | "year" | "range";
+const DAY = "yyyy-MM-dd";
 
-// Invoices issued in a month (libro registro de facturas emitidas): what the tax adviser needs.
-// Tickets replaced by a full invoice are shown crossed out and left out of the totals.
+function rangeOf(mode: Exclude<Mode, "range">, anchor: Date): [string, string] {
+  const r = {
+    month: [startOfMonth(anchor), endOfMonth(anchor)],
+    quarter: [startOfQuarter(anchor), endOfQuarter(anchor)],
+    year: [startOfYear(anchor), endOfYear(anchor)],
+  }[mode];
+  return [format(r[0], DAY), format(r[1], DAY)];
+}
+
+// Invoices issued in a period (libro registro de facturas emitidas): what the tax adviser needs.
+// Choose a month, a quarter (VAT returns are usually quarterly), a year or any dates; download the
+// PDF (summary, register and every invoice) or Excel, or e-mail it to the adviser. Documents that
+// were already handed over are marked; issued documents are never edited anyway.
 export function InvoiceBookView() {
   const t = useTranslations("finances");
-  const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
-  const [rows, setRows] = useState<BookRow[]>([]);
-  const [pending, setPending] = useState(0);
-  const [nifMissing, setNifMissing] = useState(false);
+  const ta = useTranslations("adviser");
+  const [mode, setMode] = useState<Mode>("quarter");
+  const [[from, to], setRange] = useState<[string, string]>(() => rangeOf("quarter", new Date()));
+  const [book, setBook] = useState<InvoiceBook | null>(null);
   const [isLoading, startLoad] = useTransition();
-  const [isIssuing, startIssue] = useTransition();
+  const [isBusy, startBusy] = useTransition();
+  const [withInvoices, setWithInvoices] = useState(true);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
 
-  const load = (m: string) => startLoad(async () => {
-    const book = await getInvoiceBook(m);
-    setRows(book.rows);
-    setPending(book.pendingTickets);
-    setNifMissing(book.clinicNifMissing);
+  const load = () => startLoad(async () => {
+    const b = await getInvoiceBook(from, to);
+    setBook(b);
+    setEmail((cur) => cur || b.adviserEmail || "");
   });
-  useEffect(() => { load(month); }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (from && to && from <= to) load(); }, [from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const rows = book?.rows ?? [];
   const counted = rows.filter((r) => !r.replacedBy);
+  const unsent = rows.filter((r) => !r.sentAt).length;
   const totals = useMemo(() => {
     const byRate = new Map<number, { base: number; tax: number }>();
     for (const r of counted) for (const x of r.taxBreakdown) {
@@ -47,75 +66,142 @@ export function InvoiceBookView() {
     };
   }, [counted]);
 
-  function exportCsv() {
-    const rates = Array.from(new Set(rows.flatMap((r) => r.taxBreakdown.map((x) => x.rate)))).sort((a, b) => b - a);
-    downloadCsv(`${t("bookFile")}_${month}`, [
-      [t("docNumber"), t("docType"), t("date"), t("customerName"), "NIF", ...rates.flatMap((r) => [`${t("taxBase")} ${r}%`, `IVA ${r}%`]), t("taxBase"), "IVA", t("total"), t("notes")],
-      ...rows.map((r) => [
-        r.docNumber,
-        t(kindLabel[r.kind]),
-        format(new Date(r.issuedAt), "dd/MM/yyyy"),
-        r.customerName,
-        r.customerNif ?? "",
-        ...rates.flatMap((rate) => {
-          const x = r.taxBreakdown.find((b) => b.rate === rate);
-          return [x ? x.base.toFixed(2) : "", x ? x.tax.toFixed(2) : ""];
-        }),
-        r.taxBase.toFixed(2),
-        r.taxAmount.toFixed(2),
-        r.total.toFixed(2),
-        r.replacedBy ? t("replacedBy", { doc: r.replacedBy }) : r.replaces ? (r.kind === "RECTIFYING" ? t("rectifiesDoc", { doc: r.replaces }) : t("replacesDoc", { doc: r.replaces })) : "",
-      ]),
-    ]);
+  function choose(m: Mode) {
+    setMode(m);
+    if (m !== "range") setRange(rangeOf(m, new Date(`${from}T12:00:00`)));
   }
 
-  const months = Array.from({ length: 13 }, (_, i) => format(subMonths(new Date(), i), "yyyy-MM"));
+  const year = Number(from.slice(0, 4));
+  const fileUrl = (fmt: "pdf" | "csv") => `/api/finances/adviser?from=${from}&to=${to}&format=${fmt}${withInvoices ? "&invoices=1" : ""}`;
+
+  function markSent() {
+    if (!confirm(ta("markSentConfirm", { count: rows.length }))) return;
+    startBusy(async () => {
+      await recordAdviserExport(from, to, "MANUAL");
+      toast.success(ta("markedSent"));
+      load();
+    });
+  }
+
+  function send() {
+    startBusy(async () => {
+      const r = await sendBookToAdviser({ from, to, email, includeInvoices: withInvoices, message });
+      if ("error" in r) { toast.error(ta(`err_${r.error}`)); return; }
+      toast.success(ta("sent", { email }));
+      setSendOpen(false);
+      load();
+    });
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <Input list="book-months" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="h-9 w-[170px]" />
-        <datalist id="book-months">{months.map((m) => <option key={m} value={m} />)}</datalist>
-        {isLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCsv} disabled={!rows.length}>
-            <Download className="w-4 h-4" />
-            {t("exportForAdviser")}
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
-            <Printer className="w-4 h-4" />
-            {t("printBook")}
-          </Button>
+      {/* Period */}
+      <div className="flex flex-wrap items-end gap-2 print:hidden">
+        <div className="flex rounded-lg border p-0.5 bg-muted/40 max-w-full overflow-x-auto no-scrollbar">
+          {(["month", "quarter", "year", "range"] as Mode[]).map((m) => (
+            <button key={m} type="button" onClick={() => choose(m)} className={cn("px-3 h-8 text-sm rounded-md whitespace-nowrap shrink-0", mode === m ? "bg-background shadow-sm font-medium" : "text-muted-foreground")}>
+              {ta(`mode_${m}`)}
+            </button>
+          ))}
         </div>
+        {mode === "month" && (
+          <Input type="month" value={from.slice(0, 7)} onChange={(e) => e.target.value && setRange(rangeOf("month", new Date(`${e.target.value}-01T12:00:00`)))} className="h-9 w-[170px]" />
+        )}
+        {mode === "quarter" && (
+          <div className="flex items-center gap-1">
+            <Input type="number" value={year} onChange={(e) => { const y = Number(e.target.value); if (y > 2000) setRange(rangeOf("quarter", new Date(y, new Date(`${from}T12:00:00`).getMonth(), 15))); }} className="h-9 w-[90px]" />
+            {[1, 2, 3, 4].map((q) => {
+              const r = rangeOf("quarter", new Date(year, (q - 1) * 3, 15));
+              return (
+                <button key={q} type="button" onClick={() => setRange(r)} className={cn("h-9 w-11 rounded-md border text-sm", from === r[0] ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
+                  T{q}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {mode === "year" && (
+          <Input type="number" value={year} onChange={(e) => { const y = Number(e.target.value); if (y > 2000) setRange(rangeOf("year", new Date(y, 5, 15))); }} className="h-9 w-[100px]" />
+        )}
+        {mode === "range" && (
+          <>
+            <Input type="date" value={from} max={to} onChange={(e) => e.target.value && setRange([e.target.value, to])} className="h-9 w-[150px]" />
+            <Input type="date" value={to} min={from} onChange={(e) => e.target.value && setRange([from, e.target.value])} className="h-9 w-[150px]" />
+          </>
+        )}
+        {isLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mb-2.5" />}
       </div>
 
-      {nifMissing && (
+      {book?.clinicNifMissing && (
         <div className="rounded-xl border border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/30 px-4 py-3 text-sm print:hidden">
           {t("clinicNifMissing")}{" "}
           <a href="/settings" className="underline font-medium">{t("openSettings")}</a>
         </div>
       )}
 
-      {pending > 0 && (
+      {!!book?.pendingTickets && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 print:hidden">
-          <p className="text-sm flex-1 min-w-[200px]">{t("pendingTickets", { count: pending })}</p>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            disabled={isIssuing}
-            onClick={() =>
-              startIssue(async () => {
-                const { issued } = await issuePendingTickets(month);
-                toast.success(t("ticketsIssued", { count: issued }));
-                load(month);
-              })
-            }
-          >
-            {isIssuing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck2 className="w-4 h-4" />}
+          <p className="text-sm flex-1 min-w-[200px]">{t("pendingTickets", { count: book.pendingTickets })}</p>
+          <Button size="sm" className="gap-1.5" disabled={isBusy} onClick={() => startBusy(async () => {
+            const { issued } = await issuePendingTickets(from, to);
+            toast.success(t("ticketsIssued", { count: issued }));
+            load();
+          })}>
+            <FileCheck2 className="w-4 h-4" />
             {t("issueTicketsNow")}
           </Button>
         </div>
       )}
+
+      {/* Hand over to the adviser */}
+      <div className="rounded-xl border bg-card p-3 space-y-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold flex-1">{ta("forAdviser")}</p>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <input type="checkbox" className="accent-primary" checked={withInvoices} onChange={(e) => setWithInvoices(e.target.checked)} />
+            {ta("includeInvoices")}
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => window.open(fileUrl("pdf"), "_blank")}>
+            <FileText className="w-4 h-4" />PDF
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={!rows.length} onClick={() => (window.location.href = fileUrl("csv"))}>
+            <Download className="w-4 h-4" />Excel (CSV)
+          </Button>
+          <Button size="sm" className="gap-1.5" disabled={!rows.length} onClick={() => setSendOpen((o) => !o)}>
+            <Mail className="w-4 h-4" />{ta("sendByEmail")}
+          </Button>
+          <Button size="sm" variant="ghost" className="gap-1.5" disabled={!rows.length || isBusy} onClick={markSent}>
+            <CheckCircle2 className="w-4 h-4" />{ta("markSent")}
+          </Button>
+        </div>
+        {sendOpen && (
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            {book && !book.emailReady && <p className="text-xs text-amber-700 dark:text-amber-400">{ta("err_emailNotConfigured")}</p>}
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={ta("adviserEmailPlaceholder")} />
+            <Textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={ta("messagePlaceholder")} />
+            <Button size="sm" className="gap-1.5" disabled={isBusy || !email.includes("@") || !book?.emailReady} onClick={send}>
+              {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {ta("sendNow")}
+            </Button>
+          </div>
+        )}
+        {book && (
+          <p className="text-xs text-muted-foreground">
+            {rows.length === 0 ? ta("nothingIssued") : unsent === 0 ? ta("allSent") : ta("unsentCount", { count: unsent, total: rows.length })}
+          </p>
+        )}
+        {!!book?.exports.length && (
+          <ul className="text-xs text-muted-foreground space-y-0.5">
+            {book.exports.map((e) => (
+              <li key={e.id}>
+                ✓ {format(new Date(e.createdAt), "dd/MM/yyyy HH:mm")} · {ta(e.method === "EMAIL" ? "sentEmail" : "sentManual", { email: e.sentTo ?? "" })} · {format(new Date(e.periodFrom), "dd/MM")}–{format(new Date(e.periodTo), "dd/MM/yyyy")} · {e.docCount} · {e.by ?? ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Tax summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -136,7 +222,7 @@ export function InvoiceBookView() {
         {rows.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-10">{t("noDocsMonth")}</p>
         ) : (
-          <table className="w-full text-sm min-w-[640px]">
+          <table className="w-full text-sm min-w-[680px]">
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th className="text-left font-medium px-3 py-2">{t("docNumber")}</th>
@@ -158,6 +244,9 @@ export function InvoiceBookView() {
                       {r.replacedBy && ` · ${t("replacedBy", { doc: r.replacedBy })}`}
                       {r.replaces && !r.replacedBy && ` · ${r.kind === "RECTIFYING" ? t("rectifiesDoc", { doc: r.replaces }) : t("replacesDoc", { doc: r.replaces })}`}
                     </p>
+                    {r.sentAt && (
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400">✓ {ta("sentOn", { date: format(new Date(r.sentAt), "dd/MM/yyyy") })}</p>
+                    )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{format(new Date(r.issuedAt), "dd/MM/yyyy")}</td>
                   <td className="px-3 py-2">
@@ -178,7 +267,7 @@ export function InvoiceBookView() {
           </table>
         )}
       </div>
-      <p className="text-xs text-muted-foreground print:hidden">{t("bookHint")}</p>
+      <p className="text-xs text-muted-foreground print:hidden">{t("bookHint")} {ta("sentHint")}</p>
     </div>
   );
 }

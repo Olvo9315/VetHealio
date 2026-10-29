@@ -130,6 +130,7 @@ model User {
   appointmentsUpdated Appointment[]       @relation("AppointmentUpdatedBy")
   paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
   paymentsVoided      Payment[]           @relation("PaymentVoidedBy")
+  adviserExports      AdviserExport[]     @relation("AdviserExportBy")
   fiscalDocuments     FiscalDocument[]
   stockMovements      StockMovement[]
   consentsRecorded    Consent[]
@@ -536,10 +537,32 @@ model FiscalDocument {
   replacedBy FiscalDocument[] @relation("Replaces")
   issuedById String?
   issuedBy   User?            @relation(fields: [issuedById], references: [id], onDelete: SetNull)
+  // First time it went to the tax adviser
+  exportId   String?
+  export     AdviserExport?   @relation(fields: [exportId], references: [id], onDelete: SetNull)
 
   @@unique([series, year, number])
   @@index([issuedAt])
   @@index([invoiceId])
+}
+
+// A period of issued invoices handed to the tax adviser (gestor): sent by e-mail or downloaded and
+// marked as sent. Documents keep the first export they went out in.
+model AdviserExport {
+  id          String           @id @default(cuid())
+  periodFrom  DateTime
+  periodTo    DateTime
+  // EMAIL | MANUAL
+  method      String
+  sentTo      String?
+  docCount    Int
+  total       Float
+  createdAt   DateTime         @default(now())
+  createdById String?
+  createdBy   User?            @relation("AdviserExportBy", fields: [createdById], references: [id], onDelete: SetNull)
+  documents   FiscalDocument[]
+
+  @@index([createdAt])
 }
 
 model Payment {
@@ -721,6 +744,8 @@ model ClinicSettings {
   seriesSimplified   String   @default("T")
   seriesFull         String   @default("F")
   seriesRectifying   String   @default("R")
+  // Tax adviser (gestor) who receives the invoice book
+  adviserEmail       String?
   // Signed module license (see lib/license.ts)
   licenseKey         String?
   // Language of official data (service names, invoices, documents): es | ru | en
