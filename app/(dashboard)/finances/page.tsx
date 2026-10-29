@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
-import { BookOpenCheck, Receipt, ShieldCheck, Wallet } from "lucide-react";
+import { BookOpenCheck, FileText, Receipt, ShieldCheck, Wallet } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import {
   getInvoices,
@@ -15,20 +15,25 @@ import { InvoicesTable } from "@/components/finances/InvoicesTable";
 import { CashReportView } from "@/components/finances/CashReportView";
 import { InvoiceBookView } from "@/components/finances/InvoiceBookView";
 import { VerifactuView } from "@/components/finances/VerifactuView";
+import { EstimatesView } from "@/components/estimates/EstimatesView";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type Tab = "bills" | "cash" | "book" | "verifactu";
+type Tab = "bills" | "estimates" | "cash" | "book" | "verifactu";
 
 export default async function FinancesPage({ searchParams }: { searchParams: { tab?: string } }) {
   const session = await auth();
   const t = await getTranslations("finances");
   // The cash count and the invoice book are for staff who handle money
   const canMoney = await can("invoice.write");
-  const tab: Tab = canMoney && (searchParams.tab === "cash" || searchParams.tab === "book" || searchParams.tab === "verifactu") ? searchParams.tab : "bills";
+  const tab: Tab =
+    searchParams.tab === "estimates" || (canMoney && (searchParams.tab === "cash" || searchParams.tab === "book" || searchParams.tab === "verifactu"))
+      ? (searchParams.tab as Tab)
+      : "bills";
 
   const tabs: { id: Tab; icon: typeof Receipt; label: string }[] = [
     { id: "bills", icon: Receipt, label: t("tabBills") },
+    { id: "estimates", icon: FileText, label: t("tabEstimates") },
     ...(canMoney
       ? [
           { id: "cash" as const, icon: Wallet, label: t("tabCash") },
@@ -57,7 +62,7 @@ export default async function FinancesPage({ searchParams }: { searchParams: { t
             </Link>
           ))}
         </nav>
-        {tab === "cash" ? <CashReportView /> : tab === "book" ? <InvoiceBookView /> : tab === "verifactu" ? <VerifactuView /> : <Bills />}
+        {tab === "estimates" ? <EstimatesView /> : tab === "cash" ? <CashReportView /> : tab === "book" ? <InvoiceBookView /> : tab === "verifactu" ? <VerifactuView /> : <Bills />}
       </div>
     </div>
   );

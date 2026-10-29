@@ -135,6 +135,7 @@ model User {
   stockMovements      StockMovement[]
   consentsRecorded    Consent[]
   consentRequests     ConsentRequest[]    @relation("ConsentRequestBy")
+  estimates           Estimate[]
 }
 
 model StaffProfile {
@@ -321,6 +322,7 @@ model Pet {
   appointments   Appointment[]
   vaccinations   Vaccination[]
   invoices       Invoice[]
+  estimates      Estimate[]
   prescriptions  Prescription[]
 
   @@index([ownerId])
@@ -359,6 +361,7 @@ model Appointment {
   roomId         String?
   room           Room?                @relation(fields: [roomId], references: [id])
   invoice        Invoice?
+  estimates      Estimate[]
   prescriptions  Prescription[]
   medicalRecords MedicalRecord[]
 
@@ -523,6 +526,8 @@ model Invoice {
   appointmentId String?       @unique
   appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
   items         InvoiceItem[]
+  // The estimate this bill was made from
+  estimate      Estimate?
 
   @@index([petId])
   @@index([status, createdAt])
@@ -599,6 +604,55 @@ model VerifactuRecord {
   createdAt   DateTime       @default(now())
 
   @@index([status])
+}
+
+// Presupuesto: what a treatment will cost, given to the owner before it is done. Not a tax document.
+// Accepted, it becomes an albarán (bill) with the same lines.
+model Estimate {
+  id            String         @id @default(cuid())
+  number        Int            @unique @default(autoincrement())
+  title         String
+  notes         String?
+  validUntil    DateTime
+  // PENDING | ACCEPTED | REJECTED (BILLED once the albarán exists, see invoiceId)
+  status        String         @default("PENDING")
+  decidedAt     DateTime?
+  // VAT included, like bill lines
+  total         Float
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  petId         String
+  pet           Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  invoiceId     String?        @unique
+  invoice       Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdById   String?
+  createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items         EstimateItem[]
+
+  @@index([petId])
+  @@index([status, createdAt])
+}
+
+model EstimateItem {
+  id              String           @id @default(cuid())
+  description     String
+  quantity        Int
+  // VAT included
+  unitPrice       Float
+  total           Float
+  taxRate         Float            @default(21)
+  type            InvoiceItemType? @default(SERVICE)
+  serviceId       String?
+  inventoryItemId String?
+  sortOrder       Int              @default(0)
+
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId])
 }
 
 // A period of issued invoices handed to the tax adviser (gestor): sent by e-mail or downloaded and

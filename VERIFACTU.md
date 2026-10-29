@@ -2,6 +2,8 @@
 
 VeriFactu — требования к программам выставления счетов в Испании: Real Decreto 1007/2023 (Reglamento SIF) и Orden HAC/1177/2024 (технические детали).
 
+Подробный план внедрения и проверки по этапам — в [VERIFACTU_PLAN.md](VERIFACTU_PLAN.md).
+
 ## Что уже сделано в VetHealio
 
 ### Запись (registro de alta)

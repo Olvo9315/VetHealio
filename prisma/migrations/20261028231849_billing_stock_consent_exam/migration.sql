@@ -351,6 +351,73 @@ CREATE INDEX "VerifactuRecord_status_idx" ON "VerifactuRecord"("status");
 -- AddForeignKey
 ALTER TABLE "VerifactuRecord" ADD CONSTRAINT "VerifactuRecord_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "FiscalDocument"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- CreateTable
+CREATE TABLE "Estimate" (
+    "id" TEXT NOT NULL,
+    "number" SERIAL NOT NULL,
+    "title" TEXT NOT NULL,
+    "notes" TEXT,
+    "validUntil" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "decidedAt" TIMESTAMP(3),
+    "total" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "petId" TEXT NOT NULL,
+    "appointmentId" TEXT,
+    "invoiceId" TEXT,
+    "createdById" TEXT,
+
+    CONSTRAINT "Estimate_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "EstimateItem" (
+    "id" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "unitPrice" DOUBLE PRECISION NOT NULL,
+    "total" DOUBLE PRECISION NOT NULL,
+    "taxRate" DOUBLE PRECISION NOT NULL DEFAULT 21,
+    "type" "InvoiceItemType" DEFAULT 'SERVICE',
+    "serviceId" TEXT,
+    "inventoryItemId" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "estimateId" TEXT NOT NULL,
+
+    CONSTRAINT "EstimateItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Estimate_number_key" ON "Estimate"("number");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Estimate_invoiceId_key" ON "Estimate"("invoiceId");
+
+-- CreateIndex
+CREATE INDEX "Estimate_petId_idx" ON "Estimate"("petId");
+
+-- CreateIndex
+CREATE INDEX "Estimate_status_createdAt_idx" ON "Estimate"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "EstimateItem_estimateId_idx" ON "EstimateItem"("estimateId");
+
+-- AddForeignKey
+ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_petId_fkey" FOREIGN KEY ("petId") REFERENCES "Pet"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "Appointment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Estimate" ADD CONSTRAINT "Estimate_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EstimateItem" ADD CONSTRAINT "EstimateItem_estimateId_fkey" FOREIGN KEY ("estimateId") REFERENCES "Estimate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

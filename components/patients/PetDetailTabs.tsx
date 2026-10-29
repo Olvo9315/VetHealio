@@ -16,6 +16,9 @@ import { AppointmentDetailSheet } from "@/components/appointments/AppointmentDet
 import { VisitMedicalRecordDialog } from "@/components/medical-records/VisitMedicalRecordDialog";
 import { InvoiceDetailSheet } from "@/components/finances/InvoiceDetailSheet";
 import { InvoiceDialog } from "@/components/finances/InvoiceDialog";
+import { EstimateDialog } from "@/components/estimates/EstimateDialog";
+import { EstimatesList } from "@/components/estimates/EstimatesList";
+import { getPetEstimates, type EstimateFull } from "@/lib/actions/estimates";
 import type { PetFull } from "@/lib/types";
 import type { MedicalRecordFull } from "@/lib/actions/medicalRecords";
 import type { VaccinationFull } from "@/lib/actions/vaccinations";
@@ -27,7 +30,7 @@ import { getInvoiceById, type AppointmentOption } from "@/lib/actions/invoices";
 import { getServicesFlat, type ServiceFlat } from "@/lib/actions/services";
 import { getRooms, type Room } from "@/lib/actions/rooms";
 import { format } from "date-fns";
-import { Calendar, DollarSign, Clock, Plus, Receipt, ChevronRight } from "lucide-react";
+import { Calendar, DollarSign, Clock, Plus, Receipt, ChevronRight, FileText } from "lucide-react";
 import { cn, formatAppointmentId, formatInvoiceId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
 
@@ -52,6 +55,7 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
   const canInvoice = useCan("invoice.write");
   const ta = useTranslations("appointments");
   const tf = useTranslations("finances");
+  const te = useTranslations("estimates");
   const tm = useTranslations("medicalRecords");
   const tp = useTranslations("prescriptions");
 
@@ -65,6 +69,10 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
   const [vaccinationOpen, setVaccinationOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  // Presupuestos: loaded when the Finances tab is first opened
+  const [estimates, setEstimates] = useState<EstimateFull[] | null>(null);
+  const [estimateOpen, setEstimateOpen] = useState(false);
+  const [editingEstimate, setEditingEstimate] = useState<EstimateFull | null>(null);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<PrescriptionFull | null>(null);
   const [editingVaccination, setEditingVaccination] = useState<VaccinationFull | null>(null);
@@ -131,6 +139,14 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
     if (!apt) return;
     setOpenApt(apt);
     setAptSheetOpen(true);
+  }
+
+  useEffect(() => {
+    if (activeTab === "finances" && estimates === null) getPetEstimates(pet.id).then(setEstimates);
+  }, [activeTab, estimates, pet.id]);
+
+  function estimateSaved(e: EstimateFull) {
+    setEstimates((prev) => (prev?.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [e, ...(prev ?? [])]));
   }
 
   async function openInvoiceDetail(id: string) {
@@ -423,7 +439,13 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
         {/* Finances */}
         {activeTab === "finances" && (
           <div>
-            <div className="flex justify-end mb-3">
+            <div className="flex justify-end gap-2 mb-3">
+              {canInvoice && (
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEstimateOpen(true)}>
+                <FileText className="w-3.5 h-3.5 mr-1" />
+                {te("new")}
+              </Button>
+              )}
               {canInvoice && (
               <Button
                 size="sm"
@@ -471,12 +493,30 @@ export function PetDetailTabs({ pet, initialAppointmentId }: PetDetailTabsProps)
                 ))}
               </div>
             )}
+            {!!estimates?.length && (
+              <div className="mt-6 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{te("title_list")}</p>
+                <EstimatesList estimates={estimates} onOpen={setEditingEstimate} />
+              </div>
+            )}
           </div>
         )}
 
       </div>
 
       {/* Dialogs */}
+      {(estimateOpen || editingEstimate) && (
+        <EstimateDialog
+          open
+          onOpenChange={(v) => { if (!v) { setEstimateOpen(false); setEditingEstimate(null); } }}
+          petId={pet.id}
+          petName={pet.name}
+          estimate={editingEstimate ?? undefined}
+          onSaved={estimateSaved}
+          onDeleted={(id) => setEstimates((prev) => prev?.filter((x) => x.id !== id) ?? prev)}
+          onBilled={(invoiceId) => { setEstimates(null); router.refresh(); openInvoiceDetail(invoiceId); }}
+        />
+      )}
       <MedicalRecordDialog
         open={medicalOpen}
         onOpenChange={setMedicalOpen}

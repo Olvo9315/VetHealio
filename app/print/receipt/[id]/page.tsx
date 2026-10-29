@@ -78,6 +78,8 @@ export default async function ReceiptPrint({ params, searchParams }: { params: {
             <p className="mt-1">{t("receiptCustomerSign")}</p>
           </div>
         </footer>
+        {/* A payment receipt is not a tax document: the ticket / invoice (if issued) is listed above */}
+        <p className="mt-6 text-center text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{t("notAnInvoice")}</p>
       </main>
     </>
   );

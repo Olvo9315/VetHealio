@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { format, differenceInMinutes } from "date-fns";
 import { useDateLocale } from "@/lib/date-locale";
 import type { AppointmentFull } from "@/lib/actions/appointments";
@@ -44,6 +44,7 @@ import { cn, formatAppointmentId } from "@/lib/utils";
 import { useCan } from "@/components/layout/PermissionsProvider";
 import type { ServiceFlat } from "@/lib/actions/services";
 import { servicePath } from "@/lib/service-path";
+import { EstimateDialog } from "@/components/estimates/EstimateDialog";
 
 interface AppointmentDetailSheetProps {
   open: boolean;
@@ -80,6 +81,8 @@ export function AppointmentDetailSheet({
   const tc = useTranslations("common");
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
+  // Presupuesto for this visit (e.g. a surgery to plan): written right here
+  const [estimateOpen, setEstimateOpen] = useState(false);
 
   const typeCfg = getTypeCfgForAppointment(appointment);
   const stCfg = statusConfig[appointment.status];
@@ -271,6 +274,12 @@ export function AppointmentDetailSheet({
               {t("createInvoice")}
             </Button>
           )}
+          {canInvoice && (
+            <Button className="w-full" variant="outline" onClick={() => setEstimateOpen(true)}>
+              <FileText className="w-4 h-4 mr-2" />
+              {t("createEstimate")}
+            </Button>
+          )}
           {onCreatePrescription && canPrescribe && (
             <Button className="w-full" variant="outline" onClick={onCreatePrescription}>
               <Pill className="w-4 h-4 mr-2" />
@@ -302,6 +311,15 @@ export function AppointmentDetailSheet({
           </Button>
         </div>
       </SheetContent>
+      {estimateOpen && (
+        <EstimateDialog
+          open
+          onOpenChange={setEstimateOpen}
+          petId={appointment.petId}
+          petName={appointment.pet.name}
+          appointmentId={appointment.id}
+        />
+      )}
     </Sheet>
   );
 }

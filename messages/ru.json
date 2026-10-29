@@ -289,7 +289,8 @@
     "doneEmpty": "Пока никто не закончил",
     "completedTag": "Завершён",
     "paidTag": "Оплачено",
-    "unpaidTag": "Ожидает оплаты"
+    "unpaidTag": "Ожидает оплаты",
+    "createEstimate": "Создать смету"
   },
   "medicalRecords": {
     "title": "Медицинские карты",
@@ -598,7 +599,9 @@
     "unitPriceGross": "Цена за ед. с IVA (€)",
     "unitPriceNet": "Цена за ед. без IVA (€)",
     "pricesGrossHint": "Цены указаны с IVA: итог — это то, что платит клиент, база считается из него.",
-    "pricesNetHint": "Цены указаны без IVA: налог прибавляется к итогу."
+    "pricesNetHint": "Цены указаны без IVA: налог прибавляется к итогу.",
+    "tabEstimates": "Сметы",
+    "fromStockEstimate": "Со склада: спишется при создании счёта"
   },
   "inventory": {
     "title": "Склад",
@@ -1385,7 +1388,15 @@
     "signThanks": "Спасибо! Подписанный документ отправлен в клинику.",
     "signError": "Не удалось подписать: ссылка уже использована или истекла.",
     "signExpires": "Ссылка действует до {date}",
-    "verifactuLegend": "Factura verificable en la sede electrónica de la AEAT"
+    "verifactuLegend": "Factura verificable en la sede electrónica de la AEAT",
+    "notAnInvoice": "Внутренний документ · Этот документ не является фактурой",
+    "estimate": "Смета",
+    "estimateGreeting": "Здравствуйте, {owner}! Отправляем смету для {pet}.",
+    "vatIncluded": "НДС включён",
+    "validUntil": "Действительна до {date}",
+    "estimateTerms": "Цены включают НДС. Итоговая сумма может измениться, если во время лечения возникнут осложнения или понадобятся дополнительные анализы или препараты; в этом случае вас предупредят заранее.",
+    "estimateAcceptSign": "Смету принимаю (подпись и дата)",
+    "estimateNotInvoice": "Смета · Этот документ не является фактурой"
   },
   "consent": {
     "title": "Защита данных — {name}",
@@ -1693,5 +1704,43 @@
     "close": "Закрыть",
     "unchained": "{count} документов ждут записи: не указан NIF клиники, он входит в каждый хеш.",
     "openSettings": "Открыть настройки"
+  },
+  "estimates": {
+    "estimate": "Смета",
+    "new": "Новая смета",
+    "create": "Создать смету",
+    "title_list": "Сметы",
+    "title": "Название",
+    "titlePlaceholder": "Напр.: Санация зубов под наркозом",
+    "validUntil": "Действительна до",
+    "notes": "Примечания",
+    "notesPlaceholder": "Что входит, возможные изменения цены, условия…",
+    "shareHint": "Передать владельцу",
+    "print": "Печать / PDF",
+    "accept": "Принята",
+    "reject": "Отклонена",
+    "reopen": "Вернуть в ожидание",
+    "bill": "Создать счёт",
+    "billConfirm": "Создать счёт на {total} с этими строками? Товары со склада будут списаны.",
+    "billed": "Счёт создан по смете",
+    "billedAs": "Уже превращена в счёт: открыть",
+    "delete": "Удалить смету",
+    "deleteConfirm": "Удалить эту смету?",
+    "deleted": "Смета удалена",
+    "saved": "Смета сохранена",
+    "errorSave": "Не удалось сохранить смету",
+    "close": "Закрыть",
+    "toast_PENDING": "Смета снова ждёт ответа",
+    "toast_ACCEPTED": "Смета принята",
+    "toast_REJECTED": "Смета отклонена",
+    "state_PENDING": "Ждёт ответа",
+    "state_ACCEPTED": "Принята",
+    "state_REJECTED": "Отклонена",
+    "state_BILLED": "Выставлен счёт",
+    "state_EXPIRED": "Истекла",
+    "filter_open": "Ждут ответа",
+    "filter_all": "Все",
+    "newFromPatient": "Новые сметы создаются на странице пациента или в сите.",
+    "empty": "Смет нет"
   }
 }
