@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Plus, Trash2, Pill } from "lucide-react";
+import { Loader2, Plus, Trash2, Pill, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PresvetFields } from "./PresvetFields";
@@ -363,6 +363,12 @@ export function PrescriptionDialog({
                   onOpenChange(false);
                 }}
               />
+            )}
+            {/* The saved prescription, to sign and give to the owner */}
+            {record && (
+              <Button type="button" variant="outline" size="icon" className="shrink-0" title={t("print")} onClick={() => window.open(`/print/prescription/${record.id}`, "_blank")}>
+                <Printer className="w-4 h-4" />
+              </Button>
             )}
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               {tc("cancel")}

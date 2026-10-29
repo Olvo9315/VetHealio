@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClinic } from "@/lib/clinic";
 import { loadPaymentReceipt } from "@/lib/actions/billing";
-import { docDate, docLocale, getDocT } from "@/lib/documents";
+import { docDate, getDocT } from "@/lib/documents";
 import { docNumber } from "@/lib/billing";
 import { formatEur } from "@/lib/format";
 import { formatInvoiceId } from "@/lib/utils";
@@ -11,10 +11,11 @@ import { DocField, DocHeader } from "@/components/print/DocHeader";
 // Receipt handed to the customer for one money movement: a payment, a refund, or the voiding of a
 // payment entered by mistake. Shows what is paid and still owed on the bill when printed, so the
 // customer's copy always matches the clinic's records.
-export default async function ReceiptPrint({ params, searchParams }: { params: { id: string }; searchParams: { lang?: string } }) {
+export default async function ReceiptPrint({ params }: { params: { id: string } }) {
   const [p, clinic] = await Promise.all([loadPaymentReceipt(params.id), getClinic()]);
   if (!p) notFound();
-  const locale = docLocale(searchParams.lang, clinic.dataLocale);
+  // Official document: always in Spanish
+  const locale = "es" as const;
   const t = await getDocT(locale);
   const kind = p.voidedAt ? "void" : p.amount < 0 ? "refund" : "payment";
   const inv = p.invoice;
@@ -24,7 +25,7 @@ export default async function ReceiptPrint({ params, searchParams }: { params: {
 
   return (
     <>
-      <PrintToolbar lang={locale} />
+      <PrintToolbar />
       <main className="doc-page mx-auto max-w-[210mm] bg-white p-8 my-4 shadow-sm text-[12px]">
         <DocHeader clinic={clinic} title={t(`receipt_${kind}`)} subtitle={docDate(p.voidedAt ?? p.paidAt, locale, true)} />
 

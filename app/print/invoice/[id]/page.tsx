@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClinic } from "@/lib/clinic";
 import { loadFiscalDocument } from "@/lib/actions/billing";
-import { docDate, docLocale, getDocT } from "@/lib/documents";
+import { docDate, getDocT } from "@/lib/documents";
 import { docNumber, type DocLine, type TaxRow } from "@/lib/billing";
 import { formatEur } from "@/lib/format";
 import { PrintToolbar } from "@/components/print/PrintToolbar";
@@ -10,10 +10,11 @@ import { prisma } from "@/lib/prisma";
 import { qrSvg, qrUrl } from "@/lib/verifactu";
 
 // A fiscal document (ticket, full invoice or rectifying invoice) as handed to the customer
-export default async function InvoicePrint({ params, searchParams }: { params: { id: string }; searchParams: { lang?: string } }) {
+export default async function InvoicePrint({ params }: { params: { id: string } }) {
   const [doc, clinic] = await Promise.all([loadFiscalDocument(params.id), getClinic()]);
   if (!doc) notFound();
-  const locale = docLocale(searchParams.lang, clinic.dataLocale);
+  // Official document: always in Spanish
+  const locale = "es" as const;
   const t = await getDocT(locale);
   const lines = doc.lines as DocLine[];
   const taxes = doc.taxBreakdown as TaxRow[];
@@ -27,7 +28,7 @@ export default async function InvoicePrint({ params, searchParams }: { params: {
 
   return (
     <>
-      <PrintToolbar lang={locale} />
+      <PrintToolbar />
       <main className="doc-page mx-auto max-w-[210mm] bg-white p-8 my-4 shadow-sm text-[12px]">
         <DocHeader clinic={clinic} title={title} subtitle={`Nº ${docNumber(doc)}`} />
 

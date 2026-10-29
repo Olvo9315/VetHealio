@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { Pill, Pencil, Trash2, Loader2, Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { Pill, Pencil, Trash2, Loader2, Calendar, ChevronDown, ChevronUp, Printer } from "lucide-react";
 import { deletePrescription } from "@/lib/actions/prescriptions";
 import type { PrescriptionFull } from "@/lib/actions/prescriptions";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,9 @@ export function PrescriptionsList({ prescriptions, onEdit }: PrescriptionsListPr
                       : <ChevronDown className="w-3.5 h-3.5" />}
                   </Button>
                 )}
+                <Button size="icon" variant="ghost" className="h-7 w-7" title={t("print")} onClick={() => window.open(`/print/prescription/${p.id}`, "_blank")}>
+                  <Printer className="w-3.5 h-3.5" />
+                </Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(p)}>
                   <Pencil className="w-3.5 h-3.5" />
                 </Button>

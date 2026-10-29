@@ -20,7 +20,8 @@ export async function buildAdviserPackage(fromDay: string, toDay: string, includ
   const from = startOfDay(new Date(`${fromDay}T12:00:00`));
   const to = endOfDay(new Date(`${toDay}T12:00:00`));
   const clinic = await getClinic();
-  const t = await getTranslations({ locale: clinic.dataLocale, namespace: "adviser" });
+  // The book for the tax adviser is an official document: always in Spanish
+  const t = await getTranslations({ locale: "es", namespace: "adviser" });
   const l = Object.fromEntries(LABELS.map((k) => [k, t(k)])) as Record<string, string>;
 
   const rows = await prisma.fiscalDocument.findMany({

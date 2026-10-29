@@ -10,8 +10,9 @@ const LANGS = [
   { id: "en", label: "EN" },
 ];
 
-// Bar above a printable document (hidden when printing): language of the document, print / save as PDF
-export function PrintToolbar({ lang, children }: { lang: string; children?: React.ReactNode }) {
+// Bar above a printable document (hidden when printing): language of the document, print / save as PDF.
+// Official documents pass no `lang`: they are always in Spanish and show no language choice.
+export function PrintToolbar({ lang, children }: { lang?: string; children?: React.ReactNode }) {
   const t = useTranslations("documentsUi");
   const router = useRouter();
   const pathname = usePathname();
@@ -34,6 +35,7 @@ export function PrintToolbar({ lang, children }: { lang: string; children?: Reac
           <ArrowLeft className="w-4 h-4" />
           {t("back")}
         </button>
+        {lang ? (
         <div className="flex items-center gap-1 ml-auto">
           <span className="text-xs text-neutral-500 mr-1">{t("language")}</span>
           {LANGS.map((l) => (
@@ -50,6 +52,9 @@ export function PrintToolbar({ lang, children }: { lang: string; children?: Reac
             </button>
           ))}
         </div>
+        ) : (
+          <div className="ml-auto" />
+        )}
         {children}
         <button
           type="button"

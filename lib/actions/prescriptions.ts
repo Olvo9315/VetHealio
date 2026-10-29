@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, requireUserId } from "@/lib/permissions";
 
 const prescriptionItemSchema = z.object({
   medicationName: z.string().min(1).max(150),
@@ -178,6 +178,27 @@ export async function getPrescriptionForEdit(id: string) {
   });
   if (!p) return null;
   return { prescription: p as unknown as PrescriptionFull, petId: p.pet?.id ?? p.petId ?? "", petName: p.pet?.name ?? "" };
+}
+
+// Everything the printed prescription needs: prescriber, owner, animal and medicines
+export async function loadPrescriptionDoc(id: string) {
+  await requireUserId();
+  return prisma.prescription.findUnique({
+    where: { id },
+    include: {
+      items: true,
+      veterinarian: { select: { name: true, staffProfile: { select: { licenseNumber: true } } } },
+      pet: {
+        select: {
+          name: true,
+          species: true,
+          breed: true,
+          microchipNumber: true,
+          owner: { select: { firstName: true, lastName: true, nif: true, address: true, postalCode: true, phone: true } },
+        },
+      },
+    },
+  });
 }
 
 // Prescriptions shown inside a medical record: those already linked to it and those written in
