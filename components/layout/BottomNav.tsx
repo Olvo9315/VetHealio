@@ -93,7 +93,7 @@ export function BottomNav({ showStaff, hiddenRoutes = [], clinic }: BottomNavPro
     <>
       <nav
         className={cn(
-          "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom",
+          "md:hidden print:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom",
           "transition-transform duration-300 ease-out",
           folded && "translate-y-full"
         )}

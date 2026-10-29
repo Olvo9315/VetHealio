@@ -20,6 +20,15 @@ export function CashReportView() {
   const t = useTranslations("finances");
   const dateLocale = useDateLocale();
   const [day, setDay] = useState(() => format(new Date(), DAY));
+
+  // The browser names the PDF after the page title: "Caja 29-10-2026" instead of the app's name
+  function printCash() {
+    const previous = document.title;
+    document.title = `${t("cashFileName")} ${format(new Date(`${day}T12:00:00`), "dd-MM-yyyy")}`;
+    const restore = () => { document.title = previous; window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
   const [report, setReport] = useState<CashReport | null>(null);
   const [isLoading, startLoad] = useTransition();
 
@@ -64,7 +73,7 @@ export function CashReportView() {
             <Download className="w-4 h-4" />
             Excel
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={printCash}>
             <Printer className="w-4 h-4" />
             {t("printCash")}
           </Button>

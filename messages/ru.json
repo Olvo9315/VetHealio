@@ -602,7 +602,8 @@
     "pricesNetHint": "Цены указаны без IVA: налог прибавляется к итогу.",
     "tabEstimates": "Сметы",
     "fromStockEstimate": "Со склада: спишется при создании счёта",
-    "rectifiedBy": "аннулирован {doc}"
+    "rectifiedBy": "аннулирован {doc}",
+    "cashFileName": "Касса"
   },
   "inventory": {
     "title": "Склад",

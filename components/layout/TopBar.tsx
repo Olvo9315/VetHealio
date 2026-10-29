@@ -33,7 +33,7 @@ export function TopBar({ user, title }: TopBarProps) {
     .toUpperCase();
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b border-border bg-background shrink-0">
+    <header className="print:hidden h-14 flex items-center justify-between px-4 md:px-6 border-b border-border bg-background shrink-0">
       <h1 className="text-lg font-semibold text-foreground">{title}</h1>
 
       <DropdownMenu>

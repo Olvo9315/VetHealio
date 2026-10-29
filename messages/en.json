@@ -602,7 +602,8 @@
     "pricesNetHint": "Prices exclude VAT: VAT is added to the total.",
     "tabEstimates": "Estimates",
     "fromStockEstimate": "From stock: taken out when the bill is created",
-    "rectifiedBy": "cancelled by {doc}"
+    "rectifiedBy": "cancelled by {doc}",
+    "cashFileName": "Cash"
   },
   "inventory": {
     "title": "Inventory",

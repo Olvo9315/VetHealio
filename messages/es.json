@@ -602,7 +602,8 @@
     "pricesNetHint": "Los precios son sin IVA: el IVA se suma al total.",
     "tabEstimates": "Presupuestos",
     "fromStockEstimate": "Del almacén: se descuenta al crear el albarán",
-    "rectifiedBy": "anulado por {doc}"
+    "rectifiedBy": "anulado por {doc}",
+    "cashFileName": "Caja"
   },
   "inventory": {
     "title": "Inventario",

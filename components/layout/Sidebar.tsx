@@ -62,7 +62,7 @@ export function Sidebar({ showStaff, hiddenRoutes = [], clinic }: SidebarProps) 
     <TooltipProvider delay={0}>
       <aside
         className={cn(
-          "hidden md:flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
+          "hidden md:flex print:!hidden flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
           collapsed ? "w-16" : "w-60"
         )}
       >
