@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronLeft, FileSignature, Mail, MapPin, Pencil, Phone, Plus, Printer, ShieldAlert, ShieldCheck, Stethoscope, Wallet } from "lucide-react";
+import { AlertTriangle, ChevronLeft, FileSignature, Mail, MapPin, Pencil, Phone, Plus, Printer, ShieldAlert, ShieldCheck, Stethoscope, Wallet, Merge } from "lucide-react";
 import type { Owner, Species } from "@prisma/client";
 import type { ConsentStatus, OwnerDocument } from "@/lib/actions/consents";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ import { OwnerDebtDialog } from "./OwnerDebtDialog";
 import { ConsentDialog } from "./ConsentDialog";
 import { TreatmentConsentDialog } from "./TreatmentConsentDialog";
 import { NewPatientDialog } from "./NewPatientDialog";
+import { OwnerDuplicateBanner } from "./OwnerDuplicates";
+import { MergeOwnersDialog } from "./MergeOwnersDialog";
+import type { OwnerCard } from "@/lib/actions/owners";
+import { useCan } from "@/components/layout/PermissionsProvider";
 import { dueOf } from "@/lib/billing";
 import { formatEur } from "@/lib/format";
 import { cn, formatInvoiceId, formatPetId } from "@/lib/utils";
@@ -39,7 +43,9 @@ export function OwnerOverview({
   debt,
   consent,
   documents,
+  duplicates = [],
 }: {
+  duplicates?: OwnerCard[];
   owner: Owner & { pets: Pet[] };
   bills: Bill[];
   debt: number;
@@ -56,6 +62,19 @@ export function OwnerOverview({
   const [rgpdOpen, setRgpdOpen] = useState(false);
   const [treatmentOpen, setTreatmentOpen] = useState(false);
   const [newPetOpen, setNewPetOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const canMerge = useCan("owners.merge");
+  const card: OwnerCard = {
+    id: owner.id,
+    firstName: owner.firstName,
+    lastName: owner.lastName,
+    phone: owner.phone,
+    phone2: owner.phone2,
+    email: owner.email,
+    nif: owner.nif,
+    createdAt: owner.createdAt,
+    pets: owner.pets.map((p) => ({ id: p.id, name: p.name, species: p.species })),
+  };
   const name = `${owner.firstName} ${owner.lastName}`;
   const activePets = owner.pets.filter((p) => p.isActive);
 
@@ -65,6 +84,8 @@ export function OwnerOverview({
         <ChevronLeft className="w-4 h-4" />
         {tp("title")}
       </Link>
+
+      {canMerge && <OwnerDuplicateBanner owner={card} duplicates={duplicates} />}
 
       {/* Owner */}
       <Card>
@@ -83,10 +104,18 @@ export function OwnerOverview({
                 {owner.nif && <span className="text-muted-foreground">NIF {owner.nif}</span>}
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="w-3.5 h-3.5 mr-1.5" />
-              {tp("editOwner")}
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                {tp("editOwner")}
+              </Button>
+              {canMerge && (
+                <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+                  <Merge className="w-3.5 h-3.5 mr-1.5" />
+                  {t("mergeWithOther")}
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -197,6 +226,7 @@ export function OwnerOverview({
         </div>
       </section>
 
+      {mergeOpen && <MergeOwnersDialog keep={card} open={mergeOpen} onOpenChange={setMergeOpen} />}
       {editOpen && <EditOwnerDialog owner={owner} open={editOpen} onOpenChange={setEditOpen} />}
       {debtOpen && <OwnerDebtDialog ownerId={owner.id} ownerName={name} open={debtOpen} onOpenChange={setDebtOpen} />}
       {rgpdOpen && <ConsentDialog ownerId={owner.id} ownerName={name} open={rgpdOpen} onOpenChange={setRgpdOpen} />}
