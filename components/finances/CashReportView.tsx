@@ -46,15 +46,17 @@ export function CashReportView() {
             onClick={() =>
               report &&
               downloadCsv(`${t("cashFile")}_${day}`, [
-                [t("time"), t("owner"), t("patient"), t("invoice"), t("paymentMethod"), t("receivedBy"), t("amount")],
+                [t("time"), t("owner"), t("patient"), t("invoice"), t("docType"), t("paymentMethod"), t("receivedBy"), t("amount"), t("notes")],
                 ...report.payments.map((p) => [
-                  format(new Date(p.paidAt), "HH:mm"),
+                  format(new Date(p.at), "HH:mm"),
                   p.customer,
                   p.petName,
-                  formatInvoiceId(p.billNumber, p.paidAt),
+                  formatInvoiceId(p.billNumber, p.at),
+                  t(`cashKind_${p.kind}`),
                   t(paymentLabel[p.method]),
-                  p.receivedBy ?? "",
+                  p.by ?? "",
                   p.amount.toFixed(2),
+                  p.reason ?? (p.voided ? t("voidedLater") : ""),
                 ]),
               ])
             }
@@ -120,17 +122,23 @@ export function CashReportView() {
                 </thead>
                 <tbody className="divide-y">
                   {report.payments.map((p) => (
-                    <tr key={p.id}>
-                      <td className="px-3 py-2 text-muted-foreground">{format(new Date(p.paidAt), "HH:mm")}</td>
+                    <tr key={p.id} className={cn(p.kind !== "payment" && "bg-red-50/60 dark:bg-red-950/20")}>
+                      <td className="px-3 py-2 text-muted-foreground">{format(new Date(p.at), "HH:mm")}</td>
                       <td className="px-3 py-2">
                         <Link href={`/patients/${p.petId}`} className="hover:underline">{p.customer}</Link>
                         <span className="text-xs text-muted-foreground"> · {p.petName}</span>
+                        {p.kind !== "payment" && (
+                          <p className="text-xs text-red-700 dark:text-red-300">
+                            {t(`cashKind_${p.kind}`)}{p.reason ? `: ${p.reason}` : ""}
+                          </p>
+                        )}
+                        {p.voided && <p className="text-xs text-muted-foreground">{t("voidedLater")}</p>}
                       </td>
-                      <td className="px-3 py-2 hidden md:table-cell text-muted-foreground">{p.receivedBy ?? "—"}</td>
+                      <td className="px-3 py-2 hidden md:table-cell text-muted-foreground">{p.by ?? "—"}</td>
                       <td className="px-3 py-2">
                         <span className={cn("text-xs px-2 py-0.5 rounded-full bg-muted")}>{t(paymentLabel[p.method])}</span>
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">{formatEur(p.amount)}</td>
+                      <td className={cn("px-3 py-2 text-right font-medium", p.amount < 0 && "text-red-600 dark:text-red-400")}>{formatEur(p.amount)}</td>
                     </tr>
                   ))}
                 </tbody>

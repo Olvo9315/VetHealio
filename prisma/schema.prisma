@@ -128,7 +128,8 @@ model User {
   staffAuditLogs      StaffAuditLog[]     @relation("StaffAuditor")
   appointmentsCreated Appointment[]       @relation("AppointmentCreatedBy")
   appointmentsUpdated Appointment[]       @relation("AppointmentUpdatedBy")
-  paymentsReceived    Payment[]
+  paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
+  paymentsVoided      Payment[]           @relation("PaymentVoidedBy")
   fiscalDocuments     FiscalDocument[]
   stockMovements      StockMovement[]
   consentsRecorded    Consent[]
@@ -542,17 +543,23 @@ model FiscalDocument {
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  amount    Float
-  method    PaymentMethod
-  paidAt    DateTime      @default(now())
-  note      String?
-  createdAt DateTime      @default(now())
+  id         String        @id @default(cuid())
+  // Negative for a refund
+  amount     Float
+  method     PaymentMethod
+  paidAt     DateTime      @default(now())
+  note       String?
+  createdAt  DateTime      @default(now())
+  // A payment entered by mistake is voided, never deleted: it stays visible with who, when and why
+  voidedAt   DateTime?
+  voidReason String?
+  voidedById String?
+  voidedBy   User?         @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
 
   invoiceId    String
   invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   receivedById String?
-  receivedBy   User?   @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  receivedBy   User?   @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
 
   @@index([invoiceId])
   @@index([paidAt])

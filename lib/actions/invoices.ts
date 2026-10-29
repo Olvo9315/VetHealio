@@ -38,7 +38,17 @@ export type InvoiceFull = {
     species: Species;
     owner: { id: string; firstName: string; lastName: string; phone: string; email: string | null; nif: string | null; address: string | null; postalCode: string | null };
   };
-  payments: { id: string; amount: number; method: PaymentMethod; paidAt: Date; note: string | null; receivedBy: { name: string } | null }[];
+  payments: {
+    id: string;
+    amount: number;
+    method: PaymentMethod;
+    paidAt: Date;
+    note: string | null;
+    receivedBy: { name: string } | null;
+    voidedAt: Date | null;
+    voidReason: string | null;
+    voidedBy: { name: string } | null;
+  }[];
   // Fiscal documents issued for this bill (ticket, full invoice, rectifying), oldest first
   documents: {
     id: string;
@@ -135,7 +145,17 @@ const fullInclude = {
     },
   },
   payments: {
-    select: { id: true, amount: true, method: true, paidAt: true, note: true, receivedBy: { select: { name: true } } },
+    select: {
+      id: true,
+      amount: true,
+      method: true,
+      paidAt: true,
+      note: true,
+      receivedBy: { select: { name: true } },
+      voidedAt: true,
+      voidReason: true,
+      voidedBy: { select: { name: true } },
+    },
     orderBy: { paidAt: "asc" as const },
   },
   documents: {
@@ -235,7 +255,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
   const [received, pending, countThisMonth, paidThisMonth] = await Promise.all([
     // Money actually received this month (partial payments included)
     prisma.payment.aggregate({
-      where: { paidAt: { gte: monthStart, lte: monthEnd }, invoice: { status: { not: "CANCELLED" } } },
+      where: { paidAt: { gte: monthStart, lte: monthEnd }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
       _sum: { amount: true },
     }),
     prisma.invoice.aggregate({
@@ -263,7 +283,7 @@ export async function getRevenueChartData(days: number = 30): Promise<ChartPoint
 
   const dateLocale = getDateLocale(await getLocale());
   const payments = await prisma.payment.findMany({
-    where: { paidAt: { gte: from }, invoice: { status: { not: "CANCELLED" } } },
+    where: { paidAt: { gte: from }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
     select: { paidAt: true, amount: true },
   });
 

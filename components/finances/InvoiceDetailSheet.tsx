@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import { deleteInvoice } from "@/lib/actions/invoices";
-import { cancelBill, deletePayment, issueFullInvoice, rebill, recordPayment, refundBill } from "@/lib/actions/billing";
+import { cancelBill, voidPayment, issueFullInvoice, rebill, recordPayment, refundBill } from "@/lib/actions/billing";
 import type { PaymentMethod } from "@prisma/client";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { toast } from "sonner";
@@ -246,29 +246,54 @@ export function InvoiceDetailSheet({
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("payments")}</p>
                 {invoice.payments.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 text-sm">
-                    {p.amount < 0 ? <Undo2 className="w-4 h-4 text-red-600 shrink-0" /> : <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
-                    <span className="flex-1 min-w-0">
-                      {p.amount < 0 && <span className="text-red-600 dark:text-red-400 mr-1">{t("refund")} ·</span>}
-                      {t(paymentLabel[p.method])}
-                      <span className="text-xs text-muted-foreground ml-1.5">
-                        {format(new Date(p.paidAt), "d MMM · HH:mm", { locale: dateLocale })}
-                        {p.receivedBy && ` · ${p.receivedBy.name}`}
+                  <div key={p.id} className={cn("text-sm", p.voidedAt && "opacity-60")}>
+                    <div className="flex items-center gap-2">
+                      {p.amount < 0 ? <Undo2 className="w-4 h-4 text-red-600 shrink-0" /> : p.voidedAt ? <XCircle className="w-4 h-4 text-muted-foreground shrink-0" /> : <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+                      <span className={cn("flex-1 min-w-0", p.voidedAt && "line-through")}>
+                        {p.amount < 0 && <span className="text-red-600 dark:text-red-400 mr-1">{t("refund")} ·</span>}
+                        {t(paymentLabel[p.method])}
+                        <span className="text-xs text-muted-foreground ml-1.5">
+                          {format(new Date(p.paidAt), "d MMM · HH:mm", { locale: dateLocale })}
+                          {p.receivedBy && ` · ${p.receivedBy.name}`}
+                        </span>
                       </span>
-                    </span>
-                    <span className={cn("font-medium", p.amount < 0 && "text-red-600 dark:text-red-400")}>{formatEur(p.amount)}</span>
-                    {canVoid && (
+                      <span className={cn("font-medium", p.amount < 0 && "text-red-600 dark:text-red-400", p.voidedAt && "line-through")}>{formatEur(p.amount)}</span>
                       <button
                         type="button"
-                        title={t("removePayment")}
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (!confirm(t("removePaymentConfirm"))) return;
-                          startUpdate(async () => { apply(await deletePayment(p.id), t("paymentRemoved")); });
-                        }}
+                        title={t("printReceipt")}
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => window.open(`/print/receipt/${p.id}`, "_blank")}
                       >
-                        <X className="w-4 h-4" />
+                        <Printer className="w-4 h-4" />
                       </button>
+                      {canVoid && !p.voidedAt && (
+                        <button
+                          type="button"
+                          title={t("removePayment")}
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            const reason = prompt(t("voidReasonPrompt"));
+                            if (reason === null) return;
+                            startUpdate(async () => {
+                              const result = await voidPayment(p.id, reason);
+                              if (apply(result, t("paymentVoided")) && "paymentId" in result && confirm(t("voidPrintAsk"))) {
+                                window.open(`/print/receipt/${result.paymentId}`, "_blank");
+                              }
+                            });
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {p.voidedAt && (
+                      <p className="text-xs text-muted-foreground ml-6">
+                        {t("voidedInfo", {
+                          date: format(new Date(p.voidedAt), "d MMM · HH:mm", { locale: dateLocale }),
+                          name: p.voidedBy?.name ?? "—",
+                          reason: p.voidReason ?? "",
+                        })}
+                      </p>
                     )}
                   </div>
                 ))}

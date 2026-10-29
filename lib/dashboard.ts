@@ -90,15 +90,15 @@ export async function getDashboardData() {
       where: { startTime: { gte: weekAgoStart, lt: weekAgoEnd }, status: activeStatus },
     }),
     prisma.payment.findMany({
-      where: { paidAt: { gte: chartStart }, invoice: { status: { not: "CANCELLED" } } },
+      where: { paidAt: { gte: chartStart }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
       select: { amount: true, paidAt: true },
     }),
     prisma.payment.findMany({
-      where: { paidAt: { gte: monthStart }, invoice: { status: { not: "CANCELLED" } } },
+      where: { paidAt: { gte: monthStart }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
       select: { amount: true },
     }),
     prisma.payment.findMany({
-      where: { paidAt: { gte: prevMonthStart, lt: prevMonthSameDay }, invoice: { status: { not: "CANCELLED" } } },
+      where: { paidAt: { gte: prevMonthStart, lt: prevMonthSameDay }, voidedAt: null, invoice: { status: { not: "CANCELLED" } } },
       select: { amount: true },
     }),
     prisma.pet.count({ where: { createdAt: { gte: monthStart } } }),

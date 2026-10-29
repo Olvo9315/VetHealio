@@ -63,18 +63,22 @@ async function addPayment(tx: Tx, invoiceId: string, amount: number, method: Pay
   }
 }
 
-// Removes a payment entered by mistake (the money was never taken). Fiscal documents stay as they
-// are: an invoice records the service, not the payment, so a ticket issued for a bill that turns out
-// unpaid is still valid and the bill simply becomes owed again. A cancelled bill stays cancelled.
-export async function deletePayment(paymentId: string): Promise<{ invoice: InvoiceFull } | { error: string }> {
+// Voids a payment entered by mistake (the money was never taken). Nothing is deleted: the payment
+// stays on the bill crossed out, with who voided it, when and why, and the day's cash count shows the
+// correction. Fiscal documents stay as they are: an invoice records the service, not the payment, so
+// the bill simply becomes owed again. A cancelled bill stays cancelled.
+export async function voidPayment(paymentId: string, reason: string): Promise<{ invoice: InvoiceFull; paymentId: string } | { error: string }> {
   await requirePermission("invoice.void");
+  const userId = await requireUserId();
+  const why = reason.trim().slice(0, 300);
+  if (why.length < 3) return { error: "reasonRequired" };
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    select: { invoiceId: true, amount: true, invoice: { select: { petId: true, status: true } } },
+    select: { invoiceId: true, amount: true, voidedAt: true, invoice: { select: { petId: true, status: true } } },
   });
-  if (!payment) return { error: "notFound" };
+  if (!payment || payment.voidedAt) return { error: "notFound" };
   await prisma.$transaction(async (tx) => {
-    await tx.payment.delete({ where: { id: paymentId } });
+    await tx.payment.update({ where: { id: paymentId }, data: { voidedAt: new Date(), voidReason: why, voidedById: userId } });
     const inv = await tx.invoice.update({
       where: { id: payment.invoiceId },
       data: {
@@ -88,7 +92,7 @@ export async function deletePayment(paymentId: string): Promise<{ invoice: Invoi
     }
   });
   touch(payment.invoice.petId);
-  return { invoice: (await getInvoiceById(payment.invoiceId))! };
+  return { invoice: (await getInvoiceById(payment.invoiceId))!, paymentId };
 }
 
 // Gives back money received for a cancelled bill: a negative payment, so the cash count of the day
@@ -443,43 +447,83 @@ export async function getInvoiceBook(month: string): Promise<{ rows: BookRow[]; 
   };
 }
 
+export type CashRow = {
+  id: string;
+  // payment | refund | void (a correction cancelling an earlier payment)
+  kind: "payment" | "refund" | "void";
+  amount: number;
+  method: PaymentMethod;
+  at: Date;
+  by: string | null;
+  customer: string;
+  petName: string;
+  billNumber: number;
+  invoiceId: string;
+  petId: string;
+  voided: boolean;
+  reason: string | null;
+};
+
 export type CashReport = {
-  payments: { id: string; amount: number; method: PaymentMethod; paidAt: Date; receivedBy: string | null; customer: string; petName: string; billNumber: number; invoiceId: string; petId: string }[];
+  payments: CashRow[];
   byMethod: { method: PaymentMethod; amount: number; count: number }[];
   byEmployee: { name: string; amount: number; count: number }[];
   total: number;
 };
 
-// Money received on a day (or range): the daily cash count
+// Money movements of a day (or range): payments and refunds when they happened, and voided payments as
+// a negative correction on the day they were voided, so nothing silently disappears from the count
 export async function getCashReport(fromDay: string, toDay?: string): Promise<CashReport> {
   await requirePermission("invoice.write");
   const from = startOfDay(new Date(`${fromDay}T12:00:00`));
   const to = endOfDay(new Date(`${toDay ?? fromDay}T12:00:00`));
-  const payments = await prisma.payment.findMany({
-    where: { paidAt: { gte: from, lte: to } },
-    select: {
-      id: true,
-      amount: true,
-      method: true,
-      paidAt: true,
-      receivedBy: { select: { name: true } },
-      invoice: { select: { id: true, number: true, petId: true, pet: { select: { name: true, owner: { select: { firstName: true, lastName: true } } } } } },
-    },
-    orderBy: { paidAt: "asc" },
-  });
-  const rows = payments.map((p) => ({
-    id: p.id,
-    amount: p.amount,
+  const select = {
+    id: true,
+    amount: true,
+    method: true,
+    paidAt: true,
+    voidedAt: true,
+    voidReason: true,
+    receivedBy: { select: { name: true } },
+    voidedBy: { select: { name: true } },
+    invoice: { select: { id: true, number: true, petId: true, pet: { select: { name: true, owner: { select: { firstName: true, lastName: true } } } } } },
+  } as const;
+  const [taken, voided] = await Promise.all([
+    prisma.payment.findMany({ where: { paidAt: { gte: from, lte: to } }, select }),
+    prisma.payment.findMany({ where: { voidedAt: { gte: from, lte: to } }, select }),
+  ]);
+  type P = (typeof taken)[number];
+  const base = (p: P) => ({
     method: p.method,
-    paidAt: p.paidAt,
-    receivedBy: p.receivedBy?.name ?? null,
     customer: `${p.invoice.pet.owner.firstName} ${p.invoice.pet.owner.lastName}`,
     petName: p.invoice.pet.name,
     billNumber: p.invoice.number,
     invoiceId: p.invoice.id,
     petId: p.invoice.petId,
-  }));
-  const group = <K extends string>(key: (r: (typeof rows)[number]) => K) => {
+  });
+  const rows: CashRow[] = [
+    ...taken.map((p) => ({
+      ...base(p),
+      id: p.id,
+      kind: (p.amount < 0 ? "refund" : "payment") as CashRow["kind"],
+      amount: p.amount,
+      at: p.paidAt,
+      by: p.receivedBy?.name ?? null,
+      voided: !!p.voidedAt,
+      reason: null,
+    })),
+    ...voided.map((p) => ({
+      ...base(p),
+      id: `${p.id}-void`,
+      kind: "void" as const,
+      amount: -p.amount,
+      at: p.voidedAt!,
+      by: p.voidedBy?.name ?? null,
+      voided: false,
+      reason: p.voidReason,
+    })),
+  ].sort((a, b) => +new Date(a.at) - +new Date(b.at));
+  const group = <K extends string>(key: (r: CashRow) => K) => {
     const m = new Map<K, { amount: number; count: number }>();
     for (const r of rows) {
       const k = key(r);
@@ -491,9 +535,32 @@ export async function getCashReport(fromDay: string, toDay?: string): Promise<Ca
   return {
     payments: rows,
     byMethod: group((r) => r.method).map(([method, v]) => ({ method, ...v })),
-    byEmployee: group((r) => r.receivedBy ?? "—").map(([name, v]) => ({ name, ...v })),
+    byEmployee: group((r) => r.by ?? "—").map(([name, v]) => ({ name, ...v })),
     total: cents(rows.reduce((s, r) => s + r.amount, 0)),
   };
+}
+
+// One payment, refund or voided payment, for a printed receipt
+export async function loadPaymentReceipt(paymentId: string) {
+  await requireUserId();
+  return prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      receivedBy: { select: { name: true } },
+      voidedBy: { select: { name: true } },
+      invoice: {
+        select: {
+          number: true,
+          createdAt: true,
+          totalAmount: true,
+          paidAmount: true,
+          status: true,
+          pet: { select: { name: true, owner: { select: { firstName: true, lastName: true, nif: true } } } },
+          documents: { select: { series: true, year: true, number: true, kind: true, replacesId: true, id: true }, orderBy: { issuedAt: "asc" } },
+        },
+      },
+    },
+  });
 }
 
 // Data for printing one fiscal document
@@ -503,7 +570,16 @@ export async function loadFiscalDocument(id: string) {
     where: { id },
     include: {
       replaces: { select: { series: true, year: true, number: true, issuedAt: true } },
-      invoice: { select: { number: true, paidAmount: true, totalAmount: true, pet: { select: { name: true } }, payments: { select: { method: true, amount: true } } } },
+      invoice: {
+        select: {
+          number: true,
+          status: true,
+          paidAmount: true,
+          totalAmount: true,
+          pet: { select: { name: true } },
+          payments: { where: { voidedAt: null }, select: { method: true, amount: true } },
+        },
+      },
     },
   });
 }

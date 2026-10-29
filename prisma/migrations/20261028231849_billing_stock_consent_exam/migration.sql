@@ -214,6 +214,14 @@ ALTER TABLE "Consent" ADD COLUMN     "details" JSONB,
 ADD COLUMN     "petIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
 ADD COLUMN     "signerName" TEXT;
 
+-- AlterTable
+ALTER TABLE "Payment" ADD COLUMN     "voidReason" TEXT,
+ADD COLUMN     "voidedAt" TIMESTAMP(3),
+ADD COLUMN     "voidedById" TEXT;
+
+-- AddForeignKey
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_voidedById_fkey" FOREIGN KEY ("voidedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

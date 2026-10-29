@@ -16,7 +16,9 @@ export default async function InvoicePrint({ params, searchParams }: { params: {
   const lines = doc.lines as DocLine[];
   const taxes = doc.taxBreakdown as TaxRow[];
   const title = { SIMPLIFIED: t("simplifiedInvoice"), FULL: t("fullInvoice"), RECTIFYING: t("rectifyingInvoice") }[doc.kind];
-  const methods = Array.from(new Set(doc.invoice.payments.map((p) => p.method)));
+  const methods = Array.from(new Set(doc.invoice.payments.filter((p) => p.amount > 0).map((p) => p.method)));
+  const paid = doc.invoice.paidAmount;
+  const due = Math.max(0, Math.round((doc.invoice.totalAmount - paid) * 100) / 100);
 
   return (
     <>
@@ -93,8 +95,16 @@ export default async function InvoicePrint({ params, searchParams }: { params: {
           </table>
         </section>
 
-        {doc.kind !== "RECTIFYING" && methods.length > 0 && (
-          <p className="mb-2"><span className="text-neutral-500">{t("paidWith")}: </span>{methods.map((m) => t(`method_${m}`)).join(", ")}</p>
+        {/* What has actually been paid when this copy is printed: the invoice itself only records the service */}
+        {doc.kind !== "RECTIFYING" && doc.invoice.status !== "CANCELLED" && (
+          <section className="mb-3 rounded border border-neutral-300 px-3 py-2">
+            <p className="text-neutral-500 text-[11px]">{t("paymentStatusAt", { date: docDate(new Date(), locale, true) })}</p>
+            <p className="text-[13px]">
+              <span className="font-semibold">{t("paidSoFar")}: {formatEur(paid)}</span>
+              {methods.length > 0 && <span className="text-neutral-600"> ({methods.map((m) => t(`method_${m}`)).join(", ")})</span>}
+              {due > 0.005 && <span className="ml-3 font-semibold text-red-700">{t("stillDue")}: {formatEur(due)}</span>}
+            </p>
+          </section>
         )}
         {clinic.iban && doc.kind === "FULL" && <p className="mb-2"><span className="text-neutral-500">IBAN: </span>{clinic.iban}</p>}
         {clinic.invoiceFooter && <p className="mt-6 text-[10px] text-neutral-500 whitespace-pre-line">{clinic.invoiceFooter}</p>}
