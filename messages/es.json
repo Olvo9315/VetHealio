@@ -403,7 +403,8 @@
       "neuro": "Neurológico"
     },
     "legacyMedications": "Medicamentos anotados antes en este historial",
-    "homeCareSaveFirst": "Revisa los campos obligatorios antes de enviar"
+    "homeCareSaveFirst": "Revisa los campos obligatorios antes de enviar",
+    "homeCareSendShort": "Enviar o imprimir para el dueño"
   },
   "finances": {
     "title": "Finanzas",
@@ -1383,7 +1384,8 @@
     "signSubmit": "Firmar y enviar",
     "signThanks": "¡Gracias! El documento firmado se ha enviado a la clínica.",
     "signError": "No se pudo firmar: el enlace ya se usó o caducó.",
-    "signExpires": "Enlace válido hasta el {date}"
+    "signExpires": "Enlace válido hasta el {date}",
+    "verifactuLegend": "Factura verificable en la sede electrónica de la AEAT"
   },
   "consent": {
     "title": "Protección de datos — {name}",
@@ -1643,5 +1645,53 @@
     "filter_all": "Todas",
     "deadlineSoon": "PRESVET: {count} recetas de antibióticos por comunicar, plazo hasta el {date}",
     "deadlineOverdue": "PRESVET: {count} recetas de antibióticos sin comunicar, plazo superado hace {days} días"
+  },
+  "verifactu": {
+    "prepTitle": "VeriFactu preparado, envío a Hacienda aún no activado",
+    "prepText": "Cada ticket y factura ya genera su registro encadenado (huella SHA-256), el XML para la AEAT y el código QR. Los registros quedan pendientes hasta que se complete la configuración de abajo.",
+    "statRecords": "Registros",
+    "statPending": "Pendientes de envío",
+    "statChain": "Cadena de registros",
+    "chainOk": "Íntegra",
+    "chainBroken": "Rota en el registro #{seq}",
+    "setupTitle": "Qué falta para activarlo",
+    "stepRecords": "Registros, huella, XML y QR",
+    "stepRecordsHint": "Hecho: se generan al emitir cada documento.",
+    "stepClinic": "NIF y razón social de la clínica",
+    "stepClinicHint": "Exactamente como constan en Hacienda. Se rellenan en Ajustes.",
+    "stepProducer": "Datos del fabricante del software",
+    "stepProducerHint": "Nombre y NIF de quien desarrolla VetHealio y su declaración responsable.",
+    "stepCertificate": "Certificado electrónico",
+    "stepCertificateHint": "Certificado de la clínica (o apoderamiento a un colaborador) para firmar el envío a la AEAT.",
+    "stepTest": "Pruebas en el entorno de la AEAT",
+    "stepTestHint": "Enviar registros de prueba y revisar las respuestas.",
+    "stepSend": "Activar el envío real",
+    "stepSendHint": "Antes de la fecha obligatoria para la clínica.",
+    "qrTitle": "Imprimir QR VeriFactu en tickets y facturas",
+    "qrHint": "Actívalo solo cuando el envío esté en marcha: antes el QR no se puede verificar en la AEAT.",
+    "qrOn": "El QR se imprimirá en los documentos",
+    "qrOff": "El QR no se imprimirá",
+    "recordsTitle": "Últimos registros",
+    "empty": "Aún no hay documentos emitidos",
+    "status_PENDING": "Pendiente",
+    "status_ACCEPTED": "Aceptado",
+    "status_ACCEPTED_WITH_ERRORS": "Aceptado con errores",
+    "status_REJECTED": "Rechazado",
+    "type_F1": "Factura completa",
+    "type_F2": "Factura simplificada (ticket)",
+    "type_F3": "Factura en sustitución de ticket",
+    "type_R1": "Rectificativa de factura",
+    "type_R5": "Rectificativa de ticket",
+    "fieldGenerated": "Generado",
+    "fieldPrevHash": "Huella anterior",
+    "fieldHash": "Huella",
+    "firstRecord": "Primer registro",
+    "qrLink": "Enlace del QR",
+    "xmlTitle": "XML del registro",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "close": "Cerrar",
+    "unchained": "{count} documentos esperan su registro: falta el NIF de la clínica, que forma parte de cada huella.",
+    "openSettings": "Abrir ajustes"
   }
 }

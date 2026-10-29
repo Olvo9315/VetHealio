@@ -644,7 +644,7 @@ export function MedicalRecordDialog({
             </div>
             <p className="text-xs text-muted-foreground">{t("homeCareHint")}</p>
             <Textarea id="homeCare" rows={4} className="bg-background" placeholder={t("homeCarePlaceholder")} {...bindField(form, "homeCare")} />
-            <HomeCareShare prepare={saveForShare} className="bg-background" />
+            <HomeCareShare prepare={saveForShare} embedded />
           </div>
 
           {/* Notes */}

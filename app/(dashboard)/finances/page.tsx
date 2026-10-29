@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getTranslations } from "next-intl/server";
-import { BookOpenCheck, Receipt, Wallet } from "lucide-react";
+import { BookOpenCheck, Receipt, ShieldCheck, Wallet } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import {
   getInvoices,
@@ -14,17 +14,18 @@ import { RevenueChart } from "@/components/finances/RevenueChart";
 import { InvoicesTable } from "@/components/finances/InvoicesTable";
 import { CashReportView } from "@/components/finances/CashReportView";
 import { InvoiceBookView } from "@/components/finances/InvoiceBookView";
+import { VerifactuView } from "@/components/finances/VerifactuView";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-type Tab = "bills" | "cash" | "book";
+type Tab = "bills" | "cash" | "book" | "verifactu";
 
 export default async function FinancesPage({ searchParams }: { searchParams: { tab?: string } }) {
   const session = await auth();
   const t = await getTranslations("finances");
   // The cash count and the invoice book are for staff who handle money
   const canMoney = await can("invoice.write");
-  const tab: Tab = canMoney && (searchParams.tab === "cash" || searchParams.tab === "book") ? searchParams.tab : "bills";
+  const tab: Tab = canMoney && (searchParams.tab === "cash" || searchParams.tab === "book" || searchParams.tab === "verifactu") ? searchParams.tab : "bills";
 
   const tabs: { id: Tab; icon: typeof Receipt; label: string }[] = [
     { id: "bills", icon: Receipt, label: t("tabBills") },
@@ -32,6 +33,7 @@ export default async function FinancesPage({ searchParams }: { searchParams: { t
       ? [
           { id: "cash" as const, icon: Wallet, label: t("tabCash") },
           { id: "book" as const, icon: BookOpenCheck, label: t("tabBook") },
+          { id: "verifactu" as const, icon: ShieldCheck, label: "VeriFactu" },
         ]
       : []),
   ];
@@ -55,7 +57,7 @@ export default async function FinancesPage({ searchParams }: { searchParams: { t
             </Link>
           ))}
         </nav>
-        {tab === "cash" ? <CashReportView /> : tab === "book" ? <InvoiceBookView /> : <Bills />}
+        {tab === "cash" ? <CashReportView /> : tab === "book" ? <InvoiceBookView /> : tab === "verifactu" ? <VerifactuView /> : <Bills />}
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ import { docNumber, type DocLine, type TaxRow } from "@/lib/billing";
 import { formatEur } from "@/lib/format";
 import { PrintToolbar } from "@/components/print/PrintToolbar";
 import { DocHeader } from "@/components/print/DocHeader";
+import { prisma } from "@/lib/prisma";
+import { qrSvg, qrUrl } from "@/lib/verifactu";
 
 // A fiscal document (ticket, full invoice or rectifying invoice) as handed to the customer
 export default async function InvoicePrint({ params, searchParams }: { params: { id: string }; searchParams: { lang?: string } }) {
@@ -19,12 +21,26 @@ export default async function InvoicePrint({ params, searchParams }: { params: {
   const methods = Array.from(new Set(doc.invoice.payments.filter((p) => p.amount > 0).map((p) => p.method)));
   const paid = doc.invoice.paidAmount;
   const due = Math.max(0, Math.round((doc.invoice.totalAmount - paid) * 100) / 100);
+  // VeriFactu QR (when the clinic switched it on): the customer can check the invoice at the AEAT
+  const vf = await prisma.clinicSettings.findUnique({ where: { id: "default" }, select: { verifactuQr: true, verifactuEnv: true } });
+  const qr = vf?.verifactuQr && doc.verifactu ? await qrSvg(qrUrl(vf.verifactuEnv, doc.verifactu)) : null;
 
   return (
     <>
       <PrintToolbar lang={locale} />
       <main className="doc-page mx-auto max-w-[210mm] bg-white p-8 my-4 shadow-sm text-[12px]">
         <DocHeader clinic={clinic} title={title} subtitle={`Nº ${docNumber(doc)}`} />
+
+        {qr && (
+          // The order asks for the QR at the top of the document, 30–40 mm, with the legend
+          <section className="flex items-center gap-3 mb-5">
+            <div className="w-[32mm] h-[32mm] [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: qr }} />
+            <div className="text-[11px]">
+              <p className="font-bold tracking-wide">VERI*FACTU</p>
+              <p className="text-neutral-600">{t("verifactuLegend")}</p>
+            </div>
+          </section>
+        )}
 
         <section className="grid grid-cols-2 gap-8 mb-6">
           <div>

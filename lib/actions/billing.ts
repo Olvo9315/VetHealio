@@ -11,6 +11,7 @@ import { docNumber, dueOf, taxBreakdown, type DocLine } from "@/lib/billing";
 import { getInvoiceById, type InvoiceFull } from "@/lib/actions/invoices";
 import { buildAdviserPackage } from "@/lib/adviser-package";
 import { emailConfigured, sendWithAttachments } from "@/lib/email";
+import { chainPendingDocuments } from "@/lib/verifactu";
 
 type Tx = Prisma.TransactionClient;
 
@@ -266,7 +267,7 @@ async function issueDocument(
   };
   const series = settings[SERIES_FIELD[kind]] || kind[0];
   const year = new Date().getFullYear();
-  return tx.fiscalDocument.create({
+  const doc = await tx.fiscalDocument.create({
     data: {
       kind,
       series,
@@ -286,6 +287,9 @@ async function issueDocument(
       issuedById: userId,
     },
   });
+  // Its VeriFactu record, chained to the previous one
+  await chainPendingDocuments(tx);
+  return doc;
 }
 
 async function withNumberRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -631,6 +635,7 @@ export async function loadFiscalDocument(id: string) {
     where: { id },
     include: {
       replaces: { select: { series: true, year: true, number: true, issuedAt: true } },
+      verifactu: { select: { issuerNif: true, numSerie: true, issueDate: true, totalAmount: true } },
       invoice: {
         select: {
           number: true,

@@ -560,10 +560,45 @@ model FiscalDocument {
   // First time it went to the tax adviser
   exportId   String?
   export     AdviserExport?   @relation(fields: [exportId], references: [id], onDelete: SetNull)
+  verifactu  VerifactuRecord?
 
   @@unique([series, year, number])
   @@index([issuedAt])
   @@index([invoiceId])
+}
+
+// VeriFactu (RD 1007/2023): the invoicing record ("registro de alta") made when a fiscal document is
+// issued. Records form one chain: each one's hash covers the previous one's, so nothing can be
+// changed or removed unnoticed. The hashed values are kept exactly as hashed (strings).
+// Sending to the AEAT is not switched on yet: records wait as PENDING.
+model VerifactuRecord {
+  id          String         @id @default(cuid())
+  // Position in the chain (1 = first record)
+  seq         Int            @unique
+  documentId  String         @unique
+  document    FiscalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  issuerNif   String
+  numSerie    String
+  // dd-MM-yyyy
+  issueDate   String
+  // F1 | F2 | F3 | R1 | R5
+  invoiceType String
+  totalTax    String
+  totalAmount String
+  prevHash    String?
+  hash        String
+  // Date, time and time zone of generation, as hashed (2026-10-29T12:30:00+01:00)
+  generatedAt String
+  xml         String
+  // PENDING | ACCEPTED | ACCEPTED_WITH_ERRORS | REJECTED
+  status      String         @default("PENDING")
+  sentAt      DateTime?
+  // Secure verification code the AEAT returns
+  aeatCsv     String?
+  error       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([status])
 }
 
 // A period of issued invoices handed to the tax adviser (gestor): sent by e-mail or downloaded and
@@ -793,6 +828,9 @@ model ClinicSettings {
   seriesSimplified   String   @default("T")
   seriesFull         String   @default("F")
   seriesRectifying   String   @default("R")
+  // VeriFactu: print the QR and "VERI*FACTU" on tickets and invoices; AEAT environment test | prod
+  verifactuQr        Boolean  @default(false)
+  verifactuEnv       String   @default("test")
   // Tax adviser (gestor) who receives the invoice book
   adviserEmail       String?
   // Signed module license (see lib/license.ts)

@@ -311,6 +311,46 @@ ALTER TABLE "ConsentRequest" ADD CONSTRAINT "ConsentRequest_createdById_fkey" FO
 -- AddForeignKey
 ALTER TABLE "ConsentRequest" ADD CONSTRAINT "ConsentRequest_consentId_fkey" FOREIGN KEY ("consentId") REFERENCES "Consent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- AlterTable
+ALTER TABLE "ClinicSettings" ADD COLUMN     "verifactuEnv" TEXT NOT NULL DEFAULT 'test',
+ADD COLUMN     "verifactuQr" BOOLEAN NOT NULL DEFAULT false;
+
+-- CreateTable
+CREATE TABLE "VerifactuRecord" (
+    "id" TEXT NOT NULL,
+    "seq" INTEGER NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "issuerNif" TEXT NOT NULL,
+    "numSerie" TEXT NOT NULL,
+    "issueDate" TEXT NOT NULL,
+    "invoiceType" TEXT NOT NULL,
+    "totalTax" TEXT NOT NULL,
+    "totalAmount" TEXT NOT NULL,
+    "prevHash" TEXT,
+    "hash" TEXT NOT NULL,
+    "generatedAt" TEXT NOT NULL,
+    "xml" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "sentAt" TIMESTAMP(3),
+    "aeatCsv" TEXT,
+    "error" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "VerifactuRecord_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "VerifactuRecord_seq_key" ON "VerifactuRecord"("seq");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "VerifactuRecord_documentId_key" ON "VerifactuRecord"("documentId");
+
+-- CreateIndex
+CREATE INDEX "VerifactuRecord_status_idx" ON "VerifactuRecord"("status");
+
+-- AddForeignKey
+ALTER TABLE "VerifactuRecord" ADD CONSTRAINT "VerifactuRecord_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "FiscalDocument"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- Existing paid invoices: one payment each, so cash reports and debts include them
 UPDATE "Invoice" SET "paidAmount" = "totalAmount" WHERE "status" = 'PAID';
 INSERT INTO "Payment" ("id", "amount", "method", "paidAt", "createdAt", "invoiceId")

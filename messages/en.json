@@ -403,7 +403,8 @@
       "neuro": "Neurological"
     },
     "legacyMedications": "Medicines noted earlier in this record",
-    "homeCareSaveFirst": "Fill in the required fields before sending"
+    "homeCareSaveFirst": "Fill in the required fields before sending",
+    "homeCareSendShort": "Send or print for the owner"
   },
   "finances": {
     "title": "Finances",
@@ -1383,7 +1384,8 @@
     "signSubmit": "Sign and send",
     "signThanks": "Thank you! The signed document has been sent to the clinic.",
     "signError": "Could not sign: the link was already used or expired.",
-    "signExpires": "Link valid until {date}"
+    "signExpires": "Link valid until {date}",
+    "verifactuLegend": "Factura verificable en la sede electrónica de la AEAT"
   },
   "consent": {
     "title": "Data protection — {name}",
@@ -1643,5 +1645,53 @@
     "filter_all": "All",
     "deadlineSoon": "PRESVET: {count} antibiotic prescriptions to report, due by {date}",
     "deadlineOverdue": "PRESVET: {count} antibiotic prescriptions not reported, {days} days overdue"
+  },
+  "verifactu": {
+    "prepTitle": "VeriFactu is prepared; sending to the tax agency is not switched on yet",
+    "prepText": "Every ticket and invoice already gets its chained record (SHA-256 hash), the XML for the AEAT and the QR code. Records wait as pending until the setup below is complete.",
+    "statRecords": "Records",
+    "statPending": "Waiting to be sent",
+    "statChain": "Record chain",
+    "chainOk": "Intact",
+    "chainBroken": "Broken at record #{seq}",
+    "setupTitle": "What is needed to switch it on",
+    "stepRecords": "Records, hash, XML and QR",
+    "stepRecordsHint": "Done: made when each document is issued.",
+    "stepClinic": "Clinic's NIF and legal name",
+    "stepClinicHint": "Exactly as registered with the tax agency. Set in Settings.",
+    "stepProducer": "Software producer details",
+    "stepProducerHint": "Name and NIF of VetHealio's developer and its declaración responsable.",
+    "stepCertificate": "Digital certificate",
+    "stepCertificateHint": "The clinic's certificate (or a power of attorney to a representative) to sign submissions to the AEAT.",
+    "stepTest": "Tests in the AEAT test environment",
+    "stepTestHint": "Send test records and check the replies.",
+    "stepSend": "Switch on real sending",
+    "stepSendHint": "Before the date that applies to the clinic.",
+    "qrTitle": "Print the VeriFactu QR on tickets and invoices",
+    "qrHint": "Switch it on only once sending works: before that the QR cannot be checked at the AEAT.",
+    "qrOn": "The QR will be printed on documents",
+    "qrOff": "The QR will not be printed",
+    "recordsTitle": "Latest records",
+    "empty": "No documents issued yet",
+    "status_PENDING": "Pending",
+    "status_ACCEPTED": "Accepted",
+    "status_ACCEPTED_WITH_ERRORS": "Accepted with errors",
+    "status_REJECTED": "Rejected",
+    "type_F1": "Full invoice",
+    "type_F2": "Simplified invoice (ticket)",
+    "type_F3": "Invoice replacing a ticket",
+    "type_R1": "Rectifying an invoice",
+    "type_R5": "Rectifying a ticket",
+    "fieldGenerated": "Generated",
+    "fieldPrevHash": "Previous hash",
+    "fieldHash": "Hash",
+    "firstRecord": "First record",
+    "qrLink": "QR link",
+    "xmlTitle": "Record XML",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close",
+    "unchained": "{count} documents are waiting for their record: the clinic's NIF, part of every hash, is missing.",
+    "openSettings": "Open settings"
   }
 }

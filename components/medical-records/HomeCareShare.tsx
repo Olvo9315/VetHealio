@@ -16,10 +16,13 @@ const LANGS = ["es", "ru", "en"] as const;
 export function HomeCareShare({
   recordId,
   prepare,
+  embedded,
   className,
 }: {
   recordId?: string;
   prepare?: () => Promise<string | null>;
+  // Inside the record form, right under the text: no second box, buttons two by two
+  embedded?: boolean;
   className?: string;
 }) {
   const t = useTranslations("medicalRecords");
@@ -37,10 +40,10 @@ export function HomeCareShare({
   }
 
   return (
-    <div className={cn("rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2", className)}>
+    <div className={cn(embedded ? "space-y-2 pt-1" : "rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2", className)}>
       <div className="flex items-center gap-2">
-        <Home className="w-4 h-4 text-primary" />
-        <p className="text-sm font-medium flex-1">{t("homeCareSend")}</p>
+        {!embedded && <Home className="w-4 h-4 text-primary" />}
+        <p className={cn("flex-1 min-w-0", embedded ? "text-xs text-muted-foreground" : "text-sm font-medium")}>{embedded ? t("homeCareSendShort") : t("homeCareSend")}</p>
         {busy && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         <div className="flex rounded-md border bg-background p-0.5">
           {LANGS.map((l) => (
@@ -55,7 +58,7 @@ export function HomeCareShare({
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className={cn("grid grid-cols-2 gap-2 [&>button]:min-w-0", !embedded && "sm:grid-cols-4")}>
         <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-background" disabled={busy}
           onClick={() => {
             if (!prepare) { window.open(`/print/home-care/${recordId}?lang=${lang}`, "_blank"); return; }
