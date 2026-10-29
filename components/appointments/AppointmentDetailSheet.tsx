@@ -181,6 +181,83 @@ export function AppointmentDetailSheet({
     });
   }
 
+  // Documents already written for the visit and the buttons to write new ones
+  const visitActions = (
+    <>
+          {docs && (docs.invoice || docs.prescriptions.length > 0 || docs.record) && (
+            <div className="space-y-1.5 pb-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("visitDocuments")}</p>
+              {docs.invoice && (
+                <DocRow
+                  icon={Receipt}
+                  onClick={() => { onOpenChange(false); setBillId(docs.invoice!.id); }}
+                  label={<><span className="font-mono text-xs">{formatInvoiceId(docs.invoice.number, docs.invoice.createdAt)}</span> · {formatEur(docs.invoice.totalAmount)}</>}
+                  badge={docs.invoice.status === "PAID" ? t("docPaid") : docs.invoice.status === "CANCELLED" ? t("docCancelled") : docs.invoice.totalAmount - docs.invoice.paidAmount > 0.005 ? t("docDue", { amount: formatEur(docs.invoice.totalAmount - docs.invoice.paidAmount) }) : undefined}
+                  badgeTone={docs.invoice.status === "PAID" ? "ok" : docs.invoice.status === "CANCELLED" ? "muted" : "warn"}
+                />
+              )}
+              {docs.prescriptions.map((p) => (
+                <DocRow
+                  key={p.id}
+                  icon={Pill}
+                  onClick={() => openPrescription(p.id)}
+                  label={<><span className="font-mono text-xs">{formatPrescriptionId(p.number)}</span> · {p.items.join(", ")}</>}
+                  extra={
+                    <button type="button" title={t("printPrescription")} onClick={(e) => { e.stopPropagation(); window.open(`/print/prescription/${p.id}`, "_blank"); }} className="p-1 text-muted-foreground hover:text-foreground">
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  }
+                />
+              ))}
+              {docs.record && (
+                <DocRow icon={Stethoscope} onClick={openRecord} label={docs.record.diagnosis ? `${t("docRecord")} · ${docs.record.diagnosis}` : t("docRecord")} />
+              )}
+            </div>
+          )}
+          {canInvoice && !docs?.invoice && (
+            <Button className="w-full" variant="outline" onClick={createInvoice}>
+              <Receipt className="w-4 h-4 mr-2" />
+              {t("createInvoice")}
+            </Button>
+          )}
+          {/* This visit's presupuestos: opened again from here */}
+          {canInvoice && estimates.map((e) => {
+            const state = estimateState(e);
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => { onOpenChange(false); setEditingEstimate(e); }}
+                className="w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/40"
+              >
+                <FileText className="w-4 h-4 text-sky-600 shrink-0" />
+                <span className="flex-1 min-w-0 truncate" title={te("estimate")}><span className="font-mono text-xs">{formatEstimateId(e.number)}</span> · {e.title}</span>
+                <span className="font-medium shrink-0">{formatEur(e.total)}</span>
+                <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full font-medium shrink-0", ESTIMATE_STATE_STYLE[state])}>{te(`state_${state}`)}</span>
+              </button>
+            );
+          })}
+          {canInvoice && (
+            <Button className="w-full" variant="outline" onClick={() => { onOpenChange(false); setEstimateOpen(true); }}>
+              <FileText className="w-4 h-4 mr-2" />
+              {t("createEstimate")}
+            </Button>
+          )}
+          {canPrescribe && (
+            <Button className="w-full" variant="outline" onClick={createPrescription}>
+              <Pill className="w-4 h-4 mr-2" />
+              {t("createPrescription")}
+            </Button>
+          )}
+          {canMedical && !docs?.record && (
+            <Button className="w-full" variant="outline" onClick={openRecord}>
+              <Stethoscope className="w-4 h-4 mr-2" />
+              {t("createMedicalRecord")}
+            </Button>
+          )}
+    </>
+  );
+
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -337,81 +414,14 @@ export function AppointmentDetailSheet({
               </div>
             </>
           )}
+          <div className="md:hidden space-y-2 pt-4 border-t border-border">{visitActions}</div>
         </div>
 
-        {/* Actions */}
+        {/* Actions: documents and create buttons (desktop here; on a phone at the end of the details,
+            so they don't cover the screen), then edit / delete */}
         <div className="pt-4 px-5 pb-5 border-t border-border space-y-2">
-          {docs && (docs.invoice || docs.prescriptions.length > 0 || docs.record) && (
-            <div className="space-y-1.5 pb-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("visitDocuments")}</p>
-              {docs.invoice && (
-                <DocRow
-                  icon={Receipt}
-                  onClick={() => { onOpenChange(false); setBillId(docs.invoice!.id); }}
-                  label={<><span className="font-mono text-xs">{formatInvoiceId(docs.invoice.number, docs.invoice.createdAt)}</span> · {formatEur(docs.invoice.totalAmount)}</>}
-                  badge={docs.invoice.status === "PAID" ? t("docPaid") : docs.invoice.status === "CANCELLED" ? t("docCancelled") : docs.invoice.totalAmount - docs.invoice.paidAmount > 0.005 ? t("docDue", { amount: formatEur(docs.invoice.totalAmount - docs.invoice.paidAmount) }) : undefined}
-                  badgeTone={docs.invoice.status === "PAID" ? "ok" : docs.invoice.status === "CANCELLED" ? "muted" : "warn"}
-                />
-              )}
-              {docs.prescriptions.map((p) => (
-                <DocRow
-                  key={p.id}
-                  icon={Pill}
-                  onClick={() => openPrescription(p.id)}
-                  label={<><span className="font-mono text-xs">{formatPrescriptionId(p.number)}</span> · {p.items.join(", ")}</>}
-                  extra={
-                    <button type="button" title={t("printPrescription")} onClick={(e) => { e.stopPropagation(); window.open(`/print/prescription/${p.id}`, "_blank"); }} className="p-1 text-muted-foreground hover:text-foreground">
-                      <Printer className="w-4 h-4" />
-                    </button>
-                  }
-                />
-              ))}
-              {docs.record && (
-                <DocRow icon={Stethoscope} onClick={openRecord} label={docs.record.diagnosis ? `${t("docRecord")} · ${docs.record.diagnosis}` : t("docRecord")} />
-              )}
-            </div>
-          )}
-          {canInvoice && !docs?.invoice && (
-            <Button className="w-full" variant="outline" onClick={createInvoice}>
-              <Receipt className="w-4 h-4 mr-2" />
-              {t("createInvoice")}
-            </Button>
-          )}
-          {/* This visit's presupuestos: opened again from here */}
-          {canInvoice && estimates.map((e) => {
-            const state = estimateState(e);
-            return (
-              <button
-                key={e.id}
-                type="button"
-                onClick={() => { onOpenChange(false); setEditingEstimate(e); }}
-                className="w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/40"
-              >
-                <FileText className="w-4 h-4 text-sky-600 shrink-0" />
-                <span className="flex-1 min-w-0 truncate" title={te("estimate")}><span className="font-mono text-xs">{formatEstimateId(e.number)}</span> · {e.title}</span>
-                <span className="font-medium shrink-0">{formatEur(e.total)}</span>
-                <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full font-medium shrink-0", ESTIMATE_STATE_STYLE[state])}>{te(`state_${state}`)}</span>
-              </button>
-            );
-          })}
-          {canInvoice && (
-            <Button className="w-full" variant="outline" onClick={() => { onOpenChange(false); setEstimateOpen(true); }}>
-              <FileText className="w-4 h-4 mr-2" />
-              {t("createEstimate")}
-            </Button>
-          )}
-          {canPrescribe && (
-            <Button className="w-full" variant="outline" onClick={createPrescription}>
-              <Pill className="w-4 h-4 mr-2" />
-              {t("createPrescription")}
-            </Button>
-          )}
-          {canMedical && !docs?.record && (
-            <Button className="w-full" variant="outline" onClick={openRecord}>
-              <Stethoscope className="w-4 h-4 mr-2" />
-              {t("createMedicalRecord")}
-            </Button>
-          )}
+          <div className="hidden md:block space-y-2">{visitActions}</div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
           <Button className="w-full bg-primary text-primary-foreground" onClick={onEdit}>
             <Pencil className="w-4 h-4 mr-2" />
             {t("edit")}
@@ -429,6 +439,7 @@ export function AppointmentDetailSheet({
             )}
             {tc("delete")}
           </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
