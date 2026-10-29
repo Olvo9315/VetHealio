@@ -57,6 +57,8 @@ export function EstimateDialog({
   petId,
   petName,
   appointmentId,
+  presetTitle,
+  presetServiceIds,
   estimate,
   onSaved,
   onDeleted,
@@ -67,6 +69,9 @@ export function EstimateDialog({
   petId: string;
   petName: string;
   appointmentId?: string;
+  // A new estimate from a visit starts with its title and services (as the visit's albarán does)
+  presetTitle?: string;
+  presetServiceIds?: string[];
   estimate?: EstimateFull;
   onSaved?: (e: EstimateFull) => void;
   onDeleted?: (id: string) => void;
@@ -100,11 +105,11 @@ export function EstimateDialog({
     setCurrent(estimate);
     setErrors({});
     setProductOpen(false);
-    setTitle(estimate?.title ?? "");
+    setTitle(estimate?.title ?? presetTitle ?? "");
     setNotes(estimate?.notes ?? "");
     setValidUntil(estimate ? format(new Date(estimate.validUntil), "yyyy-MM-dd") : format(addDays(new Date(), 30), "yyyy-MM-dd"));
-    getServicesFlat().then(setServices);
-    getBillingDefaults().then(({ defaultTaxRate, pricesIncludeTax }) => {
+    Promise.all([getServicesFlat(), getBillingDefaults()]).then(([svcs, { defaultTaxRate, pricesIncludeTax }]) => {
+      setServices(svcs);
       setDefaultTax(defaultTaxRate);
       setNetPrices(!pricesIncludeTax);
       // Saved lines carry VAT: shown before VAT when the clinic prices that way
@@ -120,10 +125,27 @@ export function EstimateDialog({
               serviceId: i.serviceId,
               inventoryItemId: i.inventoryItemId,
             }))
-          : [newLine(defaultTaxRate)]
+          : presetLines(svcs, defaultTaxRate) ?? [newLine(defaultTaxRate)]
       );
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, estimate]);
+
+  // One line per service of the visit, named "Category › Service" in the clinic language, at its price
+  function presetLines(svcs: ServiceFlat[], taxRate: number): Line[] | null {
+    const found = (presetServiceIds ?? []).map((id) => svcs.find((s) => s.id === id)).filter((s): s is ServiceFlat => !!s);
+    if (!found.length) return null;
+    const path = (s: ServiceFlat) => {
+      const parts: string[] = [];
+      let cur: ServiceFlat | undefined = s;
+      while (cur) {
+        parts.unshift(cur.officialName ?? cur.name);
+        cur = cur.parentId ? svcs.find((x) => x.id === cur!.parentId) : undefined;
+      }
+      return parts.join(" › ");
+    };
+    return found.map((s) => ({ ...newLine(taxRate), description: path(s), unitPrice: s.price ?? 0, serviceId: s.id }));
+  }
 
   const update = useCallback((id: string, patch: Partial<Line>) => {
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));

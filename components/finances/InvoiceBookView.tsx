@@ -242,6 +242,7 @@ export function InvoiceBookView() {
                     <p className="text-[11px] text-muted-foreground">
                       {t(kindLabel[r.kind])}
                       {r.replacedBy && ` · ${t("replacedBy", { doc: r.replacedBy })}`}
+                      {r.rectifiedBy && !r.replacedBy && ` · ${t("rectifiedBy", { doc: r.rectifiedBy })}`}
                       {r.replaces && !r.replacedBy && ` · ${r.kind === "RECTIFYING" ? t("rectifiesDoc", { doc: r.replaces }) : t("replacesDoc", { doc: r.replaces })}`}
                     </p>
                     {r.sentAt && (

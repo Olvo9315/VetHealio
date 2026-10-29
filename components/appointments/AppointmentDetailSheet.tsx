@@ -110,6 +110,7 @@ export function AppointmentDetailSheet({
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
         <SheetHeader className="px-5 pt-5 pb-4">
@@ -275,7 +276,7 @@ export function AppointmentDetailSheet({
             </Button>
           )}
           {canInvoice && (
-            <Button className="w-full" variant="outline" onClick={() => setEstimateOpen(true)}>
+            <Button className="w-full" variant="outline" onClick={() => { onOpenChange(false); setEstimateOpen(true); }}>
               <FileText className="w-4 h-4 mr-2" />
               {t("createEstimate")}
             </Button>
@@ -311,15 +312,19 @@ export function AppointmentDetailSheet({
           </Button>
         </div>
       </SheetContent>
-      {estimateOpen && (
-        <EstimateDialog
-          open
-          onOpenChange={setEstimateOpen}
-          petId={appointment.petId}
-          petName={appointment.pet.name}
-          appointmentId={appointment.id}
-        />
-      )}
     </Sheet>
+    {/* Like the bill, prescription and record: the menu closes and the form opens on its own */}
+    {estimateOpen && (
+      <EstimateDialog
+        open
+        onOpenChange={setEstimateOpen}
+        petId={appointment.petId}
+        petName={appointment.pet.name}
+        appointmentId={appointment.id}
+        presetTitle={appointment.title}
+        presetServiceIds={[...(appointment.serviceId ? [appointment.serviceId] : []), ...(appointment.extraServices ?? []).map((s) => s.id)]}
+      />
+    )}
+    </>
   );
 }

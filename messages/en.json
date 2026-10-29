@@ -601,7 +601,8 @@
     "pricesGrossHint": "Prices include VAT: the total is what the customer pays and the base is worked out from it.",
     "pricesNetHint": "Prices exclude VAT: VAT is added to the total.",
     "tabEstimates": "Estimates",
-    "fromStockEstimate": "From stock: taken out when the bill is created"
+    "fromStockEstimate": "From stock: taken out when the bill is created",
+    "rectifiedBy": "cancelled by {doc}"
   },
   "inventory": {
     "title": "Inventory",
@@ -1580,7 +1581,8 @@
     "period": "Period",
     "docsCount": "Documents",
     "emailGreeting": "Hello, please find attached the book of issued invoices for the period.",
-    "emailAttached": "Attached: PDF (summary, register and invoices) and Excel (CSV) of the register."
+    "emailAttached": "Attached: PDF (summary, register and invoices) and Excel (CSV) of the register.",
+    "rectifiedBy": "Cancelled by"
   },
   "presvet": {
     "title": "PRESVET · antibiotics",

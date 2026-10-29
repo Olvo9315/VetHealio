@@ -405,6 +405,8 @@ export type BookRow = {
   taxAmount: number;
   total: number;
   replacedBy: string | null;
+  // Cancelled by this rectifying document (still counted: the rectifying one offsets it)
+  rectifiedBy: string | null;
   replaces: string | null;
   invoiceId: string;
   petId: string;
@@ -462,6 +464,7 @@ export async function getInvoiceBook(fromDay: string, toDay: string): Promise<In
     emailReady: emailConfigured(),
     rows: docs.map((d) => {
       const replacement = d.replacedBy.find((r) => r.kind === "FULL");
+      const rectifying = d.replacedBy.find((r) => r.kind === "RECTIFYING");
       return {
         id: d.id,
         kind: d.kind,
@@ -477,6 +480,7 @@ export async function getInvoiceBook(fromDay: string, toDay: string): Promise<In
         taxAmount: d.taxAmount,
         total: d.total,
         replacedBy: replacement ? docNumber(replacement) : null,
+        rectifiedBy: rectifying ? docNumber(rectifying) : null,
         replaces: d.replaces ? docNumber(d.replaces) : null,
         invoiceId: d.invoiceId,
         petId: d.invoice.petId,

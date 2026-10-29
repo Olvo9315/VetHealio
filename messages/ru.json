@@ -601,7 +601,8 @@
     "pricesGrossHint": "Цены указаны с IVA: итог — это то, что платит клиент, база считается из него.",
     "pricesNetHint": "Цены указаны без IVA: налог прибавляется к итогу.",
     "tabEstimates": "Сметы",
-    "fromStockEstimate": "Со склада: спишется при создании счёта"
+    "fromStockEstimate": "Со склада: спишется при создании счёта",
+    "rectifiedBy": "аннулирован {doc}"
   },
   "inventory": {
     "title": "Склад",
@@ -1580,7 +1581,8 @@
     "period": "Период",
     "docsCount": "Документов",
     "emailGreeting": "Добрый день! Во вложении книга выданных фактур за период.",
-    "emailAttached": "Во вложении: PDF (итоги, реестр и фактуры) и Excel (CSV) реестра."
+    "emailAttached": "Во вложении: PDF (итоги, реестр и фактуры) и Excel (CSV) реестра.",
+    "rectifiedBy": "Аннулирован"
   },
   "presvet": {
     "title": "PRESVET · антибиотики",

@@ -601,7 +601,8 @@
     "pricesGrossHint": "Los precios incluyen IVA: el total es lo que paga el cliente y la base se calcula a partir de él.",
     "pricesNetHint": "Los precios son sin IVA: el IVA se suma al total.",
     "tabEstimates": "Presupuestos",
-    "fromStockEstimate": "Del almacén: se descuenta al crear el albarán"
+    "fromStockEstimate": "Del almacén: se descuenta al crear el albarán",
+    "rectifiedBy": "anulado por {doc}"
   },
   "inventory": {
     "title": "Inventario",
@@ -1580,7 +1581,8 @@
     "period": "Periodo",
     "docsCount": "Documentos",
     "emailGreeting": "Buenos días, adjuntamos el libro de facturas emitidas del periodo.",
-    "emailAttached": "Adjuntos: PDF (resumen, registro y facturas) y Excel (CSV) del registro."
+    "emailAttached": "Adjuntos: PDF (resumen, registro y facturas) y Excel (CSV) del registro.",
+    "rectifiedBy": "Anulado por"
   },
   "presvet": {
     "title": "PRESVET · antibióticos",

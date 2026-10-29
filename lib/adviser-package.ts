@@ -10,7 +10,7 @@ import { toCsv } from "@/lib/format";
 const LABELS = [
   "bookTitle", "generated", "summary", "docsSimplified", "docsFull", "docsRectifying", "docsReplaced", "vat", "vatShort",
   "taxBase", "taxAmount", "total", "noteReplaced", "noteRectifying", "register", "number", "date", "customer",
-  "replacedBy", "replaces", "rectifies", "fullInvoice", "rectifyingInvoice", "simplifiedInvoice", "issueDate", "reason",
+  "replacedBy", "rectifiedBy", "replaces", "rectifies", "fullInvoice", "rectifyingInvoice", "simplifiedInvoice", "issueDate", "reason",
   "description", "qty", "price", "amount", "docType", "period",
 ] as const;
 
@@ -33,6 +33,7 @@ export async function buildAdviserPackage(fromDay: string, toDay: string, includ
   });
   const docs: BookPdfDoc[] = rows.map((d) => {
     const replacement = d.replacedBy.find((r) => r.kind === "FULL");
+    const rectifying = d.replacedBy.find((r) => r.kind === "RECTIFYING");
     return {
       docNumber: docNumber(d),
       kind: d.kind,
@@ -46,6 +47,7 @@ export async function buildAdviserPackage(fromDay: string, toDay: string, includ
       taxAmount: d.taxAmount,
       total: d.total,
       replacedBy: replacement ? docNumber(replacement) : null,
+      rectifiedBy: rectifying ? docNumber(rectifying) : null,
       replaces: d.replaces ? docNumber(d.replaces) : null,
       reason: d.reason,
     };
@@ -87,7 +89,7 @@ export async function buildAdviserPackage(fromDay: string, toDay: string, includ
       n(d.taxBase),
       n(d.taxAmount),
       n(d.total),
-      d.replacedBy ? `${l.replacedBy} ${d.replacedBy}` : d.replaces ? `${d.kind === "RECTIFYING" ? l.rectifies : l.replaces} ${d.replaces}` : "",
+      d.replacedBy ? `${l.replacedBy} ${d.replacedBy}` : d.rectifiedBy ? `${l.rectifiedBy} ${d.rectifiedBy}` : d.replaces ? `${d.kind === "RECTIFYING" ? l.rectifies : l.replaces} ${d.replaces}` : "",
     ]),
   ]);
 

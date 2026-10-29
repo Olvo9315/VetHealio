@@ -19,6 +19,7 @@ export type BookPdfDoc = {
   taxAmount: number;
   total: number;
   replacedBy: string | null;
+  rectifiedBy: string | null;
   replaces: string | null;
   reason: string | null;
 };
@@ -188,7 +189,7 @@ export async function buildBookPdf(input: BookPdfInput): Promise<Uint8Array> {
   y -= 16;
   tableHead();
   for (const d of input.docs) {
-    const note = d.replacedBy ? `${l.replacedBy} ${d.replacedBy}` : d.replaces ? `${d.kind === "RECTIFYING" ? l.rectifies : l.replaces} ${d.replaces}` : "";
+    const note = d.replacedBy ? `${l.replacedBy} ${d.replacedBy}` : d.rectifiedBy ? `${l.rectifiedBy} ${d.rectifiedBy}` : d.replaces ? `${d.kind === "RECTIFYING" ? l.rectifies : l.replaces} ${d.replaces}` : "";
     ensure(note ? 26 : 14);
     if (y > A4[1] - M - 5) tableHead();
     const color = d.replacedBy ? GREY : rgb(0, 0, 0);
@@ -219,6 +220,7 @@ export async function buildBookPdf(input: BookPdfInput): Promise<Uint8Array> {
       if (d.customerAddress) { text(clip(d.customerAddress, 300), M, 9); y -= 12; }
       if (d.reason) { text(`${l.reason}: ${clip(d.reason, 440)}`, M, 9); y -= 12; }
       if (d.replacedBy) { text(`${l.replacedBy} ${d.replacedBy}`, M, 9, bold, GREY); y -= 12; }
+      if (d.rectifiedBy && !d.replacedBy) { text(`${l.rectifiedBy} ${d.rectifiedBy}`, M, 9, bold, GREY); y -= 12; }
       y -= 10;
       text(l.description, M, 8, bold);
       right(l.qty, M + 330, 8, bold);
