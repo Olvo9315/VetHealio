@@ -63,23 +63,79 @@ async function addPayment(tx: Tx, invoiceId: string, amount: number, method: Pay
   }
 }
 
-// Removes a payment entered by mistake (only while no ticket was issued for the bill)
+// Removes a payment entered by mistake (the money was never taken). Fiscal documents stay as they
+// are: an invoice records the service, not the payment, so a ticket issued for a bill that turns out
+// unpaid is still valid and the bill simply becomes owed again. A cancelled bill stays cancelled.
 export async function deletePayment(paymentId: string): Promise<{ invoice: InvoiceFull } | { error: string }> {
   await requirePermission("invoice.void");
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId }, select: { invoiceId: true, amount: true, invoice: { select: { petId: true } } } });
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    select: { invoiceId: true, amount: true, invoice: { select: { petId: true, status: true } } },
+  });
   if (!payment) return { error: "notFound" };
-  if (await prisma.fiscalDocument.count({ where: { invoiceId: payment.invoiceId } })) return { error: "invoiceIssued" };
   await prisma.$transaction(async (tx) => {
     await tx.payment.delete({ where: { id: paymentId } });
     const inv = await tx.invoice.update({
       where: { id: payment.invoiceId },
-      data: { paidAmount: { decrement: payment.amount }, status: "PENDING" },
+      data: {
+        paidAmount: { decrement: payment.amount },
+        ...(payment.invoice.status === "PAID" ? { status: "PENDING" as const } : {}),
+      },
       select: { paidAmount: true },
     });
-    if (inv.paidAmount < 0.005) await tx.invoice.update({ where: { id: payment.invoiceId }, data: { paidAmount: 0, paidAt: null, paymentMethod: null } });
+    if (Math.abs(inv.paidAmount) < 0.005) {
+      await tx.invoice.update({ where: { id: payment.invoiceId }, data: { paidAmount: 0, paidAt: null, paymentMethod: null } });
+    }
   });
   touch(payment.invoice.petId);
   return { invoice: (await getInvoiceById(payment.invoiceId))! };
+}
+
+// Gives back money received for a cancelled bill: a negative payment, so the cash count of the day
+// shows the money going out
+export async function refundBill(invoiceId: string, method: PaymentMethod): Promise<{ invoice: InvoiceFull } | { error: string }> {
+  await requirePermission("invoice.void");
+  const userId = await requireUserId();
+  const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { status: true, paidAmount: true, petId: true } });
+  if (!inv || inv.status !== "CANCELLED" || inv.paidAmount < 0.005) return { error: "nothingToRefund" };
+  const amount = cents(inv.paidAmount);
+  await prisma.$transaction([
+    prisma.payment.create({ data: { invoiceId, amount: -amount, method, note: "refund", receivedById: userId } }),
+    prisma.invoice.update({ where: { id: invoiceId }, data: { paidAmount: 0 } }),
+  ]);
+  touch(inv.petId);
+  return { invoice: (await getInvoiceById(invoiceId))! };
+}
+
+// A bill cancelled by mistake (the service was given): the same lines again as a new bill to pay.
+// The cancelled one and its rectifying invoice stay on record; the visit moves to the new bill.
+export async function rebill(invoiceId: string): Promise<{ invoice: InvoiceFull } | { error: string }> {
+  await requirePermission("invoice.write");
+  const old = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    select: {
+      status: true,
+      petId: true,
+      appointmentId: true,
+      items: { select: { description: true, quantity: true, unitPrice: true, total: true, type: true, taxRate: true, serviceId: true } },
+    },
+  });
+  if (!old || old.status !== "CANCELLED") return { error: "notCancelled" };
+  const created = await prisma.$transaction(async (tx) => {
+    if (old.appointmentId) await tx.invoice.update({ where: { id: invoiceId }, data: { appointmentId: null } });
+    return tx.invoice.create({
+      data: {
+        petId: old.petId,
+        appointmentId: old.appointmentId,
+        totalAmount: cents(old.items.reduce((s, i) => s + i.total, 0)),
+        // Products were already taken out of stock by the first bill
+        items: { create: old.items },
+      },
+      select: { id: true },
+    });
+  });
+  touch(old.petId);
+  return { invoice: (await getInvoiceById(created.id))! };
 }
 
 // ---- Owner debt ----

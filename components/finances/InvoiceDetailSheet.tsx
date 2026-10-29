@@ -4,9 +4,12 @@ import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { useDateLocale } from "@/lib/date-locale";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import type { InvoiceFull } from "@/lib/actions/invoices";
 import { deleteInvoice } from "@/lib/actions/invoices";
-import { cancelBill, deletePayment, issueFullInvoice, recordPayment } from "@/lib/actions/billing";
+import { cancelBill, deletePayment, issueFullInvoice, rebill, recordPayment, refundBill } from "@/lib/actions/billing";
+import type { PaymentMethod } from "@prisma/client";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -34,6 +37,8 @@ import {
   Printer,
   FileText,
   X,
+  Undo2,
+  RotateCcw,
 } from "lucide-react";
 import { cn, formatInvoiceId } from "@/lib/utils";
 import { SpeciesBadge } from "@/components/patients/SpeciesBadge";
@@ -83,6 +88,7 @@ export function InvoiceDetailSheet({
   const [isUpdating, startUpdate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [fullOpen, setFullOpen] = useState(false);
+  const router = useRouter();
 
   const stCfg = statusConfig[invoice.status];
   const due = dueOf(invoice);
@@ -109,6 +115,8 @@ export function InvoiceDetailSheet({
   }
 
   function handleCancel() {
+    // A wrongly ticked payment is undone by removing the payment, not by cancelling the bill
+    if (invoice.paidAmount > 0 && !confirm(t("cancelPaidWarning"))) return;
     const reason = issued ? prompt(t("cancelReasonPrompt")) : confirm(t("cancelConfirm")) ? "" : null;
     if (reason === null) return;
     startUpdate(async () => {
@@ -239,16 +247,17 @@ export function InvoiceDetailSheet({
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("payments")}</p>
                 {invoice.payments.map((p) => (
                   <div key={p.id} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    {p.amount < 0 ? <Undo2 className="w-4 h-4 text-red-600 shrink-0" /> : <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
                     <span className="flex-1 min-w-0">
+                      {p.amount < 0 && <span className="text-red-600 dark:text-red-400 mr-1">{t("refund")} ·</span>}
                       {t(paymentLabel[p.method])}
                       <span className="text-xs text-muted-foreground ml-1.5">
                         {format(new Date(p.paidAt), "d MMM · HH:mm", { locale: dateLocale })}
                         {p.receivedBy && ` · ${p.receivedBy.name}`}
                       </span>
                     </span>
-                    <span className="font-medium">{formatEur(p.amount)}</span>
-                    {canVoid && !issued && (
+                    <span className={cn("font-medium", p.amount < 0 && "text-red-600 dark:text-red-400")}>{formatEur(p.amount)}</span>
+                    {canVoid && (
                       <button
                         type="button"
                         title={t("removePayment")}
@@ -263,6 +272,64 @@ export function InvoiceDetailSheet({
                     )}
                   </div>
                 ))}
+              </div>
+            </>
+          )}
+
+          {/* Cancelled bill with money on it: give it back, or remove a payment that never happened */}
+          {canVoid && invoice.status === "CANCELLED" && invoice.paidAmount > 0.005 && (
+            <>
+              <Separator />
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-2">
+                <p className="text-sm font-medium">{t("cancelledWithMoney", { amount: formatEur(invoice.paidAmount) })}</p>
+                <p className="text-xs text-muted-foreground">{t("cancelledWithMoneyHint")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PAYMENT_METHODS.map(({ id, label }) => (
+                    <Button
+                      key={id}
+                      size="sm"
+                      variant="outline"
+                      className="h-8 bg-background"
+                      disabled={isUpdating}
+                      onClick={() => {
+                        if (!confirm(t("refundConfirm", { amount: formatEur(invoice.paidAmount), method: t(label) }))) return;
+                        startUpdate(async () => { apply(await refundBill(invoice.id, id as PaymentMethod), t("refunded")); });
+                      }}
+                    >
+                      <Undo2 className="w-3.5 h-3.5 mr-1" />
+                      {t("refundBy", { method: t(label) })}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Cancelled by mistake: bill the same again */}
+          {canWrite && invoice.status === "CANCELLED" && (
+            <>
+              <Separator />
+              <div className="space-y-1.5">
+                <Button
+                  variant="outline"
+                  className="w-full gap-1.5"
+                  disabled={isUpdating}
+                  onClick={() => {
+                    if (!confirm(t("rebillConfirm"))) return;
+                    startUpdate(async () => {
+                      const result = await rebill(invoice.id);
+                      if ("error" in result) { toast.error(t("errorSave")); return; }
+                      toast.success(t("rebilled"));
+                      onUpdated(result.invoice);
+                      // Lists get the new bill
+                      router.refresh();
+                    });
+                  }}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {t("rebill")}
+                </Button>
+                <p className="text-xs text-muted-foreground">{t("rebillHint")}</p>
               </div>
             </>
           )}
